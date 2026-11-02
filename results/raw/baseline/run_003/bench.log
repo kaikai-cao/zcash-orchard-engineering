@@ -1,0 +1,14 @@
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.49s
+     Running benches\orchard_k11_prover.rs (target\release\deps\orchard_k11_prover-7c4216bae37882dc.exe)
+Gnuplot not found, using plotters backend
+Benchmarking orchard-k11/prove-one-action
+Benchmarking orchard-k11/prove-one-action: Warming up for 2.0000 s
+
+Warning: Unable to complete 10 samples in 15.0s. You may wish to increase target time to 41.4s.
+Benchmarking orchard-k11/prove-one-action: Collecting 10 samples in estimated 41.437 s (10 iterations)
+Benchmarking orchard-k11/prove-one-action: Analyzing
+orchard-k11/prove-one-action
+                        time:   [4.1710 s 4.2365 s 4.2966 s]
+                        change: [+0.9145% +2.6839% +4.3648%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+

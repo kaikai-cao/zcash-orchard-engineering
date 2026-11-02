@@ -1,0 +1,220 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests src\lib.rs (target\debug\deps\orchard-ec50c858cf7cf61f.exe)
+
+running 164 tests
+test action::tests::is_identity_detects_identity ... ok
+test action::tests::is_identity_rejects_non_identity ... ok
+test action::tests::from_parts_rejects_identity_rk ... ok
+test action::tests::from_parts_rejects_identity_epk ... ok
+test action::tests::from_parts_rejects_undecodable_epk ... ok
+test action::tests::from_parts_accepts_non_identity_rk ... ok
+test builder::tests::default_flags_match_pool_policy ... ok
+test builder::tests::num_actions_respects_pad_to_minimum ... ok
+test bundle::tests::empty_commitments_are_domain_separated ... ok
+test bundle::tests::arb_flags_ironwood_post_nu6_3_round_trips ... ok
+test bundle::tests::expected_proof_size_matches_known_values ... ok
+test builder::tests::coinbase_rejects_spends_enabled_flags ... ok
+test builder::tests::new_rejects_unrepresentable_flags ... ok
+test builder::tests::add_change_output_rejects_spends_disabled_eagerly ... ok
+test builder::tests::cross_address_disabled_rejects_spends_disabled_outputs ... ok
+test builder::tests::free_bundle_rejects_coinbase_spends_enabled ... ok
+test bundle::tests::flags_byte_encoding ... ok
+test bundle::tests::flags_parsing_diverges_between_epochs ... ok
+test builder::tests::add_change_output_validates_ownership_when_unrestricted ... ok
+test builder::tests::coinbase_bundle_builds_for_post_nu6_3 ... ok
+test bundle::tests::from_parts_rejects_unrepresentable_flags ... ok
+test builder::tests::deferred_anchor_refuses_in_memory_build ... ok
+test builder::tests::cross_address_disabled_padding_pairs_dummy_addresses ... ok
+test builder::tests::cross_address_disabled_rejects_non_change_outputs ... ok
+test bundle::tests::nu6_3_flags_parsing_handles_the_cross_address_bit ... ok
+test bundle::tests::only_orchard_post_nu6_3_requires_the_cross_address_restriction ... ok
+test bundle::tests::orchard_nu6_3_rejects_cross_address_enabled ... ok
+test bundle::tests::pre_nu6_3_flags_parsing_rejects_reserved_bits ... ok
+test builder::tests::cross_address_disabled_builder_pairs_actions ... ok
+test circuit::benchmark::benchmark_batch_verifier ... ignored, manual single-thread performance benchmark
+test builder::tests::cross_address_disabled_non_pczt_signing_flow ... ok
+test circuit::benchmark::batch_fixture_encoding_roundtrips ... ok
+test circuit::tests::from_parts_rk_identity::accepts_non_identity_rk ... ok
+test builder::tests::builder_note_version_checks_apply_to_outputs_only ... ok
+test circuit::tests::from_parts_rk_identity::rejects_identity_rk ... ok
+test circuit::tests::cross_address_support_matches_circuit_version ... ok
+test builder::tests::cross_address_disabled_spend_output_randomization_depends_on_scope ... ok
+test circuit::tests::halo2_instance_includes_cross_address_disabled_flag ... ok
+test bundle::tests::insecure_v1_skips_proof_size_enforcement ... ok
+test bundle::tests::ironwood_rejects_v5_commitment_version ... ok
+test bundle::tests::commitment_hashes_the_wire_flag_byte ... ok
+test bundle::tests::try_from_parts_checks_proof_size_with_cross_address_disabled ... ok
+test bundle::tests::try_from_parts_enforces_canonical_proof_size ... ok
+test constants::fixed_bases::commit_ivk_r::tests::generator ... ok
+test bundle::tests::anchor_placement_follows_tx_version ... ok
+test bundle::tests::try_from_parts_preserves_cross_address_disabled ... ok
+test constants::fixed_bases::note_commit_r::tests::generator ... ok
+test constants::fixed_bases::commit_ivk_r::tests::z ... ok
+test constants::fixed_bases::note_commit_r::tests::z ... ok
+test constants::fixed_bases::nullifier_k::tests::generator ... ok
+test constants::fixed_bases::commit_ivk_r::tests::lagrange_coeffs ... ok
+test constants::fixed_bases::note_commit_r::tests::lagrange_coeffs ... ok
+test constants::fixed_bases::spend_auth_g::tests::generator ... ok
+test constants::fixed_bases::nullifier_k::tests::z ... ok
+test constants::fixed_bases::spend_auth_g::tests::lagrange_coeffs_short ... ok
+test constants::fixed_bases::nullifier_k::tests::lagrange_coeffs ... ok
+test constants::fixed_bases::spend_auth_g::tests::z ... ok
+test constants::fixed_bases::tests::nullifier_k_base_field_routes_correctly ... ok
+test constants::fixed_bases::tests::nullifier_k_converts_to_base_field_enum ... ok
+test constants::fixed_bases::spend_auth_g::tests::z_short ... ok
+test constants::fixed_bases::tests::spend_auth_g_base_field_routes_correctly ... ok
+test constants::fixed_bases::spend_auth_g::tests::lagrange_coeffs ... ok
+test constants::fixed_bases::tests::spend_auth_g_short_routes_correctly ... ok
+test constants::fixed_bases::tests::value_commit_v_converts_to_short_scalar_enum ... ok
+test constants::fixed_bases::tests::value_commit_v_short_routes_correctly ... ok
+test constants::fixed_bases::value_commit_r::tests::generator ... ok
+test constants::fixed_bases::tests::spend_auth_g_short_mul_e2e ... ok
+test constants::fixed_bases::tests::spend_auth_g_base_field_mul_e2e ... ok
+test constants::fixed_bases::value_commit_v::tests::generator ... ok
+test constants::fixed_bases::value_commit_r::tests::z ... ok
+test constants::fixed_bases::value_commit_v::tests::z ... ok
+test constants::sinsemilla::tests::i2lebsp_k_round_trip ... ok
+test constants::sinsemilla::tests::inv_two_pow_k ... ok
+test constants::sinsemilla::tests::l_orchard_merkle ... ok
+test constants::sinsemilla::tests::lebs2ip_k_round_trip ... ok
+test constants::sinsemilla::tests::q_commit_ivk_m ... ok
+test constants::sinsemilla::tests::q_merkle_crh ... ok
+test constants::fixed_bases::value_commit_v::tests::lagrange_coeffs ... ok
+test constants::sinsemilla::tests::q_note_commitment_m ... ok
+test constants::tests::l_orchard_base ... ok
+test constants::tests::l_orchard_scalar ... ok
+test constants::tests::t_p ... ok
+test constants::tests::t_q ... ok
+test keys::tests::diversifier_index ... ok
+test keys::tests::parsers_reject_invalid ... ok
+test keys::tests::spend_validating_key_from_bytes ... ok
+test keys::tests::test_vectors ... ok
+test keys::zeroize_tests::spend_authorizing_key_zeroizes ... ok
+test keys::zeroize_tests::spending_key_debug_is_redacted ... ok
+test keys::zeroize_tests::spending_key_zeroizes ... ok
+test note::tests::qr_rcm_differs_from_old_rcm ... ok
+test note::tests::qr_rcm_verify_stored_vectors ... ok
+test constants::fixed_bases::value_commit_r::tests::lagrange_coeffs ... ok
+test note_encryption::tests::batched_agreement_matches_per_item ... ok
+test note_encryption::tests::batched_compact_decryption_matches_per_item_ironwood ... ok
+test note_encryption::tests::domains_accept_only_their_note_plaintext_versions ... ok
+test note_encryption::tests::ironwood_domain_decrypts_v3_compact_outputs ... ok
+test note_encryption::tests::ironwood_domain_decrypts_v3_encrypted_outputs ... ok
+test note_encryption::tests::batched_compact_decryption_matches_per_item_orchard ... ok
+test note_encryption::tests::orchard_domain_rejects_v3_encrypted_outputs ... ok
+test pczt::note_encryption::tests::compact_action_view_matches_the_action ... ok
+test note_encryption::tests::test_vectors ... ok
+test pczt::note_encryption::tests::decryption_domain_follows_the_bundle_value_pool ... ok
+test pczt::note_encryption::tests::every_constructible_bundle_version_has_a_domain ... ok
+test pczt::note_encryption::tests::output_without_an_ovk_is_not_recoverable ... ok
+test circuit::tests::serialized_fixed_proof_test_case ... ok
+test circuit::tests::serialized_post_nu6_3_proof_test_case ... ok
+test circuit::tests::serialized_post_nu6_3_restricted_proof_test_case ... ok
+test pczt::tests::extract_preserves_cross_address_disabled ... ok
+test circuit::commit_ivk::tests::commit_ivk ... ok
+test pczt::tests::finalize_io_rejects_cross_address_violation ... ok
+test pczt::tests::parse_preserves_note_versions ... ok
+test pczt::tests::parse_rejects_output_note_version_mismatch ... ok
+test pczt::tests::parse_uses_bundle_version_for_flags ... ok
+test pczt::tests::preverified_parse_signs_identically_to_full_parse ... ok
+test circuit::note_commit::tests::note_commit ... ok
+test keys::tests::key_agreement ... ok
+test pczt::tests::restricted_pczt_io_finalizer_signs_padding_dummy ... ok
+test pczt::tests::restricted_pczt_signing_flow ... ok
+test bundle::batch::tests::empty_batch_validates ... ok
+test bundle::tests::verify_proof_rejects_cross_address_disabled_for_unsupported_keys ... ok
+test bundle::batch::tests::add_bundle_rejects_unsupported_cross_address_restriction ... ok
+test spec::tests::diversify_hash_substitution ... ok
+test spec::tests::extract_p_bottom_batch_maps_valid_identity_to_zero ... ok
+test spec::tests::extract_p_bottom_batch_preserves_order_and_validity ... ok
+test spec::tests::i2lebsp_round_trip ... ok
+test spec::tests::lebs2ip_round_trip ... ok
+test tree::tests::anchor_incremental ... ok
+test circuit::tests::insecure_against_stored_circuit ... ok
+test pczt::tests::verify_cross_address_restriction_requires_recipients ... ok
+test tree::tests::empty_roots_incremental ... ok
+test tree::tests::cached_merkle_crh_domain_matches_fresh_domains ... ok
+test tree::tests::test_vectors ... ok
+test zip32::tests::derive_child ... ok
+test value::tests::bsk_consistent_with_bvk ... ok
+test zip32::tests::path ... ok
+test zip32::tests::test_vectors ... ok
+test zip32::tests::derive_child_depth_overflow ... ok
+test pczt::tests::create_proof_rejects_identity_rk ... ok
+test circuit::tests::insecure_proof_verifies_only_against_matching_version ... ok
+test circuit::tests::create_rejects_mismatched_proving_key_version ... ok
+test circuit::tests::post_nu6_3_cross_address_restriction_is_conditional ... ok
+test circuit::tests::round_trip_fixed ... ok
+test builder::tests::deferred_anchor_updater_installs_anchor_and_witness ... ok
+test circuit::tests::post_nu6_3_restricted_statement_proves_and_verifies ... ok
+test builder::tests::create_proof_supports_cross_address_disabled_only_for_post_nu6_3 has been running for over 60 seconds
+test builder::tests::deferred_anchor_builds_for_pczt_without_witnesses has been running for over 60 seconds
+test builder::tests::deferred_anchor_prover_rejects_uninstalled_anchor has been running for over 60 seconds
+test builder::tests::restricted_pczt_structural_checks_reject_tampering has been running for over 60 seconds
+test builder::tests::shared_anchor_notes_agree_on_anchor has been running for over 60 seconds
+test builder::tests::shielding_bundle has been running for over 60 seconds
+test circuit::tests::fixed_proof_verifies_only_against_matching_version has been running for over 60 seconds
+test circuit::tests::post_nu6_3_proof_verifies_only_against_matching_version has been running for over 60 seconds
+test circuit::tests::restricted_statement_requires_supporting_key has been running for over 60 seconds
+test circuit::tests::round_trip_post_nu6_3 has been running for over 60 seconds
+test circuit::tests::restricted_statement_requires_supporting_key ... ok
+test pczt::tests::create_proof_supports_cross_address_disabled_only_for_post_nu6_3 ... ok
+test circuit::tests::fixed_proof_verifies_only_against_matching_version ... ok
+test pczt::tests::create_proof_uses_proving_key_circuit_version has been running for over 60 seconds
+test pczt::tests::extract_rejects_identity_rk has been running for over 60 seconds
+test pczt::tests::extract_rejects_non_canonical_proof has been running for over 60 seconds
+test pczt::tests::qr_output_version_checks_note_commitment has been running for over 60 seconds
+test pczt::tests::qr_spend_version_checks_nullifier_and_proves has been running for over 60 seconds
+test pczt::tests::shielded_bundle has been running for over 60 seconds
+test pczt::tests::shielding_bundle has been running for over 60 seconds
+test tree::tests::combine_batch_matches_scalar_at_every_level_and_width has been running for over 60 seconds
+test circuit::tests::post_nu6_3_proof_verifies_only_against_matching_version ... ok
+test pczt::tests::shielding_bundle ... ok
+test pczt::tests::extract_rejects_non_canonical_proof ... ok
+test pczt::tests::create_proof_uses_proving_key_circuit_version ... ok
+test builder::tests::create_proof_supports_cross_address_disabled_only_for_post_nu6_3 ... ok
+test pczt::tests::shielded_bundle ... ok
+test builder::tests::shielding_bundle ... ok
+test pczt::tests::qr_spend_version_checks_nullifier_and_proves ... ok
+test builder::tests::shared_anchor_notes_agree_on_anchor ... ok
+test pczt::tests::extract_rejects_identity_rk ... ok
+test builder::tests::restricted_pczt_structural_checks_reject_tampering ... ok
+test circuit::tests::round_trip_post_nu6_3 ... ok
+test builder::tests::deferred_anchor_builds_for_pczt_without_witnesses ... ok
+test builder::tests::deferred_anchor_prover_rejects_uninstalled_anchor ... ok
+test pczt::tests::qr_output_version_checks_note_commitment ... ok
+test tree::tests::combine_batch_matches_scalar_at_every_level_and_width ... ok
+
+test result: ok. 163 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 154.29s
+
+     Running tests\builder.rs (target\debug\deps\builder-0b640c75906956cd.exe)
+
+running 8 tests
+test unpadded_ironwood_bundle_builds_single_action ... ok
+test ironwood_builder_outputs_decrypt_with_ironwood_domain ... ok
+test ironwood_bundle_helpers_decrypt_and_recover_outputs ... ok
+test builder_builds_for_insecure_circuit_version ... ok
+test post_nu6_3_coinbase_bundle_proves_and_verifies ... ok
+test bundle_chain has been running for over 60 seconds
+test ironwood_post_nu6_3_unrestricted_bundle_proves_and_verifies has been running for over 60 seconds
+test post_nu6_3_restricted_bundle_chain has been running for over 60 seconds
+test ironwood_post_nu6_3_unrestricted_bundle_proves_and_verifies ... ok
+test post_nu6_3_restricted_bundle_chain ... ok
+test bundle_chain ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 66.45s
+
+     Running tests\platform_smoke.rs (target\debug\deps\platform_smoke-7c244530e730505f.exe)
+
+running 1 test
+test creates_and_verifies_proof_individually_and_in_batch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.67s
+
+   Doc-tests orchard
+
+running 1 test
+test src\address.rs - address::Address (line 12) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+

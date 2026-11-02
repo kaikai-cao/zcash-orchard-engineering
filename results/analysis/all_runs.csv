@@ -1,0 +1,10 @@
+Suite,Run,Affinity,Commit,Mean_s,MeanCI_low_s,MeanCI_high_s,Median_s,StdDev_s,RelStdDev_pct
+affinity,e0_run_001,0x10000,616a669df8c9,3.9948,3.8919,4.1286,3.9136,0.2009,5.03
+affinity,p0_run_001,0x1,616a669df8c9,1.9339,1.926,1.9423,1.9343,0.0139,0.72
+affinity,p0_run_002,0x1,616a669df8c9,1.9267,1.9242,1.9295,1.9264,0.0046,0.24
+affinity,p0_run_003,0x1,616a669df8c9,1.9273,1.923,1.9314,1.9265,0.0071,0.37
+affinity,p8_run_001,0xFF,616a669df8c9,2.0724,2.0596,2.0868,2.0671,0.0232,1.12
+baseline,run_001,unpinned,616a669df8c9,4.0605,3.9577,4.1616,4.0571,0.173,4.26
+baseline,run_002,unpinned,616a669df8c9,4.1258,4.0915,4.1595,4.1324,0.0579,1.4
+baseline,run_003,unpinned,616a669df8c9,4.2365,4.171,4.2966,4.2541,0.1072,2.53
+baseline,run_004,unpinned,616a669df8c9,4.2211,4.1854,4.2551,4.2377,0.0596,1.41
