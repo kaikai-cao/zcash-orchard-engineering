@@ -1,0 +1,232 @@
+# Stage E2/E3 instrumentation for halo2_proofs 0.4.0 (crates.io)
+# Apply from experiments/transaction_e2e/vendor/ with:
+#   patch -p1 < halo2_proofs-0.4.0-e2e3.patch   (inside a clean halo2_proofs-0.4.0 copy)
+#
+--- a/src/plonk/prover.rs
++++ b/src/plonk/prover.rs
+@@ -27,6 +27,89 @@
+     transcript::{EncodedChallenge, TranscriptWrite},
+ };
+ 
++// ===== Stage E2: optional source-level phase timing (env-gated, default OFF) =====
++// Enabled only when `ORCHARD_E2_TIMING` is present in the environment. When off,
++// every `e2_add` call early-returns and the only cost is a couple of
++// `Instant::now()` snapshots (sub-nanosecond, negligible vs a multi-second proof).
++// Stages are measured with contiguous, non-overlapping wall-clock intervals so the
++// sum of stages never double-counts a region (no nested accumulation).
++use std::collections::HashMap;
++use std::sync::{Mutex, OnceLock};
++
++static E2_ENABLED: OnceLock<bool> = OnceLock::new();
++static E2_TIMINGS: OnceLock<Mutex<HashMap<&'static str, std::time::Duration>>> = OnceLock::new();
++
++fn e2_enabled() -> bool {
++    *E2_ENABLED.get_or_init(|| std::env::var("ORCHARD_E2_TIMING").is_ok())
++}
++
++#[allow(dead_code)]
++fn e2_add(stage: &'static str, d: std::time::Duration) {
++    if !e2_enabled() {
++        return;
++    }
++    let mut guard = E2_TIMINGS
++        .get_or_init(|| Mutex::new(HashMap::new()))
++        .lock()
++        .unwrap();
++    let e = guard
++        .entry(stage)
++        .or_insert_with(std::time::Duration::default);
++    *e = *e + d;
++}
++
++/// Take and reset the accumulated stage timings (stage -> seconds).
++/// Returns an empty vector when timing is disabled, so callers can emit
++/// unconditionally and simply skip empty results.
++pub fn take_e2_timings() -> Vec<(String, f64)> {
++    if !e2_enabled() {
++        return Vec::new();
++    }
++    let mut guard = E2_TIMINGS
++        .get_or_init(|| Mutex::new(HashMap::new()))
++        .lock()
++        .unwrap();
++    let out: Vec<(String, f64)> = guard
++        .drain()
++        .map(|(k, v)| (k.to_string(), v.as_secs_f64()))
++        .collect();
++    out
++}
++
++// ===== Stage E3: publish the current phase for the in-process sampler =====
++// The sampler runs inside the same process, so it can read this atomic at each
++// sampling tick and tag every captured stack with the phase it was executing.
++// This turns "which function belongs to which E2 stage" into a measurement
++// instead of a guess. Codes match the order of the E2 stages in `create_proof`;
++// they are only written when E2 timing is enabled, so release builds are
++// untouched.
++/// Current `create_proof` phase, published for the Stage E3 in-process sampler.
++pub static E3_STAGE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
++
++/// Human-readable name for a stage code (0 = outside create_proof).
++pub fn e3_stage_name(code: u8) -> &'static str {
++    match code {
++        1 => "instance",
++        2 => "synthesis",
++        3 => "advice_commit",
++        4 => "eval_setup",
++        5 => "lookup_permute",
++        6 => "permutation",
++        7 => "lookup_product",
++        8 => "quotient",
++        9 => "opening",
++        _ => "outside",
++    }
++}
++
++#[inline]
++fn e3_set(code: u8) {
++    if e2_enabled() {
++        E3_STAGE.store(code, std::sync::atomic::Ordering::Relaxed);
++    }
++}
++
++
+ /// This creates a proof for the provided `circuit` when given the public
+ /// parameters `params` and the proving key [`ProvingKey`] that was
+ /// generated previously for the same circuit. The provided `instances`
+@@ -72,6 +155,8 @@
+         pub instance_cosets: Vec<Polynomial<C::Scalar, ExtendedLagrangeCoeff>>,
+     }
+ 
++    e3_set(1);
++    let t_instance = std::time::Instant::now();
+     let instance: Vec<InstanceSingle<C>> = instances
+         .iter()
+         .map(|instance| -> Result<InstanceSingle<C>, Error> {
+@@ -126,6 +211,7 @@
+             })
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("instance", t_instance.elapsed());
+ 
+     struct AdviceSingle<C: CurveAffine> {
+         pub advice_values: Vec<Polynomial<C::Scalar, LagrangeCoeff>>,
+@@ -283,6 +369,8 @@
+             };
+ 
+             // Synthesize the circuit to obtain the witness and other information.
++            e3_set(2);
++            let t_synth = std::time::Instant::now();
+             ConcreteCircuit::FloorPlanner::synthesize(
+                 &mut witness,
+                 circuit,
+@@ -298,8 +386,11 @@
+                     *cell = C::Scalar::random(&mut rng);
+                 }
+             }
++            e2_add("synthesis", t_synth.elapsed());
+ 
+             // Compute commitments to advice column polynomials
++            e3_set(3);
++            let t_acommit = std::time::Instant::now();
+             let advice_blinds: Vec<_> = advice
+                 .iter()
+                 .map(|_| Blind(C::Scalar::random(&mut rng)))
+@@ -331,6 +422,7 @@
+                 .iter()
+                 .map(|poly| domain.coeff_to_extended(poly.clone()))
+                 .collect();
++            e2_add("advice_commit", t_acommit.elapsed());
+ 
+             Ok(AdviceSingle {
+                 advice_values: advice,
+@@ -342,6 +434,8 @@
+         .collect::<Result<Vec<_>, _>>()?;
+ 
+     // Create polynomial evaluator context for values.
++    e3_set(4);
++    let t_eval = std::time::Instant::now();
+     let mut value_evaluator = poly::new_evaluator(|| {});
+ 
+     // Register fixed values with the polynomial evaluator.
+@@ -416,6 +510,7 @@
+         .iter()
+         .map(|poly| coset_evaluator.register_poly(poly.clone()))
+         .collect();
++    e2_add("eval_setup", t_eval.elapsed());
+ 
+     // Register boundary polynomials used in the lookup and permutation arguments.
+     let l0 = coset_evaluator.register_poly(pk.l0.clone());
+@@ -425,6 +520,8 @@
+     // Sample theta challenge for keeping lookup columns linearly independent
+     let theta: ChallengeTheta<_> = transcript.squeeze_challenge_scalar();
+ 
++    e3_set(5);
++    let t_lperm = std::time::Instant::now();
+     let lookups: Vec<Vec<lookup::prover::Permuted<C, _>>> = instance_values
+         .iter()
+         .zip(instance_cosets.iter())
+@@ -457,6 +554,7 @@
+                 .collect()
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("lookup_permute", t_lperm.elapsed());
+ 
+     // Sample beta challenge
+     let beta: ChallengeBeta<_> = transcript.squeeze_challenge_scalar();
+@@ -465,6 +563,8 @@
+     let gamma: ChallengeGamma<_> = transcript.squeeze_challenge_scalar();
+ 
+     // Commit to permutations.
++    e3_set(6);
++    let t_perm = std::time::Instant::now();
+     let permutations: Vec<permutation::prover::Committed<C, _>> = instance
+         .iter()
+         .zip(advice.iter())
+@@ -484,7 +584,10 @@
+             )
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("permutation", t_perm.elapsed());
+ 
++    e3_set(7);
++    let t_lprod = std::time::Instant::now();
+     let lookups: Vec<Vec<lookup::prover::Committed<C, _>>> = lookups
+         .into_iter()
+         .map(|lookups| -> Result<Vec<_>, _> {
+@@ -505,8 +608,11 @@
+                 .collect::<Result<Vec<_>, _>>()
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("lookup_product", t_lprod.elapsed());
+ 
+     // Commit to the vanishing argument's random polynomial for blinding h(x_3)
++    e3_set(8);
++    let t_quot = std::time::Instant::now();
+     let vanishing = vanishing::Argument::commit(params, domain, &mut rng, transcript)?;
+ 
+     // Obtain challenge for keeping all separate gates linearly independent
+@@ -599,7 +705,10 @@
+         &mut rng,
+         transcript,
+     )?;
++    e2_add("quotient", t_quot.elapsed());
+ 
++    e3_set(9);
++    let t_open = std::time::Instant::now();
+     let x: ChallengeX<_> = transcript.squeeze_challenge_scalar();
+     let xn = x.pow([params.n, 0, 0, 0]);
+ 
+@@ -726,7 +835,11 @@
+         // We query the h(X) polynomial at x
+         .chain(vanishing.open(x));
+ 
+-    multiopen::create_proof(params, rng, transcript, instances).map_err(|_| Error::Opening)
++    let opening_result = multiopen::create_proof(params, rng, transcript, instances)
++        .map_err(|_| Error::Opening);
++    e2_add("opening", t_open.elapsed());
++    e3_set(0);
++    opening_result
+ }
+ 
+ #[test]

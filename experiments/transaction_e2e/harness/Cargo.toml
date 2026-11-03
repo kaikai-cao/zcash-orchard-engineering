@@ -12,6 +12,16 @@ orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multi
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
 incrementalmerkletree = "0.9"
 pasta_curves = "0.6"
+# Stage E3 in-process CPU sampler (gated behind ORCHARD_E3_SAMPLE; types-only,
+# no runtime cost on the proving path). Used to walk stacks via DbgHelp because
+# the non-admin session cannot start an ETW kernel logger.
+windows-sys = { version = "0.59", features = [
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading",
+    "Win32_Foundation",
+    "Win32_System_Kernel",
+] }
 # Same feature set orchard itself enables, so adding this direct dependency does
 # not perturb the dependency graph the perf numbers were taken on.
 halo2_proofs = { version = "0.4", default-features = false, features = [
@@ -22,3 +32,19 @@ halo2_proofs = { version = "0.4", default-features = false, features = [
 
 [profile.release]
 debug = false
+
+# Stage E3 CPU-sampling build: SAME release optimizations (opt-level 3, LTO off
+# as in release) but with PDB debug info so ETW/WPA can resolve Rust symbols.
+# Output lands in target/sampling/, so it never overwrites the frozen
+# target/release/ baseline binary used by E1/E2.
+[profile.sampling]
+inherits = "release"
+debug = true
+
+# Stage E2 source-level timing: point halo2_proofs at the local, instrumented
+# vendored copy. The patch is a no-op for correctness — same version (0.4.0),
+# same sources except the optional ORCHARD_E2_TIMING phase timers. Disabled by
+# default (timers early-return unless the env var is set), so baseline numbers
+# are unaffected.
+[patch.crates-io]
+halo2_proofs = { path = "../vendor/halo2_proofs-0.4.0" }

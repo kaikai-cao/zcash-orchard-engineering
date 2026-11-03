@@ -1,9 +1,13 @@
 //! End-to-end Orchard bundle harness.
 //!
-//! Two modes:
+//! Modes:
 //!   --mode v2  historical pre-NU6.3 shape (BundleVersion::orchard_v2, FixedPostNu6_2)
 //!   --mode v3  NU6.3 migration shape: an Orchard V3 bundle (spend + change) and an
 //!              Ironwood V3 bundle (output), both on the PostNu6_3 circuit.
+//!   --mode profile  Stage E3: build the Orchard V3 bundle ONCE, then loop
+//!              `create_proof` only (no keygen/build/sign/verify in the window).
+//!              Prints PROFILE_WINDOW_START/END markers so an ETW session can be
+//!              scoped to the prove loop.
 //!
 //! Deliberately lives OUTSIDE the upstream checkout so `D:\Research\orchard-upstream`
 //! stays byte-identical to `616a669d`. Consumed via a Cargo path dependency.
@@ -25,6 +29,9 @@ use orchard::{
     Address,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
+#[cfg(windows)]
+mod e3sampler;
 
 const MERKLE_DEPTH: usize = 32; // orchard::NOTE_COMMITMENT_TREE_DEPTH
 
@@ -156,6 +163,8 @@ struct Args {
     seed: u64,
     tag: String,
     mask: usize,
+    e3_out: String,
+    e3_interval_ms: u64,
 }
 
 fn parse_args() -> Args {
@@ -168,6 +177,8 @@ fn parse_args() -> Args {
         seed: 7,
         tag: String::new(),
         mask: 0,
+        e3_out: String::new(),
+        e3_interval_ms: 2,
     };
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
@@ -190,6 +201,8 @@ fn parse_args() -> Args {
                     .expect("--mask expects hex, e.g. 0x1");
             }
             "--tag" => a.tag = val(),
+            "--e3-out" => a.e3_out = val(),
+            "--e3-interval-ms" => a.e3_interval_ms = val().parse().expect("--e3-interval-ms"),
             other => panic!("unknown argument: {other}"),
         }
         i += 1;
@@ -258,6 +271,24 @@ fn fmt(v: &[f64]) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Stage E2: drain the per-proof phase timings from the (patched) halo2_proofs
+// crate and print them. Returns nothing when ORCHARD_E2_TIMING is unset, so this
+// is safe to call unconditionally on every rep.
+// ---------------------------------------------------------------------------
+fn emit_e2(pool: &str, rep: usize) {
+    let stages = halo2_proofs::plonk::take_e2_timings();
+    if stages.is_empty() {
+        return;
+    }
+    let mut parts: Vec<String> = stages
+        .into_iter()
+        .map(|(k, v)| format!("{k}={v:.6}"))
+        .collect();
+    parts.sort();
+    println!("E2_STAGE pool={pool} rep={rep} {}", parts.join(" "));
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -277,7 +308,8 @@ fn main() {
     match args.mode.as_str() {
         "v2" => run_v2(&args, pinned),
         "v3" => run_v3(&args, pinned),
-        other => panic!("unknown --mode {other} (expected v2 or v3)"),
+        "profile" => run_profile(&args, pinned),
+        other => panic!("unknown --mode {other} (expected v2, v3 or profile)"),
     }
 }
 
@@ -565,6 +597,7 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
         let t_prove = Instant::now();
         let proven = bundle.create_proof(&pk, &mut rng).expect("orchard proof");
         orchard.prove_s.push(t_prove.elapsed().as_secs_f64());
+        emit_e2("orchard", rep);
         orchard.ws_after = mem::working_set_mib();
         if rep == 0 {
             orchard.ws_before = ws1;
@@ -624,6 +657,7 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
         let t_prove = Instant::now();
         let proven = bundle.create_proof(&pk, &mut rng).expect("ironwood proof");
         ironwood.prove_s.push(t_prove.elapsed().as_secs_f64());
+        emit_e2("ironwood", rep);
         ironwood.ws_after = mem::working_set_mib();
         if rep == 0 {
             ironwood.ws_before = ws1;
@@ -658,7 +692,7 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
 \"circuit\":\"PostNu6_3\",\"actions\":{},\"reps\":{},\"build_ms_mean\":{:.4},\
 \"prove_s_mean\":{:.6},\"prove_s_min\":{:.6},\"prove_s\":[{}],\"sign_ms_mean\":{:.4},\
 \"verify_ms_mean\":{:.4},\"proof_bytes\":{},{} \"ws_before_mib\":{:.1},\
-\"ws_after_mib\":{:.1}}}",
+\"ws_after_mib\":{:.1},\"build_ms\":[{}],\"sign_ms\":[{}],\"verify_ms\":[{}]}}",
             args.tag,
             r.pool,
             r.bundle_version_label,
@@ -674,6 +708,9 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
             encoded,
             r.ws_before,
             r.ws_after,
+            fmt(&r.build_ms),
+            fmt(&r.sign_ms),
+            fmt(&r.verify_ms),
         );
     }
 
@@ -705,6 +742,127 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
         ironwood.proof_bytes,
         orchard.actions * 820 + 1 + 8 + 32 + orchard.proof_bytes + 64,
         peak_mib,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode profile: isolate Orchard create_proof for CPU sampling (Stage E3)
+// ---------------------------------------------------------------------------
+//
+// Mirrors the PostNu6_3 / 2-action shape of v3, but BUILDS the bundle once and
+// then loops `create_proof` only. Keygen, Builder, signing and verification are
+// all performed outside the sampling window — we print PROFILE_WINDOW_START /
+// PROFILE_WINDOW_END markers so the ETW session can be scoped to the prove loop.
+// No E2 timers, no signing, no verify: this mode exists purely to put the
+// prover's CPU cost under a sampler.
+
+fn run_profile(args: &Args, pinned: Option<usize>) {
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    // ---- stage 0: fixture -------------------------------------------------
+    let t_fixture = Instant::now();
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    // Same address as the spent note: cross-address is off for V3, so the
+    // circuit forces spend/output (g_d, pk_d) equality.
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+    let fixture_s = t_fixture.elapsed().as_secs_f64();
+
+    // ---- stage 1: keygen (outside sampling window) ------------------------
+    let t_keygen = Instant::now();
+    let pk = ProvingKey::build(circuit_version);
+    let keygen_s = t_keygen.elapsed().as_secs_f64();
+
+    // ---- stage 2: build the single bundle (outside sampling window) -------
+    let t_build = Instant::now();
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+    let actions = bundle.actions().len();
+    let build_s = t_build.elapsed().as_secs_f64();
+
+    // ---- stage 3: warmup (outside sampling window) ------------------------
+    // Initializes the rayon pool and warms caches/JIT-free code paths so the
+    // recorded loop is representative. `create_proof` consumes `self`, so we
+    // clone the (already-built) bundle once per iteration — a flat memory copy,
+    // not a re-synthesis, so it stays outside the "what the prover costs" story.
+    let warmup = 3usize;
+    for _ in 0..warmup {
+        let _ = bundle.clone().create_proof(&pk, &mut rng).expect("warmup proof");
+    }
+
+    // ---- stage 4: sampling window -----------------------------------------
+    // Optional in-process CPU sampler (Stage E3): captures where every thread is
+    // executing at fixed ticks. Gated by ORCHARD_E3_SAMPLE + a --e3-out dir.
+    let mut sampler = if std::env::var("ORCHARD_E3_SAMPLE").is_ok() && !args.e3_out.is_empty() {
+        eprintln!(
+            "E3 sampler enabled (interval={}ms) -> {}",
+            args.e3_interval_ms, args.e3_out
+        );
+        Some(e3sampler::Sampler::start(args.e3_interval_ms))
+    } else {
+        None
+    };
+
+    println!(
+        "PROFILE_WINDOW_START tag={} actions={} warmup={} reps={} rayon_threads={} affinity=0x{:x}",
+        args.tag,
+        actions,
+        warmup,
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+    let t_loop = Instant::now();
+    for rep in 0..args.reps {
+        let _ = bundle.clone().create_proof(&pk, &mut rng).expect("profile proof");
+        if rep % 10 == 0 && rep > 0 {
+            eprintln!("  profile rep {rep}/{} done", args.reps);
+        }
+    }
+    let loop_s = t_loop.elapsed().as_secs_f64();
+    if let Some(mut s) = sampler.take() {
+        s.stop(&args.e3_out);
+    }
+    println!(
+        "PROFILE_WINDOW_END wall_s={loop_s:.6} reps={} per_proof_ms={:.3}",
+        args.reps,
+        loop_s / args.reps as f64 * 1e3
+    );
+    println!(
+        "PROFILE_META {{\"tag\":\"{}\",\"mode\":\"profile\",\"circuit\":\"PostNu6_3\",\
+\"actions\":{},\"warmup\":{},\"reps\":{},\"fixture_s\":{:.6},\"keygen_s\":{:.6},\
+\"build_s\":{:.6},\"loop_wall_s\":{:.6},\"per_proof_ms\":{:.3},\
+\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        args.tag,
+        actions,
+        warmup,
+        args.reps,
+        fixture_s,
+        keygen_s,
+        build_s,
+        loop_s,
+        loop_s / args.reps as f64 * 1e3,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
     );
