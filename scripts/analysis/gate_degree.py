@@ -113,6 +113,41 @@ def degree(expr):
     return Parser(tokenize(expr)).parse()
 
 
+SEL = re.compile(r"\bS([0-9]+)\b")
+
+
+def selectors(expr):
+    """Selector indices appearing in a rendered constraint expression.
+
+    halo2 selectors are anonymous (`Selector(usize, bool)`); the only public
+    handle on one is the `S<n>` label that `dev::CircuitGates` prints inside the
+    expression, so that index is the identifier we report.
+    """
+    return sorted({int(m) for m in SEL.findall(expr)})
+
+
+def summarize(gates):
+    """[(label, n_constraints, max_degree, sorted_selector_ids, degs)]."""
+    out = []
+    seen = defaultdict(int)
+    for name, constraints in gates:
+        seen[name] += 1
+        label = name if seen[name] == 1 else f"{name} (instance {seen[name]})"
+        degs = [(degree(e), cname) for cname, e in constraints]
+        sels = sorted({s for _, e in constraints for s in selectors(e)})
+        out.append(
+            (
+                label,
+                len(constraints),
+                max((d for d, _ in degs), default=0),
+                sels,
+                degs,
+            )
+        )
+    return out
+
+
+
 def parse_dump(path):
     """Return [(gate_name, [(constraint_name, expression), ...]), ...]."""
     gates = []
@@ -165,26 +200,40 @@ def main():
         top = int(sys.argv[sys.argv.index("--top") + 1])
 
     gates = parse_dump(path)
-    rows = []
-    seen = defaultdict(int)
-    for name, constraints in gates:
-        seen[name] += 1
-        label = name if seen[name] == 1 else f"{name} (instance {seen[name]})"
-        degs = [(degree(e), cname) for cname, e in constraints]
-        best = max(degs, key=lambda x: x[0])
-        rows.append((best[0], label, len(constraints), best[1]))
+    rows = summarize(gates)
 
-    max_deg = max(r[0] for r in rows)
+    if "--table" in sys.argv:
+        print("# gate,n_constraints,max_degree,selectors,constraints(deg:name)")
+        for label, n, best, sels, degs in rows:
+            cons = " ".join(f"{d}:{cn or '<unnamed>'}" for d, cn in degs)
+            print(
+                f"{label},{n},{best},"
+                f"{'|'.join(f'S{s}' for s in sels)},{cons}"
+            )
+        print()
+        print("# selector,gate(s),n_constraints_at_that_gate")
+        by_sel = defaultdict(list)
+        for label, n, _best, sels, _degs in rows:
+            for s in sels:
+                by_sel[s].append((label, n))
+        for s in sorted(by_sel):
+            gates_here = " ; ".join(f"{lab}({n})" for lab, n in by_sel[s])
+            print(f"S{s},{gates_here}")
+        return
+
+    max_deg = max(r[2] for r in rows)
     print(f"gates parsed: {len(rows)}")
     print(f"max gate degree: {max_deg}")
     print()
     print(f"gates at degree {max_deg}:")
-    for deg, label, ncon, cname in rows:
+    for label, ncon, deg, sels, degs in rows:
         if deg == max_deg:
-            print(f"  [{deg}] {label}  ({ncon} constraint(s), attaining: {cname or '<unnamed>'})")
+            attaining = next(cn or "<unnamed>" for d, cn in degs if d == deg)
+            sel_txt = ",".join(f"S{s}" for s in sels)
+            print(f"  [{deg}] {label}  ({ncon} constraint(s), settling: {attaining}; {sel_txt})")
     print()
     print(f"top {top} gates by degree:")
-    for deg, label, ncon, cname in sorted(rows, key=lambda r: -r[0])[:top]:
+    for label, ncon, deg, _sels, _degs in sorted(rows, key=lambda r: -r[2])[:top]:
         print(f"  {deg}  {label}  ({ncon} constraint(s))")
 
 

@@ -1,0 +1,487 @@
+NOTE V1::synthesize returned Err: NotEnoughColumnsForConstants
+NOTE error_is_NotEnoughColumnsForConstants true
+VERSION FixedPostNu6_2
+DEGREE 9
+REGIONS 395
+COPIES 2798
+
+# region,first_row,last_row,rows_used,extent,advice_cols,selectors
+0,generator_table,0,1023,1024,1024,F0|F1|F2,
+298,[ivk] g_d_old/variable-base scalar mul/variable-base scalar mul,0,136,137,137,A0|A1|A2|A3|A4|A5|A6|A7|A8|A9,S10x124|S11x1|S12x1|S13x125|S14x1|S15x3|S17x1|S8x8|S9x1
+303,pk_d_old equality/constrain equal,-,-,-,-,-
+347,cm_old equality/constrain equal,-,-,-,-,-
+331,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M/hash_to_point,137,246,110,110,A0|A1|A2|A3|A4|F12|F3,S25x109|S26x1
+378,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M/hash_to_point,137,246,110,110,A5|A6|A7|A8|A9|F13|F4,S29x109|S30x1
+276,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/[poseidon_output + psi] NullifierK/base-field elem fixed-base mul of NullifierK/Base-field elem fixed-base mul (incomplete addition),247,332,86,86,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S18x170|S7x83
+301,[ivk] g_d_old/variable-base scalar mul/overflow check/overflow check,247,249,3,3,A6|A7|A8,S16x1
+373,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/Decompose j = LSB + (2)k_0 + (2^10)k_1/Witness element,247,272,26,26,A9,S2x25|S3x25
+273,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/Poseidon hash (nk, rho)/finish absorbing/PoseidonSponge/add input for domain ConstantLength<2>,250,252,3,3,A6|A7|A8,S24x1
+279,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/[poseidon_output + psi] NullifierK/base-field elem fixed-base mul of NullifierK/Canonicity checks,253,255,3,3,A6|A7|A8,S21x1
+337,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece b,256,257,2,2,A6|A7|A8,S34x1
+384,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece b,258,259,2,2,A6|A7|A8,S45x1
+338,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece d,260,261,2,2,A6|A7|A8,S35x1
+385,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece d,262,263,2,2,A6|A7|A8,S46x1
+387,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece g,264,265,2,2,A6|A7,S48x1
+340,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece g,266,267,2,2,A6|A7,S37x1
+339,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece e,268,268,1,1,A6|A7|A8,S36x1
+341,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece h,269,269,1,1,A6|A7|A8,S38x1
+386,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece e,270,270,1,1,A6|A7|A8,S47x1
+388,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit MessagePiece h,271,271,1,1,A6|A7|A8,S49x1
+272,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/Poseidon init/initial state for domain ConstantLength<2>,272,272,1,1,A6|A7|A8,
+275,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/scalar = poseidon_hash(nk, rho) + psi/c = a + b,273,273,1,1,A6|A7|A8,S1x1
+368,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/Decompose j = LSB + (2)k_0 + (2^10)k_1/Witness element,273,298,26,26,A9,S2x25|S3x25
+126,Merkle path/MerkleCRH(14, left, right)/Witness c/witness message piece,274,274,1,1,A6,
+149,Merkle path/MerkleCRH(17, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,274,274,1,1,A7,
+125,Merkle path/MerkleCRH(14, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,275,275,1,1,A6,
+150,Merkle path/MerkleCRH(17, left, right)/Witness c/witness message piece,275,275,1,1,A7,
+122,Merkle path/MerkleCRH(14, left, right)/Witness a = a_0 || a_1/witness message piece,276,276,1,1,A6,
+154,Merkle path/MerkleCRH(18, left, right)/Witness a = a_0 || a_1/witness message piece,276,276,1,1,A7,
+118,Merkle path/MerkleCRH(13, left, right)/Witness c/witness message piece,277,277,1,1,A6,
+157,Merkle path/MerkleCRH(18, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,277,277,1,1,A7,
+117,Merkle path/MerkleCRH(13, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,278,278,1,1,A6,
+158,Merkle path/MerkleCRH(18, left, right)/Witness c/witness message piece,278,278,1,1,A7,
+114,Merkle path/MerkleCRH(13, left, right)/Witness a = a_0 || a_1/witness message piece,279,279,1,1,A6,
+162,Merkle path/MerkleCRH(19, left, right)/Witness a = a_0 || a_1/witness message piece,279,279,1,1,A7,
+110,Merkle path/MerkleCRH(12, left, right)/Witness c/witness message piece,280,280,1,1,A6,
+165,Merkle path/MerkleCRH(19, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,280,280,1,1,A7,
+109,Merkle path/MerkleCRH(12, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,281,281,1,1,A6,
+166,Merkle path/MerkleCRH(19, left, right)/Witness c/witness message piece,281,281,1,1,A7,
+106,Merkle path/MerkleCRH(12, left, right)/Witness a = a_0 || a_1/witness message piece,282,282,1,1,A6,
+170,Merkle path/MerkleCRH(20, left, right)/Witness a = a_0 || a_1/witness message piece,282,282,1,1,A7,
+102,Merkle path/MerkleCRH(11, left, right)/Witness c/witness message piece,283,283,1,1,A6,
+173,Merkle path/MerkleCRH(20, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,283,283,1,1,A7,
+101,Merkle path/MerkleCRH(11, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,284,284,1,1,A6,
+174,Merkle path/MerkleCRH(20, left, right)/Witness c/witness message piece,284,284,1,1,A7,
+98,Merkle path/MerkleCRH(11, left, right)/Witness a = a_0 || a_1/witness message piece,285,285,1,1,A6,
+178,Merkle path/MerkleCRH(21, left, right)/Witness a = a_0 || a_1/witness message piece,285,285,1,1,A7,
+94,Merkle path/MerkleCRH(10, left, right)/Witness c/witness message piece,286,286,1,1,A6,
+181,Merkle path/MerkleCRH(21, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,286,286,1,1,A7,
+93,Merkle path/MerkleCRH(10, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,287,287,1,1,A6,
+182,Merkle path/MerkleCRH(21, left, right)/Witness c/witness message piece,287,287,1,1,A7,
+90,Merkle path/MerkleCRH(10, left, right)/Witness a = a_0 || a_1/witness message piece,288,288,1,1,A6,
+186,Merkle path/MerkleCRH(22, left, right)/Witness a = a_0 || a_1/witness message piece,288,288,1,1,A7,
+86,Merkle path/MerkleCRH(9, left, right)/Witness c/witness message piece,289,289,1,1,A6,
+189,Merkle path/MerkleCRH(22, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,289,289,1,1,A7,
+85,Merkle path/MerkleCRH(9, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,290,290,1,1,A6,
+190,Merkle path/MerkleCRH(22, left, right)/Witness c/witness message piece,290,290,1,1,A7,
+82,Merkle path/MerkleCRH(9, left, right)/Witness a = a_0 || a_1/witness message piece,291,291,1,1,A6,
+194,Merkle path/MerkleCRH(23, left, right)/Witness a = a_0 || a_1/witness message piece,291,291,1,1,A7,
+78,Merkle path/MerkleCRH(8, left, right)/Witness c/witness message piece,292,292,1,1,A6,
+197,Merkle path/MerkleCRH(23, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,292,292,1,1,A7,
+77,Merkle path/MerkleCRH(8, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,293,293,1,1,A6,
+198,Merkle path/MerkleCRH(23, left, right)/Witness c/witness message piece,293,293,1,1,A7,
+74,Merkle path/MerkleCRH(8, left, right)/Witness a = a_0 || a_1/witness message piece,294,294,1,1,A6,
+202,Merkle path/MerkleCRH(24, left, right)/Witness a = a_0 || a_1/witness message piece,294,294,1,1,A7,
+70,Merkle path/MerkleCRH(7, left, right)/Witness c/witness message piece,295,295,1,1,A6,
+205,Merkle path/MerkleCRH(24, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,295,295,1,1,A7,
+69,Merkle path/MerkleCRH(7, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,296,296,1,1,A6,
+206,Merkle path/MerkleCRH(24, left, right)/Witness c/witness message piece,296,296,1,1,A7,
+30,Merkle path/MerkleCRH(2, left, right)/Witness c/witness message piece,297,297,1,1,A6,
+210,Merkle path/MerkleCRH(25, left, right)/Witness a = a_0 || a_1/witness message piece,297,297,1,1,A7,
+66,Merkle path/MerkleCRH(7, left, right)/Witness a = a_0 || a_1/witness message piece,298,298,1,1,A6,
+213,Merkle path/MerkleCRH(25, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,298,298,1,1,A7,
+62,Merkle path/MerkleCRH(6, left, right)/Witness c/witness message piece,299,299,1,1,A6,
+214,Merkle path/MerkleCRH(25, left, right)/Witness c/witness message piece,299,299,1,1,A7,
+321,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/Decompose j = LSB + (2)k_0 + (2^10)k_1/Witness element,299,324,26,26,A9,S2x25|S3x25
+61,Merkle path/MerkleCRH(6, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,300,300,1,1,A6,
+218,Merkle path/MerkleCRH(26, left, right)/Witness a = a_0 || a_1/witness message piece,300,300,1,1,A7,
+58,Merkle path/MerkleCRH(6, left, right)/Witness a = a_0 || a_1/witness message piece,301,301,1,1,A6,
+221,Merkle path/MerkleCRH(26, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,301,301,1,1,A7,
+54,Merkle path/MerkleCRH(5, left, right)/Witness c/witness message piece,302,302,1,1,A6,
+222,Merkle path/MerkleCRH(26, left, right)/Witness c/witness message piece,302,302,1,1,A7,
+53,Merkle path/MerkleCRH(5, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,303,303,1,1,A6,
+226,Merkle path/MerkleCRH(27, left, right)/Witness a = a_0 || a_1/witness message piece,303,303,1,1,A7,
+229,Merkle path/MerkleCRH(27, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,304,304,1,1,A7,
+284,CommitIvk/a/witness message piece,304,304,1,1,A6,
+50,Merkle path/MerkleCRH(5, left, right)/Witness a = a_0 || a_1/witness message piece,305,305,1,1,A6,
+230,Merkle path/MerkleCRH(27, left, right)/Witness c/witness message piece,305,305,1,1,A7,
+234,Merkle path/MerkleCRH(28, left, right)/Witness a = a_0 || a_1/witness message piece,306,306,1,1,A7,
+287,CommitIvk/b = b_0 || b_1 || b_2/witness message piece,306,306,1,1,A6,
+237,Merkle path/MerkleCRH(28, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,307,307,1,1,A7,
+288,CommitIvk/c/witness message piece,307,307,1,1,A6,
+238,Merkle path/MerkleCRH(28, left, right)/Witness c/witness message piece,308,308,1,1,A7,
+290,CommitIvk/d = d_0 || d_1/witness message piece,308,308,1,1,A6,
+46,Merkle path/MerkleCRH(4, left, right)/Witness c/witness message piece,309,309,1,1,A6,
+246,Merkle path/MerkleCRH(29, left, right)/Witness c/witness message piece,309,309,1,1,A7,
+45,Merkle path/MerkleCRH(4, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,310,310,1,1,A6,
+250,Merkle path/MerkleCRH(30, left, right)/Witness a = a_0 || a_1/witness message piece,310,310,1,1,A7,
+253,Merkle path/MerkleCRH(30, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,311,311,1,1,A7,
+299,[ivk] g_d_old/variable-base scalar mul/overflow check/s = alpha + k_254 ⋅ 2^130,311,311,1,1,A6,
+130,Merkle path/MerkleCRH(15, left, right)/Witness a = a_0 || a_1/witness message piece,312,312,1,1,A6,
+254,Merkle path/MerkleCRH(30, left, right)/Witness c/witness message piece,312,312,1,1,A7,
+42,Merkle path/MerkleCRH(4, left, right)/Witness a = a_0 || a_1/witness message piece,313,313,1,1,A6,
+258,Merkle path/MerkleCRH(31, left, right)/Witness a = a_0 || a_1/witness message piece,313,313,1,1,A7,
+134,Merkle path/MerkleCRH(15, left, right)/Witness c/witness message piece,314,314,1,1,A6,
+261,Merkle path/MerkleCRH(31, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,314,314,1,1,A7,
+262,Merkle path/MerkleCRH(31, left, right)/Witness c/witness message piece,315,315,1,1,A7,
+304,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/a/witness message piece,315,315,1,1,A6,
+146,Merkle path/MerkleCRH(17, left, right)/Witness a = a_0 || a_1/witness message piece,316,316,1,1,A7,
+307,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b/witness message piece,316,316,1,1,A6,
+38,Merkle path/MerkleCRH(3, left, right)/Witness c/witness message piece,317,317,1,1,A6,
+142,Merkle path/MerkleCRH(16, left, right)/Witness c/witness message piece,317,317,1,1,A7,
+37,Merkle path/MerkleCRH(3, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,318,318,1,1,A6,
+141,Merkle path/MerkleCRH(16, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,318,318,1,1,A7,
+138,Merkle path/MerkleCRH(16, left, right)/Witness a = a_0 || a_1/witness message piece,319,319,1,1,A7,
+308,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/c/witness message piece,319,319,1,1,A6,
+242,Merkle path/MerkleCRH(29, left, right)/Witness a = a_0 || a_1/witness message piece,320,320,1,1,A7,
+310,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/d/witness message piece,320,320,1,1,A6,
+34,Merkle path/MerkleCRH(3, left, right)/Witness a = a_0 || a_1/witness message piece,321,321,1,1,A6,
+351,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/a/witness message piece,321,321,1,1,A7,
+313,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e/witness message piece,322,322,1,1,A6,
+354,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b/witness message piece,322,322,1,1,A7,
+314,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/f/witness message piece,323,323,1,1,A6,
+355,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/c/witness message piece,323,323,1,1,A7,
+316,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/g/witness message piece,324,324,1,1,A6,
+357,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/d/witness message piece,324,324,1,1,A7,
+29,Merkle path/MerkleCRH(2, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,325,325,1,1,A6,
+326,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/Decompose j = LSB + (2)k_0 + (2^10)k_1/Witness element,325,350,26,26,A9,S2x25|S3x25
+360,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e/witness message piece,325,325,1,1,A7,
+318,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/h/witness message piece,326,326,1,1,A6,
+361,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/f/witness message piece,326,326,1,1,A7,
+133,Merkle path/MerkleCRH(15, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,327,327,1,1,A6,
+363,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/g/witness message piece,327,327,1,1,A7,
+22,Merkle path/MerkleCRH(1, left, right)/Witness c/witness message piece,328,328,1,1,A6,
+365,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/h/witness message piece,328,328,1,1,A7,
+21,Merkle path/MerkleCRH(1, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,329,329,1,1,A6,
+245,Merkle path/MerkleCRH(29, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,329,329,1,1,A7,
+18,Merkle path/MerkleCRH(1, left, right)/Witness a = a_0 || a_1/witness message piece,330,330,1,1,A6,
+14,Merkle path/MerkleCRH(0, left, right)/Witness c/witness message piece,331,331,1,1,A6,
+13,Merkle path/MerkleCRH(0, left, right)/Witness b = b_0 || b_1 || b_2/witness message piece,332,332,1,1,A6,
+10,Merkle path/MerkleCRH(0, left, right)/Witness a = a_0 || a_1/witness message piece,333,333,1,1,A6,
+269,cv_net = ValueCommit^Orchard_rcv(v_net)/[rcv] ValueCommitR/fixed-base mul of ValueCommitR/Full-width fixed-base mul (incomplete addition),333,417,85,85,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S19x170|S7x83
+26,Merkle path/MerkleCRH(2, left, right)/Witness a = a_0 || a_1/witness message piece,334,334,1,1,A6,
+335,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/rho canonicity/Decompose low 140 bits of (e_1 + 2^4 f + 2^140 - t_P)/Witness element,351,365,15,15,A9,S2x14|S3x14
+334,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/x(pk_d) canonicity/Decompose low 140 bits of (b_3 + 2^4 c + 2^140 - t_P)/Witness element,366,380,15,15,A9,S2x14|S3x14
+296,CommitIvk/nk canonicity/Decompose low 140 bits of (b_2 + c * 2^5 + 2^140 - t_P)/Witness element,381,395,15,15,A9,S2x14|S3x14
+382,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/rho canonicity/Decompose low 140 bits of (e_1 + 2^4 f + 2^140 - t_P)/Witness element,396,410,15,15,A9,S2x14|S3x14
+381,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/x(pk_d) canonicity/Decompose low 140 bits of (b_3 + 2^4 c + 2^140 - t_P)/Witness element,411,425,15,15,A9,S2x14|S3x14
+291,CommitIvk/Hash ak||nk/commit/[r] R/fixed-base mul of CommitIvkR/Full-width fixed-base mul (incomplete addition),418,502,85,85,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S19x170|S7x83
+327,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/j_prime = j + 2^130 - t_P/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,426,439,14,14,A9,S2x13|S3x13
+333,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/x(g_d) canonicity/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,440,453,14,14,A9,S2x13|S3x13
+383,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/psi canonicity/Decompose low 130 bits of (g_1 + (2^9)g_2 + 2^130 - t_P)/Witness element,454,467,14,14,A9,S2x13|S3x13
+374,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/j_prime = j + 2^130 - t_P/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,468,481,14,14,A9,S2x13|S3x13
+380,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/x(g_d) canonicity/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,482,495,14,14,A9,S2x13|S3x13
+322,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/j_prime = j + 2^130 - t_P/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,496,509,14,14,A9,S2x13|S3x13
+329,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (incomplete addition),503,587,85,85,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S19x170|S7x83
+369,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/j_prime = j + 2^130 - t_P/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,510,523,14,14,A9,S2x13|S3x13
+278,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/[poseidon_output + psi] NullifierK/base-field elem fixed-base mul of NullifierK/Lookup range check alpha_0 + 2^130 - t_p/Witness element,524,537,14,14,A9,S2x13|S3x13
+295,CommitIvk/ak canonicity/Decompose low 130 bits of (a + 2^130 - t_P)/Witness element,538,551,14,14,A9,S2x13|S3x13
+336,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/psi canonicity/Decompose low 130 bits of (g_1 + (2^9)g_2 + 2^130 - t_P)/Witness element,552,565,14,14,A9,S2x13|S3x13
+300,[ivk] g_d_old/variable-base scalar mul/overflow check/decompose s_{0..=129}/Decompose low 130 bits of s/13 words range check,566,579,14,14,A9,S2x13|S3x13
+343,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input pk_d,580,581,2,2,A6|A7|A8|A9,S40x1
+346,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input psi,582,583,2,2,A6|A7|A8|A9,S43x1
+393,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input psi,584,585,2,2,A6|A7|A8|A9,S54x1
+342,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input g_d,586,587,2,2,A6|A7|A8|A9,S39x1
+376,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (incomplete addition),588,672,85,85,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S19x170|S7x83
+392,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input rho,588,589,2,2,A6|A7|A8|A9,S53x1
+390,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input pk_d,590,591,2,2,A6|A7|A8|A9,S51x1
+389,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input g_d,592,593,2,2,A6|A7|A8|A9,S50x1
+345,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input rho,594,595,2,2,A6|A7|A8|A9,S42x1
+344,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input value,596,596,1,1,A6|A7|A8|A9,S41x1
+391,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/NoteCommit input value,597,597,1,1,A6|A7|A8|A9,S52x1
+228,Merkle path/MerkleCRH(27, left, right)/b_2/Range check 5 bits,598,600,3,3,A9,S2x2|S4x1
+227,Merkle path/MerkleCRH(27, left, right)/b_1/Range check 5 bits,601,603,3,3,A9,S2x2|S4x1
+76,Merkle path/MerkleCRH(8, left, right)/b_2/Range check 5 bits,604,606,3,3,A9,S2x2|S4x1
+75,Merkle path/MerkleCRH(8, left, right)/b_1/Range check 5 bits,607,609,3,3,A9,S2x2|S4x1
+235,Merkle path/MerkleCRH(28, left, right)/b_1/Range check 5 bits,610,612,3,3,A9,S2x2|S4x1
+83,Merkle path/MerkleCRH(9, left, right)/b_1/Range check 5 bits,613,615,3,3,A9,S2x2|S4x1
+220,Merkle path/MerkleCRH(26, left, right)/b_2/Range check 5 bits,616,618,3,3,A9,S2x2|S4x1
+219,Merkle path/MerkleCRH(26, left, right)/b_1/Range check 5 bits,619,621,3,3,A9,S2x2|S4x1
+84,Merkle path/MerkleCRH(9, left, right)/b_2/Range check 5 bits,622,624,3,3,A9,S2x2|S4x1
+236,Merkle path/MerkleCRH(28, left, right)/b_2/Range check 5 bits,625,627,3,3,A9,S2x2|S4x1
+325,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/k_2/Range check 4 bits,628,630,3,3,A9,S2x2|S4x1
+324,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/k_0/Range check 9 bits,631,633,3,3,A9,S2x2|S4x1
+320,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/k_2/Range check 4 bits,634,636,3,3,A9,S2x2|S4x1
+243,Merkle path/MerkleCRH(29, left, right)/b_1/Range check 5 bits,637,639,3,3,A9,S2x2|S4x1
+212,Merkle path/MerkleCRH(25, left, right)/b_2/Range check 5 bits,640,642,3,3,A9,S2x2|S4x1
+211,Merkle path/MerkleCRH(25, left, right)/b_1/Range check 5 bits,643,645,3,3,A9,S2x2|S4x1
+244,Merkle path/MerkleCRH(29, left, right)/b_2/Range check 5 bits,646,648,3,3,A9,S2x2|S4x1
+68,Merkle path/MerkleCRH(7, left, right)/b_2/Range check 5 bits,649,651,3,3,A9,S2x2|S4x1
+28,Merkle path/MerkleCRH(2, left, right)/b_2/Range check 5 bits,652,654,3,3,A9,S2x2|S4x1
+305,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b_0/Range check 4 bits,655,657,3,3,A9,S2x2|S4x1
+91,Merkle path/MerkleCRH(10, left, right)/b_1/Range check 5 bits,658,660,3,3,A9,S2x2|S4x1
+92,Merkle path/MerkleCRH(10, left, right)/b_2/Range check 5 bits,661,663,3,3,A9,S2x2|S4x1
+204,Merkle path/MerkleCRH(24, left, right)/b_2/Range check 5 bits,664,666,3,3,A9,S2x2|S4x1
+203,Merkle path/MerkleCRH(24, left, right)/b_1/Range check 5 bits,667,669,3,3,A9,S2x2|S4x1
+67,Merkle path/MerkleCRH(7, left, right)/b_1/Range check 5 bits,670,672,3,3,A9,S2x2|S4x1
+281,[alpha] SpendAuthG/fixed-base mul of SpendAuthG/Full-width fixed-base mul (incomplete addition),673,757,85,85,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S19x170|S7x83
+319,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/k_0/Range check 9 bits,673,675,3,3,A9,S2x2|S4x1
+352,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b_0/Range check 4 bits,676,678,3,3,A9,S2x2|S4x1
+353,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b_3/Range check 4 bits,679,681,3,3,A9,S2x2|S4x1
+20,Merkle path/MerkleCRH(1, left, right)/b_2/Range check 5 bits,682,684,3,3,A9,S2x2|S4x1
+317,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/h_0/Range check 5 bits,685,687,3,3,A9,S2x2|S4x1
+196,Merkle path/MerkleCRH(23, left, right)/b_2/Range check 5 bits,688,690,3,3,A9,S2x2|S4x1
+195,Merkle path/MerkleCRH(23, left, right)/b_1/Range check 5 bits,691,693,3,3,A9,S2x2|S4x1
+100,Merkle path/MerkleCRH(11, left, right)/b_2/Range check 5 bits,694,696,3,3,A9,S2x2|S4x1
+251,Merkle path/MerkleCRH(30, left, right)/b_1/Range check 5 bits,697,699,3,3,A9,S2x2|S4x1
+19,Merkle path/MerkleCRH(1, left, right)/b_1/Range check 5 bits,700,702,3,3,A9,S2x2|S4x1
+356,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/d_2/Range check 8 bits,703,705,3,3,A9,S2x2|S4x1
+252,Merkle path/MerkleCRH(30, left, right)/b_2/Range check 5 bits,706,708,3,3,A9,S2x2|S4x1
+358,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e_0/Range check 6 bits,709,711,3,3,A9,S2x2|S4x1
+188,Merkle path/MerkleCRH(22, left, right)/b_2/Range check 5 bits,712,714,3,3,A9,S2x2|S4x1
+187,Merkle path/MerkleCRH(22, left, right)/b_1/Range check 5 bits,715,717,3,3,A9,S2x2|S4x1
+315,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/g_1/Range check 9 bits,718,720,3,3,A9,S2x2|S4x1
+35,Merkle path/MerkleCRH(3, left, right)/b_1/Range check 5 bits,721,723,3,3,A9,S2x2|S4x1
+359,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e_1/Range check 4 bits,724,726,3,3,A9,S2x2|S4x1
+362,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/g_1/Range check 9 bits,727,729,3,3,A9,S2x2|S4x1
+107,Merkle path/MerkleCRH(12, left, right)/b_1/Range check 5 bits,730,732,3,3,A9,S2x2|S4x1
+108,Merkle path/MerkleCRH(12, left, right)/b_2/Range check 5 bits,733,735,3,3,A9,S2x2|S4x1
+180,Merkle path/MerkleCRH(21, left, right)/b_2/Range check 5 bits,736,738,3,3,A9,S2x2|S4x1
+179,Merkle path/MerkleCRH(21, left, right)/b_1/Range check 5 bits,739,741,3,3,A9,S2x2|S4x1
+12,Merkle path/MerkleCRH(0, left, right)/b_2/Range check 5 bits,742,744,3,3,A9,S2x2|S4x1
+312,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e_1/Range check 4 bits,745,747,3,3,A9,S2x2|S4x1
+364,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/h_0/Range check 5 bits,748,750,3,3,A9,S2x2|S4x1
+11,Merkle path/MerkleCRH(0, left, right)/b_1/Range check 5 bits,751,753,3,3,A9,S2x2|S4x1
+366,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/k_0/Range check 9 bits,754,756,3,3,A9,S2x2|S4x1
+265,v_net magnitude/load private,757,757,1,1,A9,
+39,Merkle path/MerkleCRH(3, left, right)/hash at l = 3/hash_to_point,758,810,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+263,Merkle path/MerkleCRH(31, left, right)/hash at l = 31/hash_to_point,758,810,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+119,Merkle path/MerkleCRH(13, left, right)/hash at l = 13/hash_to_point,811,863,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+255,Merkle path/MerkleCRH(30, left, right)/hash at l = 30/hash_to_point,811,863,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+135,Merkle path/MerkleCRH(15, left, right)/hash at l = 15/hash_to_point,864,916,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+159,Merkle path/MerkleCRH(18, left, right)/hash at l = 18/hash_to_point,864,916,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+63,Merkle path/MerkleCRH(6, left, right)/hash at l = 6/hash_to_point,917,969,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+247,Merkle path/MerkleCRH(29, left, right)/hash at l = 29/hash_to_point,917,969,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+31,Merkle path/MerkleCRH(2, left, right)/hash at l = 2/hash_to_point,970,1022,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+215,Merkle path/MerkleCRH(25, left, right)/hash at l = 25/hash_to_point,970,1022,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+47,Merkle path/MerkleCRH(4, left, right)/hash at l = 4/hash_to_point,1023,1075,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+151,Merkle path/MerkleCRH(17, left, right)/hash at l = 17/hash_to_point,1023,1075,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+127,Merkle path/MerkleCRH(14, left, right)/hash at l = 14/hash_to_point,1076,1128,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+167,Merkle path/MerkleCRH(19, left, right)/hash at l = 19/hash_to_point,1076,1128,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+79,Merkle path/MerkleCRH(8, left, right)/hash at l = 8/hash_to_point,1129,1181,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+239,Merkle path/MerkleCRH(28, left, right)/hash at l = 28/hash_to_point,1129,1181,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+111,Merkle path/MerkleCRH(12, left, right)/hash at l = 12/hash_to_point,1182,1234,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+231,Merkle path/MerkleCRH(27, left, right)/hash at l = 27/hash_to_point,1182,1234,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+95,Merkle path/MerkleCRH(10, left, right)/hash at l = 10/hash_to_point,1235,1287,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+143,Merkle path/MerkleCRH(16, left, right)/hash at l = 16/hash_to_point,1235,1287,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+15,Merkle path/MerkleCRH(0, left, right)/hash at l = 0/hash_to_point,1288,1340,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+199,Merkle path/MerkleCRH(23, left, right)/hash at l = 23/hash_to_point,1288,1340,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+23,Merkle path/MerkleCRH(1, left, right)/hash at l = 1/hash_to_point,1341,1393,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+175,Merkle path/MerkleCRH(20, left, right)/hash at l = 20/hash_to_point,1341,1393,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+87,Merkle path/MerkleCRH(9, left, right)/hash at l = 9/hash_to_point,1394,1446,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+223,Merkle path/MerkleCRH(26, left, right)/hash at l = 26/hash_to_point,1394,1446,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+103,Merkle path/MerkleCRH(11, left, right)/hash at l = 11/hash_to_point,1447,1499,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+183,Merkle path/MerkleCRH(21, left, right)/hash at l = 21/hash_to_point,1447,1499,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+71,Merkle path/MerkleCRH(7, left, right)/hash at l = 7/hash_to_point,1500,1552,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+191,Merkle path/MerkleCRH(22, left, right)/hash at l = 22/hash_to_point,1500,1552,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+55,Merkle path/MerkleCRH(5, left, right)/hash at l = 5/hash_to_point,1553,1605,53,53,A0|A1|A2|A3|A4|F12|F3,S25x52|S26x1
+207,Merkle path/MerkleCRH(24, left, right)/hash at l = 24/hash_to_point,1553,1605,53,53,A5|A6|A7|A8|A9|F13|F4,S29x52|S30x1
+60,Merkle path/MerkleCRH(6, left, right)/b_2/Range check 5 bits,1606,1608,3,3,A9,S2x2|S4x1
+274,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/Poseidon hash (nk, rho)/finish absorbing/PoseidonSponge/permute state,1606,1642,37,37,A5|A6|A7|A8|F10|F5|F6|F7|F8|F9,S22x8|S23x28
+293,CommitIvk/Hash ak||nk/commit/M/hash_to_point,1606,1657,52,52,A0|A1|A2|A3|A4|F12|F3,S25x51|S26x1
+172,Merkle path/MerkleCRH(20, left, right)/b_2/Range check 5 bits,1609,1611,3,3,A9,S2x2|S4x1
+171,Merkle path/MerkleCRH(20, left, right)/b_1/Range check 5 bits,1612,1614,3,3,A9,S2x2|S4x1
+115,Merkle path/MerkleCRH(13, left, right)/b_1/Range check 5 bits,1615,1617,3,3,A9,S2x2|S4x1
+259,Merkle path/MerkleCRH(31, left, right)/b_1/Range check 5 bits,1618,1620,3,3,A9,S2x2|S4x1
+367,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/k_2/Range check 4 bits,1621,1623,3,3,A9,S2x2|S4x1
+371,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/k_0/Range check 9 bits,1624,1626,3,3,A9,S2x2|S4x1
+116,Merkle path/MerkleCRH(13, left, right)/b_2/Range check 5 bits,1627,1629,3,3,A9,S2x2|S4x1
+372,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/k_2/Range check 4 bits,1630,1632,3,3,A9,S2x2|S4x1
+164,Merkle path/MerkleCRH(19, left, right)/b_2/Range check 5 bits,1633,1635,3,3,A9,S2x2|S4x1
+163,Merkle path/MerkleCRH(19, left, right)/b_1/Range check 5 bits,1636,1638,3,3,A9,S2x2|S4x1
+260,Merkle path/MerkleCRH(31, left, right)/b_2/Range check 5 bits,1639,1641,3,3,A9,S2x2|S4x1
+266,v_net sign/load private,1642,1642,1,1,A9,
+248,Merkle path/MerkleCRH(29, left, right)/Check piece decomposition,1643,1644,2,2,A5|A6|A7|A8|A9,S32x1
+375,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/y canonicity,1645,1646,2,2,A5|A6|A7|A8|A9,S55x1
+256,Merkle path/MerkleCRH(30, left, right)/Check piece decomposition,1647,1648,2,2,A5|A6|A7|A8|A9,S32x1
+323,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/y canonicity,1649,1650,2,2,A5|A6|A7|A8|A9,S44x1
+240,Merkle path/MerkleCRH(28, left, right)/Check piece decomposition,1651,1652,2,2,A5|A6|A7|A8|A9,S32x1
+328,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(pk_d) decomposition/y canonicity,1653,1654,2,2,A5|A6|A7|A8|A9,S44x1
+168,Merkle path/MerkleCRH(19, left, right)/Check piece decomposition,1655,1656,2,2,A5|A6|A7|A8|A9,S32x1
+153,Merkle path/node position/swap,1657,1657,1,1,A5|A6|A7|A8|A9,S31x1
+59,Merkle path/MerkleCRH(6, left, right)/b_1/Range check 5 bits,1658,1660,3,3,A9,S2x2|S4x1
+267,cv_net = ValueCommit^Orchard_rcv(v_net)/[v] ValueCommitV/short fixed-base mul of ValueCommitV/Short fixed-base mul (incomplete addition),1658,1680,23,23,A0|A1|A2|A3|A4|A5|F10|F11|F3|F4|F5|F6|F7|F8|F9,S18x44|S7x20
+311,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/e_0/Range check 6 bits,1661,1663,3,3,A9,S2x2|S4x1
+36,Merkle path/MerkleCRH(3, left, right)/b_2/Range check 5 bits,1664,1666,3,3,A9,S2x2|S4x1
+123,Merkle path/MerkleCRH(14, left, right)/b_1/Range check 5 bits,1667,1669,3,3,A9,S2x2|S4x1
+156,Merkle path/MerkleCRH(18, left, right)/b_2/Range check 5 bits,1670,1672,3,3,A9,S2x2|S4x1
+155,Merkle path/MerkleCRH(18, left, right)/b_1/Range check 5 bits,1673,1675,3,3,A9,S2x2|S4x1
+124,Merkle path/MerkleCRH(14, left, right)/b_2/Range check 5 bits,1676,1678,3,3,A9,S2x2|S4x1
+309,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/d_2/Range check 8 bits,1679,1681,3,3,A9,S2x2|S4x1
+271,cv_net = ValueCommit^Orchard_rcv(v_net)/cv/complete point addition,1681,1682,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+306,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/b_3/Range check 4 bits,1682,1684,3,3,A9,S2x2|S4x1
+268,cv_net = ValueCommit^Orchard_rcv(v_net)/[v] ValueCommitV/short fixed-base mul of ValueCommitV/Short fixed-base mul (most significant word),1683,1684,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S20x1|S8x1
+148,Merkle path/MerkleCRH(17, left, right)/b_2/Range check 5 bits,1685,1687,3,3,A9,S2x2|S4x1
+292,CommitIvk/Hash ak||nk/commit/[r] R/fixed-base mul of CommitIvkR/Full-width fixed-base mul (last window, complete addition),1685,1686,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+294,CommitIvk/Hash ak||nk/commit/M + [r] R/complete point addition,1687,1688,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+147,Merkle path/MerkleCRH(17, left, right)/b_1/Range check 5 bits,1688,1690,3,3,A9,S2x2|S4x1
+330,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (last window, complete addition),1689,1690,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+52,Merkle path/MerkleCRH(5, left, right)/b_2/Range check 5 bits,1691,1693,3,3,A9,S2x2|S4x1
+297,CommitIvk/Assign cells used in canonicity gate/Assign cells used in canonicity gate,1691,1692,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S33x1
+277,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/[poseidon_output + psi] NullifierK/base-field elem fixed-base mul of NullifierK/Base-field elem fixed-base mul (complete addition),1693,1694,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+285,CommitIvk/b_0/Range check 4 bits,1694,1696,3,3,A9,S2x2|S4x1
+379,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M + [r] R/complete point addition,1695,1696,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+270,cv_net = ValueCommit^Orchard_rcv(v_net)/[rcv] ValueCommitR/fixed-base mul of ValueCommitR/Full-width fixed-base mul (last window, complete addition),1697,1698,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+286,CommitIvk/b_2/Range check 5 bits,1697,1699,3,3,A9,S2x2|S4x1
+280,nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/nf/complete point addition,1699,1700,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+51,Merkle path/MerkleCRH(5, left, right)/b_1/Range check 5 bits,1700,1702,3,3,A9,S2x2|S4x1
+377,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (last window, complete addition),1701,1702,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+131,Merkle path/MerkleCRH(15, left, right)/b_1/Range check 5 bits,1703,1705,3,3,A9,S2x2|S4x1
+332,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M + [r] R/complete point addition,1703,1704,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+282,[alpha] SpendAuthG/fixed-base mul of SpendAuthG/Full-width fixed-base mul (last window, complete addition),1705,1706,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+132,Merkle path/MerkleCRH(15, left, right)/b_2/Range check 5 bits,1706,1708,3,3,A9,S2x2|S4x1
+283,rk/complete point addition,1707,1708,2,2,A0|A1|A2|A3|A4|A5|A6|A7|A8,S8x1
+32,Merkle path/MerkleCRH(2, left, right)/Check piece decomposition,1709,1710,2,2,A0|A1|A2|A3|A4,S28x1
+264,Merkle path/MerkleCRH(31, left, right)/Check piece decomposition,1709,1710,2,2,A5|A6|A7|A8|A9,S32x1
+136,Merkle path/MerkleCRH(15, left, right)/Check piece decomposition,1711,1712,2,2,A0|A1|A2|A3|A4,S28x1
+370,g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/y(g_d) decomposition/y canonicity,1711,1712,2,2,A5|A6|A7|A8|A9,S55x1
+40,Merkle path/MerkleCRH(3, left, right)/Check piece decomposition,1713,1714,2,2,A0|A1|A2|A3|A4,S28x1
+232,Merkle path/MerkleCRH(27, left, right)/Check piece decomposition,1713,1714,2,2,A5|A6|A7|A8|A9,S32x1
+120,Merkle path/MerkleCRH(13, left, right)/Check piece decomposition,1715,1716,2,2,A0|A1|A2|A3|A4,S28x1
+224,Merkle path/MerkleCRH(26, left, right)/Check piece decomposition,1715,1716,2,2,A5|A6|A7|A8|A9,S32x1
+80,Merkle path/MerkleCRH(8, left, right)/Check piece decomposition,1717,1718,2,2,A0|A1|A2|A3|A4,S28x1
+160,Merkle path/MerkleCRH(18, left, right)/Check piece decomposition,1717,1718,2,2,A5|A6|A7|A8|A9,S32x1
+112,Merkle path/MerkleCRH(12, left, right)/Check piece decomposition,1719,1720,2,2,A0|A1|A2|A3|A4,S28x1
+152,Merkle path/MerkleCRH(17, left, right)/Check piece decomposition,1719,1720,2,2,A5|A6|A7|A8|A9,S32x1
+88,Merkle path/MerkleCRH(9, left, right)/Check piece decomposition,1721,1722,2,2,A0|A1|A2|A3|A4,S28x1
+216,Merkle path/MerkleCRH(25, left, right)/Check piece decomposition,1721,1722,2,2,A5|A6|A7|A8|A9,S32x1
+24,Merkle path/MerkleCRH(1, left, right)/Check piece decomposition,1723,1724,2,2,A0|A1|A2|A3|A4,S28x1
+208,Merkle path/MerkleCRH(24, left, right)/Check piece decomposition,1723,1724,2,2,A5|A6|A7|A8|A9,S32x1
+96,Merkle path/MerkleCRH(10, left, right)/Check piece decomposition,1725,1726,2,2,A0|A1|A2|A3|A4,S28x1
+200,Merkle path/MerkleCRH(23, left, right)/Check piece decomposition,1725,1726,2,2,A5|A6|A7|A8|A9,S32x1
+128,Merkle path/MerkleCRH(14, left, right)/Check piece decomposition,1727,1728,2,2,A0|A1|A2|A3|A4,S28x1
+144,Merkle path/MerkleCRH(16, left, right)/Check piece decomposition,1727,1728,2,2,A5|A6|A7|A8|A9,S32x1
+48,Merkle path/MerkleCRH(4, left, right)/Check piece decomposition,1729,1730,2,2,A0|A1|A2|A3|A4,S28x1
+192,Merkle path/MerkleCRH(22, left, right)/Check piece decomposition,1729,1730,2,2,A5|A6|A7|A8|A9,S32x1
+72,Merkle path/MerkleCRH(7, left, right)/Check piece decomposition,1731,1732,2,2,A0|A1|A2|A3|A4,S28x1
+184,Merkle path/MerkleCRH(21, left, right)/Check piece decomposition,1731,1732,2,2,A5|A6|A7|A8|A9,S32x1
+104,Merkle path/MerkleCRH(11, left, right)/Check piece decomposition,1733,1734,2,2,A0|A1|A2|A3|A4,S28x1
+176,Merkle path/MerkleCRH(20, left, right)/Check piece decomposition,1733,1734,2,2,A5|A6|A7|A8|A9,S32x1
+16,Merkle path/MerkleCRH(0, left, right)/Check piece decomposition,1735,1736,2,2,A0|A1|A2|A3|A4,S28x1
+161,Merkle path/node position/swap,1735,1735,1,1,A5|A6|A7|A8|A9,S31x1
+169,Merkle path/node position/swap,1736,1736,1,1,A5|A6|A7|A8|A9,S31x1
+64,Merkle path/MerkleCRH(6, left, right)/Check piece decomposition,1737,1738,2,2,A0|A1|A2|A3|A4,S28x1
+257,Merkle path/node position/swap,1737,1737,1,1,A5|A6|A7|A8|A9,S31x1
+177,Merkle path/node position/swap,1738,1738,1,1,A5|A6|A7|A8|A9,S31x1
+56,Merkle path/MerkleCRH(5, left, right)/Check piece decomposition,1739,1740,2,2,A0|A1|A2|A3|A4,S28x1
+185,Merkle path/node position/swap,1739,1739,1,1,A5|A6|A7|A8|A9,S31x1
+137,Merkle path/node position/swap,1740,1740,1,1,A5|A6|A7|A8|A9,S31x1
+394,Orchard circuit checks,1741,1741,1,1,A0|A1|A2|A3|A4|A5|A6|A7,S0x1
+121,Merkle path/node position/swap,1742,1742,1,1,A0|A1|A2|A3|A4,S27x1
+145,Merkle path/node position/swap,1742,1742,1,1,A5|A6|A7|A8|A9,S31x1
+57,Merkle path/node position/swap,1743,1743,1,1,A0|A1|A2|A3|A4,S27x1
+201,Merkle path/node position/swap,1743,1743,1,1,A5|A6|A7|A8|A9,S31x1
+129,Merkle path/node position/swap,1744,1744,1,1,A0|A1|A2|A3|A4,S27x1
+209,Merkle path/node position/swap,1744,1744,1,1,A5|A6|A7|A8|A9,S31x1
+113,Merkle path/node position/swap,1745,1745,1,1,A0|A1|A2|A3|A4,S27x1
+241,Merkle path/node position/swap,1745,1745,1,1,A5|A6|A7|A8|A9,S31x1
+33,Merkle path/node position/swap,1746,1746,1,1,A0|A1|A2|A3|A4,S27x1
+193,Merkle path/node position/swap,1746,1746,1,1,A5|A6|A7|A8|A9,S31x1
+105,Merkle path/node position/swap,1747,1747,1,1,A0|A1|A2|A3|A4,S27x1
+217,Merkle path/node position/swap,1747,1747,1,1,A5|A6|A7|A8|A9,S31x1
+65,Merkle path/node position/swap,1748,1748,1,1,A0|A1|A2|A3|A4,S27x1
+225,Merkle path/node position/swap,1748,1748,1,1,A5|A6|A7|A8|A9,S31x1
+41,Merkle path/node position/swap,1749,1749,1,1,A0|A1|A2|A3|A4,S27x1
+233,Merkle path/node position/swap,1749,1749,1,1,A5|A6|A7|A8|A9,S31x1
+97,Merkle path/node position/swap,1750,1750,1,1,A0|A1|A2|A3|A4,S27x1
+249,Merkle path/node position/swap,1750,1750,1,1,A5|A6|A7|A8|A9,S31x1
+25,Merkle path/node position/swap,1751,1751,1,1,A0|A1|A2|A3|A4,S27x1
+140,Merkle path/MerkleCRH(16, left, right)/b_2/Range check 5 bits,1751,1753,3,3,A9,S2x2|S4x1
+89,Merkle path/node position/swap,1752,1752,1,1,A0|A1|A2|A3|A4,S27x1
+49,Merkle path/node position/swap,1753,1753,1,1,A0|A1|A2|A3|A4,S27x1
+9,Merkle path/node position/swap,1754,1754,1,1,A0|A1|A2|A3|A4,S27x1
+139,Merkle path/MerkleCRH(16, left, right)/b_1/Range check 5 bits,1754,1756,3,3,A9,S2x2|S4x1
+73,Merkle path/node position/swap,1755,1755,1,1,A0|A1|A2|A3|A4,S27x1
+81,Merkle path/node position/swap,1756,1756,1,1,A0|A1|A2|A3|A4,S27x1
+17,Merkle path/node position/swap,1757,1757,1,1,A0|A1|A2|A3|A4,S27x1
+289,CommitIvk/d_0/Range check 9 bits,1757,1759,3,3,A9,S2x2|S4x1
+3,cm_old/witness point,1758,1758,1,1,A0|A1,S5x1
+4,gd_old/witness non-identity point,1759,1759,1,1,A0|A1,S6x1
+5,witness ak_P/witness non-identity point,1760,1760,1,1,A0|A1,S6x1
+44,Merkle path/MerkleCRH(4, left, right)/b_2/Range check 5 bits,1760,1762,3,3,A9,S2x2|S4x1
+349,witness pk_d_new/witness non-identity point,1761,1761,1,1,A0|A1,S6x1
+348,witness g_d_new_star/witness non-identity point,1762,1762,1,1,A0|A1,S6x1
+43,Merkle path/MerkleCRH(4, left, right)/b_1/Range check 5 bits,1763,1765,3,3,A9,S2x2|S4x1
+302,witness pk_d_old/witness non-identity point,1763,1763,1,1,A0|A1,S6x1
+1,witness psi_old/load private,1764,1764,1,1,A0,
+6,witness nk/load private,1765,1765,1,1,A0,
+2,witness rho_old/load private,1766,1766,1,1,A0,
+27,Merkle path/MerkleCRH(2, left, right)/b_1/Range check 5 bits,1766,1768,3,3,A9,S2x2|S4x1
+350,witness psi_new/load private,1767,1767,1,1,A0,
+8,witness v_new/load private,1768,1768,1,1,A0,
+7,witness v_old/load private,1769,1769,1,1,A0,
+99,Merkle path/MerkleCRH(11, left, right)/b_1/Range check 5 bits,1769,1771,3,3,A9,S2x2|S4x1
+
+# advice column,distinct_rows,first,last
+A0,1753,0,1769
+A1,1748,0,1763
+A2,1730,0,1757
+A3,1748,0,1757
+A4,1744,0,1757
+A5,1723,0,1750
+A6,1298,0,1750
+A7,1285,0,1750
+A8,1240,0,1750
+A9,1768,1,1771
+
+# selector,activations
+S0,1
+S1,1
+S10,124
+S11,1
+S12,1
+S13,125
+S14,1
+S15,3
+S16,1
+S17,1
+S18,214
+S19,850
+S2,491
+S20,1
+S21,1
+S22,8
+S23,28
+S24,1
+S25,992
+S26,18
+S27,16
+S28,16
+S29,941
+S3,313
+S30,17
+S31,16
+S32,16
+S33,1
+S34,1
+S35,1
+S36,1
+S37,1
+S38,1
+S39,1
+S4,89
+S40,1
+S41,1
+S42,1
+S43,1
+S44,2
+S45,1
+S46,1
+S47,1
+S48,1
+S49,1
+S5,1
+S50,1
+S51,1
+S52,1
+S53,1
+S54,1
+S55,2
+S6,5
+S7,518
+S8,21
+S9,1
+
+# top 12 regions by row extent
+1024  generator_table
+ 137  [ivk] g_d_old/variable-base scalar mul/variable-base scalar mul
+ 110  g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M/hash_to_point
+ 110  g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/M/hash_to_point
+  86  nf_old = DeriveNullifier_nk(rho_old, psi_old, cm_old)/[poseidon_output + psi] NullifierK/base-field elem fixed-base mul of NullifierK/Base-field elem fixed-base mul (incomplete addition)
+  85  cv_net = ValueCommit^Orchard_rcv(v_net)/[rcv] ValueCommitR/fixed-base mul of ValueCommitR/Full-width fixed-base mul (incomplete addition)
+  85  [alpha] SpendAuthG/fixed-base mul of SpendAuthG/Full-width fixed-base mul (incomplete addition)
+  85  CommitIvk/Hash ak||nk/commit/[r] R/fixed-base mul of CommitIvkR/Full-width fixed-base mul (incomplete addition)
+  85  g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (incomplete addition)
+  85  g★_d || pk★_d || i2lebsp_{64}(v) || i2lebsp_{255}(rho) || i2lebsp_{255}(psi)/Process NoteCommit inputs/[r] R/fixed-base mul of NoteCommitR/Full-width fixed-base mul (incomplete addition)
+  53  Merkle path/MerkleCRH(0, left, right)/hash at l = 0/hash_to_point
+  53  Merkle path/MerkleCRH(1, left, right)/hash at l = 1/hash_to_point

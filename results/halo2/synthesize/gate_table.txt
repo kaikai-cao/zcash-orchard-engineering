@@ -1,0 +1,112 @@
+# gate,n_constraints,max_degree,selectors,constraints(deg:name)
+Orchard circuit checks,4,3,S0,3:v_old - v_new = magnitude * sign 3:Either v_old = 0, or root = anchor 3:v_old = 0 or enable_spend = 1 3:v_new = 0 or enable_output = 1
+Field element addition: c = a + b,1,2,S1,2:<unnamed>
+Short lookup bitshift,1,3,S4,3:<unnamed>
+witness point,2,5,S5,5:x == 0 v on_curve 5:y == 0 v on_curve
+witness non-identity point,1,4,S6,4:on_curve
+incomplete addition,2,4,S7,4:x_r 3:y_r
+complete addition,12,6,S8,4:1 5:2 6:3a 6:3b 6:3c 6:3d 4:4a 4:4b 4:5a 4:5b 4:6a 4:6b
+q_mul_1 == 1 checks,1,4,S9,4:init y_a
+q_mul_2 == 1 checks,6,4,S10,2:x_p_check 2:y_p_check 3:bool_check 4:gradient_1 3:secant_line 4:gradient_2
+q_mul_3 == 1 checks,4,4,S11,3:bool_check 4:gradient_1 3:secant_line 4:gradient_2
+q_mul_1 == 1 checks (instance 2),1,4,S12,4:init y_a
+q_mul_2 == 1 checks (instance 2),6,4,S13,2:x_p_check 2:y_p_check 3:bool_check 4:gradient_1 3:secant_line 4:gradient_2
+q_mul_3 == 1 checks (instance 2),4,4,S14,3:bool_check 4:gradient_1 3:secant_line 4:gradient_2
+Decompose scalar for complete bits of variable-base mul,2,3,S15,3:bool_check 3:y_switch
+overflow checks,5,5,S16,2:s_check 2:recovery 3:lo_zero 3:s_minus_lo_130_check 5:canonicity
+LSB check,3,3,S17,3:bool_check 3:lsb_x 3:lsb_y
+range check,1,9,S18,9:<unnamed>
+Running sum coordinates check,3,9,S18,9:check x 3:check y 4:on-curve
+Full-width fixed-base scalar mul,4,9,S19,9:check x 3:check y 4:on-curve 9:window range check
+Short fixed-base mul gate,4,3,S20,3:last_window_check 3:sign_check 3:y_check 3:negation_check
+Canonicity checks,8,5,S21,3:MSB = 1 => alpha_1 = 0 3:MSB = 1 => alpha_0_hi_120 = 0 4:MSB = 1 => a_43 = 0 or 1 3:MSB = 1 => z_13_alpha_0_prime = 0 5:alpha_1_range_check 3:alpha_2_range_check 2:z_84_alpha_check 2:alpha_0_prime check
+full round,3,6,S22,6:<unnamed> 6:<unnamed> 6:<unnamed>
+partial rounds,4,6,S23,6:<unnamed> 6:<unnamed> 2:<unnamed> 2:<unnamed>
+pad-and-add,3,2,S24,2:<unnamed> 2:<unnamed> 2:<unnamed>
+Initial y_Q,1,4,S26,4:init_y_q_check
+Sinsemilla gate,2,6,S25,3:Secant line 6:y check
+a' = b ⋅ swap + a ⋅ (1-swap),3,3,S27,3:a check 3:b check 3:swap is bool
+Decomposition check,4,2,S28,2:l_check 2:left_check 2:right_check 2:b1_b2_check
+Initial y_Q (instance 2),1,4,S30,4:init_y_q_check
+Sinsemilla gate (instance 2),2,6,S29,3:Secant line 6:y check
+a' = b ⋅ swap + a ⋅ (1-swap) (instance 2),3,3,S31,3:a check 3:b check 3:swap is bool
+Decomposition check (instance 2),4,2,S32,2:l_check 2:left_check 2:right_check 2:b1_b2_check
+CommitIvk canonicity check,14,3,S33,3:b1_bool_check 3:d1_bool_check 2:b_decomposition_check 2:d_decomposition_check 2:ak_decomposition_check 2:nk_decomposition_check 3:b0_canon_check 3:z13_a_check 2:a_prime_check 3:z13_a_prime 3:c0_canon_check 3:z13_c_check 2:b2_c_prime_check 3:z14_b2_c_prime
+NoteCommit MessagePiece b,3,3,S34,3:bool_check b_1 3:bool_check b_2 2:decomposition
+NoteCommit MessagePiece d,3,3,S35,3:bool_check d_0 3:bool_check d_1 2:decomposition
+NoteCommit MessagePiece e,1,2,S36,2:decomposition
+NoteCommit MessagePiece g,2,3,S37,3:bool_check g_0 2:decomposition
+NoteCommit MessagePiece h,2,3,S38,3:bool_check h_1 2:decomposition
+NoteCommit input g_d,5,3,S39,2:decomposition 2:a_prime_check 3:b_1 = 1 => b_0 3:b_1 = 1 => z13_a 3:b_1 = 1 => z13_a_prime
+NoteCommit input pk_d,4,3,S40,2:decomposition 2:b3_c_prime_check 3:d_0 = 1 => z13_c 3:d_0 = 1 => z14_b3_c_prime
+NoteCommit input value,1,2,S41,2:value_check
+NoteCommit input rho,4,3,S42,2:decomposition 2:e1_f_prime_check 3:g_0 = 1 => z13_f 3:g_0 = 1 => z14_e1_f_prime
+NoteCommit input psi,5,3,S43,2:decomposition 2:g1_g2_prime_check 3:h_1 = 1 => h_0 3:h_1 = 1 => z13_g 3:h_1 = 1 => z13_g1_g2_prime
+y coordinate checks,7,3,S44,3:k3_check 2:j_check 2:y_check 2:j_prime_check 3:k_3 = 1 => k_2 = 0 3:k_3 = 1 => z13_j = 0 3:k_3 = 1 => z13_j_prime = 0
+NoteCommit MessagePiece b (instance 2),3,3,S45,3:bool_check b_1 3:bool_check b_2 2:decomposition
+NoteCommit MessagePiece d (instance 2),3,3,S46,3:bool_check d_0 3:bool_check d_1 2:decomposition
+NoteCommit MessagePiece e (instance 2),1,2,S47,2:decomposition
+NoteCommit MessagePiece g (instance 2),2,3,S48,3:bool_check g_0 2:decomposition
+NoteCommit MessagePiece h (instance 2),2,3,S49,3:bool_check h_1 2:decomposition
+NoteCommit input g_d (instance 2),5,3,S50,2:decomposition 2:a_prime_check 3:b_1 = 1 => b_0 3:b_1 = 1 => z13_a 3:b_1 = 1 => z13_a_prime
+NoteCommit input pk_d (instance 2),4,3,S51,2:decomposition 2:b3_c_prime_check 3:d_0 = 1 => z13_c 3:d_0 = 1 => z14_b3_c_prime
+NoteCommit input value (instance 2),1,2,S52,2:value_check
+NoteCommit input rho (instance 2),4,3,S53,2:decomposition 2:e1_f_prime_check 3:g_0 = 1 => z13_f 3:g_0 = 1 => z14_e1_f_prime
+NoteCommit input psi (instance 2),5,3,S54,2:decomposition 2:g1_g2_prime_check 3:h_1 = 1 => h_0 3:h_1 = 1 => z13_g 3:h_1 = 1 => z13_g1_g2_prime
+y coordinate checks (instance 2),7,3,S55,3:k3_check 2:j_check 2:y_check 2:j_prime_check 3:k_3 = 1 => k_2 = 0 3:k_3 = 1 => z13_j = 0 3:k_3 = 1 => z13_j_prime = 0
+
+# selector,gate(s),n_constraints_at_that_gate
+S0,Orchard circuit checks(4)
+S1,Field element addition: c = a + b(1)
+S4,Short lookup bitshift(1)
+S5,witness point(2)
+S6,witness non-identity point(1)
+S7,incomplete addition(2)
+S8,complete addition(12)
+S9,q_mul_1 == 1 checks(1)
+S10,q_mul_2 == 1 checks(6)
+S11,q_mul_3 == 1 checks(4)
+S12,q_mul_1 == 1 checks (instance 2)(1)
+S13,q_mul_2 == 1 checks (instance 2)(6)
+S14,q_mul_3 == 1 checks (instance 2)(4)
+S15,Decompose scalar for complete bits of variable-base mul(2)
+S16,overflow checks(5)
+S17,LSB check(3)
+S18,range check(1) ; Running sum coordinates check(3)
+S19,Full-width fixed-base scalar mul(4)
+S20,Short fixed-base mul gate(4)
+S21,Canonicity checks(8)
+S22,full round(3)
+S23,partial rounds(4)
+S24,pad-and-add(3)
+S25,Sinsemilla gate(2)
+S26,Initial y_Q(1)
+S27,a' = b ⋅ swap + a ⋅ (1-swap)(3)
+S28,Decomposition check(4)
+S29,Sinsemilla gate (instance 2)(2)
+S30,Initial y_Q (instance 2)(1)
+S31,a' = b ⋅ swap + a ⋅ (1-swap) (instance 2)(3)
+S32,Decomposition check (instance 2)(4)
+S33,CommitIvk canonicity check(14)
+S34,NoteCommit MessagePiece b(3)
+S35,NoteCommit MessagePiece d(3)
+S36,NoteCommit MessagePiece e(1)
+S37,NoteCommit MessagePiece g(2)
+S38,NoteCommit MessagePiece h(2)
+S39,NoteCommit input g_d(5)
+S40,NoteCommit input pk_d(4)
+S41,NoteCommit input value(1)
+S42,NoteCommit input rho(4)
+S43,NoteCommit input psi(5)
+S44,y coordinate checks(7)
+S45,NoteCommit MessagePiece b (instance 2)(3)
+S46,NoteCommit MessagePiece d (instance 2)(3)
+S47,NoteCommit MessagePiece e (instance 2)(1)
+S48,NoteCommit MessagePiece g (instance 2)(2)
+S49,NoteCommit MessagePiece h (instance 2)(2)
+S50,NoteCommit input g_d (instance 2)(5)
+S51,NoteCommit input pk_d (instance 2)(4)
+S52,NoteCommit input value (instance 2)(1)
+S53,NoteCommit input rho (instance 2)(4)
+S54,NoteCommit input psi (instance 2)(5)
+S55,y coordinate checks (instance 2)(7)
