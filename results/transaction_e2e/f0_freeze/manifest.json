@@ -17,8 +17,20 @@
     "halo2_proofs": {
       "version": "0.4.0",
       "source": "vendor + [patch.crates-io]",
-      "src_sha256": "f6f9dd17904b8852961bd6ffd9ac5fd932f37c50a84a24c2337adab789e6d1b2",
-      "diff_vs_crates_io": "only src/plonk/prover.rs (E2 timers + E3 stage tags)"
+      "src_sha256": "6a720b0ec6b5c19417360294d2006daebcc440d9e712fa30ed655d157c6c0856",
+      "src_sha256_at_f0": "f6f9dd17904b8852961bd6ffd9ac5fd932f37c50a84a24c2337adab789e6d1b2",
+      "src_file_count": 58,
+      "diff_vs_crates_io": "6 files, +855 / -11; all measurement-only (no constraint/algorithm/data-structure change)",
+      "diff_files": {
+        "src/f2.rs": "+616 / -0 (new)",
+        "src/lib.rs": "+2 / -0",
+        "src/plonk.rs": "+7 / -0",
+        "src/plonk/keygen.rs": "+4 / -6",
+        "src/plonk/prover.rs": "+125 / -5",
+        "src/poly/evaluator.rs": "+101 / -0"
+      },
+      "patch": "experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-instrumentation.patch",
+      "src_sha256_note": "F2 added src/f2.rs and touched 5 more files, so the fingerprint moved from the F0 value (kept as src_sha256_at_f0 for audit). Every Stage E baseline in baseline_prove_ms was measured against the F0 source; F2 only adds counters behind ORCHARD_F2 (default off) and leaves evaluate() byte-equivalent when disabled."
     },
     "pasta_curves": {
       "version": "0.6.0",
@@ -85,7 +97,7 @@
   },
   "fingerprint_conventions": {
     "hash_normalization": "sha256 over LF-normalised bytes (CRLF->LF); .gitattributes pins these paths to `text eol=lf` so a clone reproduces them exactly",
-    "halo2_src_scope": "concatenation of the 57 .rs files under vendor/halo2_proofs-0.4.0/src, sorted by path",
+    "halo2_src_scope": "concatenation of the .rs files under vendor/halo2_proofs-0.4.0/src, sorted by path (58 as of F2: 57 upstream + src/f2.rs)",
     "pasta_src_scope": "concatenation of the 16 .rs files under the cargo registry copy of pasta_curves-0.6.0/src, sorted by path",
     "verify": "python scripts/analysis/f0_verify_frozen.py  (exit 0 = all fingerprints match)"
   },
@@ -95,5 +107,12 @@
     "scripts/analysis/f1_summarize.py",
     "results/transaction_e2e/f1_fp_mul/",
     "docs/orchard/12_fp_mul_microbench.md"
+  ],
+  "stage_f2_artifacts": [
+    "experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs",
+    "experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-instrumentation.patch",
+    "scripts/analysis/f2_expression_report.py",
+    "results/transaction_e2e/f2_expression/",
+    "docs/orchard/13_expression_evaluator_analysis.md"
   ]
 }

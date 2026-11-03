@@ -78,7 +78,7 @@ def main() -> int:
         sha256_file(lock_copy) if os.path.exists(lock_copy) else None,
     )
 
-    print("[2] halo2_proofs.src_sha256  (vendored, 57 .rs files, sorted by path)")
+    print("[2] halo2_proofs.src_sha256  (vendored, all .rs files under src, sorted by path)")
     vendor_src = os.path.join(root, "experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src")
     files = sorted(glob.glob(os.path.join(vendor_src, "**", "*.rs"), recursive=True))
     ok &= check(
