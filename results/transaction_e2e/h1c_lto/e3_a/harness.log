@@ -1,0 +1,9 @@
+pinned to CPU mask 0x1
+E3 sampler enabled (interval=4ms) -> ../../../results/transaction_e2e/h1c_lto/e3_a
+PROFILE_WINDOW_START tag= actions=2 warmup=3 reps=6 rayon_threads=1 affinity=0x1
+E3 sampler: 3118 thread-snapshots captured (interval=4ms)
+E3 sampler: wrote raw samples -> ../../../results/transaction_e2e/h1c_lto/e3_a/raw/e3_samples.txt
+E3 sampler: wrote module table -> ../../../results/transaction_e2e/h1c_lto/e3_a/raw/e3_modules.txt
+E3 sampler: summary ticks=3118 busy=611 (19.6%) threads=5 mean_busy_threads=1.01
+PROFILE_WINDOW_END wall_s=20.142889 reps=6 per_proof_ms=3357.148
+PROFILE_META {"tag":"","mode":"profile","circuit":"PostNu6_3","actions":2,"warmup":3,"reps":6,"fixture_s":0.008377,"keygen_s":2.583890,"build_s":0.011512,"loop_wall_s":20.142889,"per_proof_ms":3357.148,"rayon_threads":"1","affinity":"0x1"}

@@ -1,0 +1,11 @@
+stage_code,stage,source_file,busy_self_samples,pct_within_stage
+0,outside,pasta_curves/src/fields/fp.rs,179,36.907
+0,outside,pasta_curves/src/curves.rs,151,31.134
+0,outside,halo2_proofs/src/poly/evaluator.rs,64,13.196
+0,outside,subtle/src/lib.rs,60,12.371
+0,outside,<unknown>,13,2.680
+0,outside,halo2_proofs/src/arithmetic.rs,12,2.474
+0,outside,alloc/src/vec/spec_from_iter.rs,2,0.412
+0,outside,rayon-core/src/join/mod.rs,2,0.412
+0,outside,halo2_gadgets/src/utilities.rs,1,0.206
+0,outside,alloc/src/collections/btree/map.rs,1,0.206

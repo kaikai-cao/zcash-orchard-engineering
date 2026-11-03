@@ -1,0 +1,13 @@
+stage_code,stage,source_file,busy_self_samples,pct_within_stage
+0,outside,pasta_curves/src/fields/fp.rs,223,37.167
+0,outside,pasta_curves/src/curves.rs,160,26.667
+0,outside,subtle/src/lib.rs,89,14.833
+0,outside,halo2_proofs/src/poly/evaluator.rs,89,14.833
+0,outside,<unknown>,23,3.833
+0,outside,halo2_proofs/src/arithmetic.rs,6,1.000
+0,outside,pasta_curves/src/fields/fq.rs,3,0.500
+0,outside,alloc/src/vec/spec_from_iter.rs,3,0.500
+0,outside,crossbeam-deque/src/deque.rs,1,0.167
+0,outside,rayon/src/iter/map.rs,1,0.167
+0,outside,ff/src/lib.rs,1,0.167
+0,outside,alloc/src/collections/btree/map.rs,1,0.167

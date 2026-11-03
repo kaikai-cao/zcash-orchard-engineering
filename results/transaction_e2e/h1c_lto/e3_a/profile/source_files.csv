@@ -1,0 +1,13 @@
+source_file,busy_self_samples,pct_of_all_busy
+pasta_curves/src/fields/fp.rs,223,37.167
+pasta_curves/src/curves.rs,160,26.667
+halo2_proofs/src/poly/evaluator.rs,89,14.833
+subtle/src/lib.rs,89,14.833
+<unknown>,23,3.833
+halo2_proofs/src/arithmetic.rs,6,1.000
+alloc/src/vec/spec_from_iter.rs,3,0.500
+pasta_curves/src/fields/fq.rs,3,0.500
+rayon/src/iter/map.rs,1,0.167
+crossbeam-deque/src/deque.rs,1,0.167
+ff/src/lib.rs,1,0.167
+alloc/src/collections/btree/map.rs,1,0.167

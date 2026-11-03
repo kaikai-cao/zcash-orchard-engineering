@@ -1,0 +1,29 @@
+Stage H1c - LTO only, interleaved A/B
+========================================================================
+
+[1P]  rounds=5  samples/side=25
+  A (release)      median   3106.6 ms   mean   3179.2 ms   CV  3.84%
+  B (release+lto)  median   3141.2 ms   mean   3192.2 ms   CV  3.43%
+  pooled delta      +1.11%  (median B vs median A)
+  per round (median of 5 reps):
+    r1   A   3310.1   B   3294.6   delta  -0.47%
+    r2   A   3244.0   B   3149.3   delta  -2.92%
+    r3   A   3105.0   B   3134.0   delta  +0.93%
+    r4   A   3090.9   B   3122.0   delta  +1.01%
+    r5   A   3091.8   B   3134.5   delta  +1.38%
+  paired bootstrap over rounds: mean delta  +0.00%  95% CI [ -1.57%,  +1.14%]  (n=10000)
+  --- pre-registered gates (1P is the deciding arm) ---
+  G-C  |gain| < 1% or CI spans 0 -> no measurable benefit
+  CI upper bound is +1.14%, i.e. the data excludes a 10.6% win at 95%.
+
+[8P]  rounds=5  samples/side=25
+  A (release)      median    859.0 ms   mean    867.2 ms   CV  4.43%
+  B (release+lto)  median    870.1 ms   mean    872.0 ms   CV  2.61%
+  pooled delta      +1.29%  (median B vs median A)
+  per round (median of 5 reps):
+    r1   A    833.0   B    845.5   delta  +1.50%
+    r2   A    845.8   B    858.1   delta  +1.45%
+    r3   A    877.8   B    879.5   delta  +0.19%
+    r4   A    886.8   B    907.5   delta  +2.34%
+    r5   A    879.1   B    881.0   delta  +0.22%
+  paired bootstrap over rounds: mean delta  +1.14%  95% CI [ +0.45%,  +1.83%]  (n=10000)

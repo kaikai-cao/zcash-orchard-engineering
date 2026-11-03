@@ -1,0 +1,11 @@
+source_file,busy_self_samples,pct_of_all_busy
+pasta_curves/src/fields/fp.rs,179,36.907
+pasta_curves/src/curves.rs,151,31.134
+halo2_proofs/src/poly/evaluator.rs,64,13.196
+subtle/src/lib.rs,60,12.371
+<unknown>,13,2.680
+halo2_proofs/src/arithmetic.rs,12,2.474
+rayon-core/src/join/mod.rs,2,0.412
+alloc/src/vec/spec_from_iter.rs,2,0.412
+halo2_gadgets/src/utilities.rs,1,0.206
+alloc/src/collections/btree/map.rs,1,0.206

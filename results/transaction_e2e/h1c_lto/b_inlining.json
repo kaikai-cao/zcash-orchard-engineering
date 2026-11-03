@@ -1,0 +1,78 @@
+{
+  "label": "B",
+  "binary": "experiments/transaction_e2e/harness/target/h1c-b/lto/orchard-e2e.exe",
+  "map": "results/transaction_e2e/h1c_lto/b_lto.map",
+  "symbols_total": 8048,
+  "mul_symbols": 1,
+  "mul_entry_points": [
+    "0x140021560"
+  ],
+  "function_hits": [
+    {
+      "name": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h1eea14a202590fe8E",
+      "addr": "0x1402ac500",
+      "size": 2112
+    },
+    {
+      "name": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h70ec5c82edcbdc13E",
+      "addr": "0x1402ace40",
+      "size": 2272
+    }
+  ],
+  "bodies": [
+    {
+      "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h1eea14a202590fe8E",
+      "addr": "0x1402ac500",
+      "size_bytes": 2112,
+      "calls_in_body": 28,
+      "calls_to_mul": 4,
+      "calls_to_mul_sites": [
+        "0x1402ac6b7",
+        "0x1402ac819",
+        "0x1402ac89d",
+        "0x1402aca94"
+      ],
+      "call_targets_top": {
+        "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h1eea14a202590fe8E": 6,
+        "_ZN12pasta_curves6fields2fp2Fp3mul17h90c062e9bf1473dcE": 4,
+        "_ZN4core9panicking5panic17h0cc6c70cb61d6977E": 3,
+        "_ZN4core5slice5index24slice_end_index_len_fail17hc2826549a67c6d79E": 3,
+        "_ZN62_$LT$T$u20$as$u20$alloc..vec..spec_from_elem..SpecFromElem$GT$9from_elem17h3894339393a0d9bdE": 2,
+        "_ZN4core5slice5index22slice_index_order_fail17hd2876273a9359fe2E": 2,
+        "_ZN58_$LT$pasta_curves..fields..fp..Fp$u20$as$u20$ff..Field$GT$11pow_vartime17h9e0b8d311db4650bE": 1,
+        "_ZN98_$LT$alloc..vec..Vec$LT$T$GT$$u20$as$u20$alloc..vec..spec_from_iter..SpecFromIter$LT$T$C$I$GT$$GT$9from_iter17h7d8c7d9e8c82c061E": 1,
+        "_ZN98_$LT$alloc..vec..Vec$LT$T$GT$$u20$as$u20$alloc..vec..spec_from_iter..SpecFromIter$LT$T$C$I$GT$$GT$9from_iter17hb501ca49802b1520E": 1,
+        "_ZN3std3sys5alloc7windows18process_heap_alloc17h6dd7c352d1872482E": 1
+      }
+    },
+    {
+      "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h70ec5c82edcbdc13E",
+      "addr": "0x1402ace40",
+      "size_bytes": 2272,
+      "calls_in_body": 31,
+      "calls_to_mul": 5,
+      "calls_to_mul_sites": [
+        "0x1402ad007",
+        "0x1402ad169",
+        "0x1402ad1ed",
+        "0x1402ad3eb",
+        "0x1402ad3fa"
+      ],
+      "call_targets_top": {
+        "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h70ec5c82edcbdc13E": 6,
+        "_ZN12pasta_curves6fields2fp2Fp3mul17h90c062e9bf1473dcE": 5,
+        "_ZN4core9panicking5panic17h0cc6c70cb61d6977E": 3,
+        "_ZN4core5slice5index24slice_end_index_len_fail17hc2826549a67c6d79E": 3,
+        "_ZN62_$LT$T$u20$as$u20$alloc..vec..spec_from_elem..SpecFromElem$GT$9from_elem17h3894339393a0d9bdE": 2,
+        "_ZN3std3sys5alloc7windows18process_heap_alloc17h6dd7c352d1872482E": 2,
+        "_ZN5alloc7raw_vec12handle_error17h5d55154af761dff4E": 2,
+        "_ZN4core5slice5index22slice_index_order_fail17hd2876273a9359fe2E": 2,
+        "_ZN58_$LT$pasta_curves..fields..fp..Fp$u20$as$u20$ff..Field$GT$11pow_vartime17h9e0b8d311db4650bE": 1,
+        "_ZN98_$LT$alloc..vec..Vec$LT$T$GT$$u20$as$u20$alloc..vec..spec_from_iter..SpecFromIter$LT$T$C$I$GT$$GT$9from_iter17h7d8c7d9e8c82c061E": 1
+      }
+    }
+  ],
+  "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h1eea14a202590fe8E",
+  "calls_in_body": 59,
+  "calls_to_mul": 9
+}

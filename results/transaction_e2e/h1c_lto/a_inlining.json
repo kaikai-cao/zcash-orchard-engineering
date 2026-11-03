@@ -1,0 +1,77 @@
+{
+  "label": "A",
+  "binary": "experiments/transaction_e2e/harness/target/a_with_map.exe",
+  "map": "results/transaction_e2e/h1c_lto/a_baseline.map",
+  "symbols_total": 10428,
+  "mul_symbols": 14,
+  "mul_entry_points": [
+    "0x14001d2f0"
+  ],
+  "function_hits": [
+    {
+      "name": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h3f6be874c55d0c45E.llvm.17732523907832503711",
+      "addr": "0x140123530",
+      "size": 2288
+    },
+    {
+      "name": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17hbcda32e3edff82c7E.llvm.17732523907832503711",
+      "addr": "0x140123f10",
+      "size": 2752
+    }
+  ],
+  "bodies": [
+    {
+      "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h3f6be874c55d0c45E.llvm.1773252390",
+      "addr": "0x140123530",
+      "size_bytes": 2288,
+      "calls_in_body": 22,
+      "calls_to_mul": 5,
+      "calls_to_mul_sites": [
+        "0x1401236e9",
+        "0x14012377d",
+        "0x140123965",
+        "0x140123974",
+        "0x140123bfe"
+      ],
+      "call_targets_top": {
+        "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h3f6be874c55d0c45E.llvm.17732523907832503711": 6,
+        "_ZN12pasta_curves6fields2fp2Fp3mul17h29b0ce2c227d9a4aE.llvm.10973979939525175096": 5,
+        "_RNvCs691rhTbG0Ee_7___rustc14___rust_dealloc": 3,
+        "_RNvCs691rhTbG0Ee_7___rustc12___rust_alloc": 2,
+        "_ZN5alloc7raw_vec12handle_error17h5d55154af761dff4E": 2,
+        "_ZN12halo2_proofs4poly23Polynomial$LT$F$C$B$GT$27get_chunk_of_rotated_helper17h154ac7200ba5f6a4E": 1,
+        "_ZN58_$LT$pasta_curves..fields..fp..Fp$u20$as$u20$ff..Field$GT$11pow_vartime17hd2e3558386c6df89E": 1,
+        "_ZN98_$LT$alloc..vec..Vec$LT$T$GT$$u20$as$u20$alloc..vec..spec_from_iter..SpecFromIter$LT$T$C$I$GT$$GT$9from_iter17h3d21f92fd5fa8a39E": 1,
+        "_ZN4core9panicking18panic_bounds_check17hf9d18023e9bdaaf9E": 1
+      }
+    },
+    {
+      "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17hbcda32e3edff82c7E.llvm.1773252390",
+      "addr": "0x140123f10",
+      "size_bytes": 2752,
+      "calls_in_body": 33,
+      "calls_to_mul": 4,
+      "calls_to_mul_sites": [
+        "0x1401240b9",
+        "0x14012414d",
+        "0x14012431e",
+        "0x14012465e"
+      ],
+      "call_targets_top": {
+        "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17hbcda32e3edff82c7E.llvm.17732523907832503711": 6,
+        "_ZN12pasta_curves6fields2fp2Fp3mul17h29b0ce2c227d9a4aE.llvm.10973979939525175096": 4,
+        "_RNvCs691rhTbG0Ee_7___rustc12___rust_alloc": 3,
+        "_RNvCs691rhTbG0Ee_7___rustc14___rust_dealloc": 3,
+        "_ZN4core9panicking5panic17h0cc6c70cb61d6977E": 3,
+        "_ZN4core5slice5index24slice_end_index_len_fail17hc2826549a67c6d79E": 3,
+        "_ZN5alloc7raw_vec12handle_error17h5d55154af761dff4E": 3,
+        "_ZN4core5slice5index22slice_index_order_fail17hd2876273a9359fe2E": 2,
+        "_ZN58_$LT$pasta_curves..fields..fp..Fp$u20$as$u20$ff..Field$GT$11pow_vartime17hd2e3558386c6df89E": 1,
+        "_ZN98_$LT$alloc..vec..Vec$LT$T$GT$$u20$as$u20$alloc..vec..spec_from_iter..SpecFromIter$LT$T$C$I$GT$$GT$9from_iter17h3d21f92fd5fa8a39E": 1
+      }
+    }
+  ],
+  "function": "_ZN12halo2_proofs4poly9evaluator26Evaluator$LT$E$C$F$C$B$GT$14evaluate_inner7recurse17h3f6be874c55d0c45E.llvm.1773252390",
+  "calls_in_body": 55,
+  "calls_to_mul": 9
+}

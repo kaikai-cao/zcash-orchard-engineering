@@ -1,0 +1,21 @@
+stage_code,stage,function,source_file,busy_self_samples,pct_within_stage,pct_of_all_busy
+0,outside,pasta_curves::fields::fp::Fp::mul,pasta_curves/src/fields/fp.rs,177,36.495,36.495
+0,outside,pasta_curves::curves::impl$116::add,pasta_curves/src/curves.rs,69,14.227,14.227
+0,outside,"halo2_proofs::poly::evaluator::impl$5::evaluate_inner::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",halo2_proofs/src/poly/evaluator.rs,62,12.784,12.784
+0,outside,subtle::black_box<u8>,subtle/src/lib.rs,60,12.371,12.371
+0,outside,pasta_curves::curves::impl$95::double,pasta_curves/src/curves.rs,32,6.598,6.598
+0,outside,pasta_curves::curves::impl$115::add,pasta_curves/src/curves.rs,25,5.155,5.155
+0,outside,pasta_curves::curves::impl$123::add,pasta_curves/src/curves.rs,12,2.474,2.474
+0,outside,pasta_curves::curves::impl$4::double,pasta_curves/src/curves.rs,10,2.062,2.062
+0,outside,"halo2_proofs::arithmetic::recursive_butterfly_arithmetic<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp>",halo2_proofs/src/arithmetic.rs,7,1.443,1.443
+0,outside,_NLG_Return2,<unknown>,6,1.237,1.237
+0,outside,NtAlertThreadByThreadIdEx,<unknown>,5,1.031,1.031
+0,outside,halo2_proofs::arithmetic::Buckets<pasta_curves::curves::EqAffine>::sum<pasta_curves::curves::EqAffine>,halo2_proofs/src/arithmetic.rs,5,1.031,1.031
+0,outside,pasta_curves::curves::impl$25::add,pasta_curves/src/curves.rs,3,0.619,0.619
+0,outside,halo2_proofs::poly::evaluator::impl$30::constant_term<pasta_curves::fields::fp::Fp>,halo2_proofs/src/poly/evaluator.rs,2,0.412,0.412
+0,outside,"rayon_core::join::join_context::closure$0<rayon_core::join::join::call::closure_env$0<tuple$<>,halo2_proofs::arithmetic::recursive_butterfly_arithmetic::closure_env$0<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp> >,rayon_core::join::join::call::closure_env$0<tuple$<>,halo2_proofs::arithmetic::recursive_butterfly_arithmetic::closure_env$1<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp> >,tuple$<>,tuple$<> >",rayon-core/src/join/mod.rs,2,0.412,0.412
+0,outside,pasta_curves::fields::fp::impl$22::to_repr,pasta_curves/src/fields/fp.rs,2,0.412,0.412
+0,outside,NtFreeVirtualMemory,<unknown>,2,0.412,0.412
+0,outside,"alloc::vec::spec_from_iter::impl$0::from_iter<pasta_curves::fields::fp::Fp,core::iter::adapters::copied::Copied<core::iter::adapters::chain::Chain<core::slice::iter::Iter<pasta_curves::fields::fp::Fp>,core::slice::iter::Iter<pasta_curves::fields::fp::Fp> > > >",alloc/src/vec/spec_from_iter.rs,2,0.412,0.412
+0,outside,"alloc::collections::btree::map::impl$2::clone::clone_subtree<halo2_proofs::circuit::floor_planner::v1::strategy::AllocatedRegion,alloc::collections::btree::set_val::SetValZST,alloc::alloc::Global>",alloc/src/collections/btree/map.rs,1,0.206,0.206
+0,outside,halo2_gadgets::utilities::bitrange_subset<pasta_curves::fields::fp::Fp>,halo2_gadgets/src/utilities.rs,1,0.206,0.206
