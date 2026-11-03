@@ -9,7 +9,7 @@
 
 ## 0. 一句话结论
 
-在**库级**（`Builder::build` → `create_proof` → `apply_signatures`）的固定工作负载与合成夹具下，1 Spend + 2 Outputs 的 Orchard bundle，单线程 P 核证明生成 **3.202 s**，`create_proof` 占整个 Bundle 生命周期测量时间的 **98.72%**；`Builder` 构建（12.5 ms）与签名（0.59 ms）占比极低。
+在**库级**（`Builder::build` → `create_proof` → `apply_signatures`）的固定工作负载与合成夹具下，1 Spend + 2 Outputs 的 Orchard bundle，单线程 P 核证明生成 **3.202 s**；在 Bundle 生命周期四项测量中，`create_proof` 占 **98.69%**（分母 3 245.0 ms，含 fixture 则为 98.41%）；`Builder` 构建（12.5 ms）与签名（0.59 ms）占比极低。
 
 因此：**当前工作负载的主要性能优化对象是 Halo2 proving 路径。**
 
@@ -53,22 +53,37 @@ Harness 代码：`experiments/transaction_e2e/harness/`（独立 crate，通过 
 
 ## 3. 阶段分解（1S + 2O，2 Actions，单线程 P 核）
 
-| 阶段 | 均值 | 占总耗时 |
+| 阶段 | 均值 | 占比（分母含 fixture，3 254.1 ms） |
 |---|---:|---:|
 | Fixture 构造（note / 路径 / anchor） | 9.0 ms | 0.28% |
-| ProvingKey 生成（K=11） | 2 645 ms | — （冷启动一次性） |
+| ProvingKey 生成（K=11） | 2 645.3 ms | — （冷启动一次性，不进分母） |
 | `Builder::build`（含 Action 构造） | 12.5 ms | 0.39% |
-| **`create_proof`（Halo2）** | **3 202.4 ms** | **98.72%** |
+| **`create_proof`（Halo2）** | **3 202.4 ms** | **98.41%** |
 | `apply_signatures`（binding + spend auth） | 0.59 ms | 0.018% |
 | `verify_proof` | 29.5 ms | 0.91% |
 
-热路径合计 3 244.6 ms，其中证明占 98.7%。
+分母口径要钉死：含 fixture 的五项合计 **3 254.1 ms**，此时证明占 **98.41%**；若只算 Bundle 生命周期四项（`build + prove + sign + verify`，合计 **3 245.0 ms**），证明占 **98.69%**。两个数都对，取决于分母，引用时必须跟着写分母。
+
+**耗时口径必须写清楚**（各项的边界容易混）：
+
+| 口径 | 组成 | 合计 |
+|---|---|---:|
+| Bundle 生命周期、除证明外 | `Builder::build` + `apply_signatures` + `verify_proof` | **42.59 ms**（= 12.50 + 0.59 + 29.50） |
+| 上述三项 + 证明前的数据准备 | 再加 `fixture` | **51.6 ms** |
+| `create_proof` | 单独 | 3 202.4 ms |
+| `keygen` | 独立的一次性成本，不计入以上任何一栏 | 2 645.3 ms |
+
+即 42.59 ms 这个数**不含** fixture 的 9.0 ms；把 fixture 也算进来是 51.6 ms。`fixture` 是证明前的合成数据准备（note、Merkle 路径、anchor），不属于 Bundle 生命周期本身，所以单列。`keygen` 与这三项没有包含关系，任何时候都要单独报。
 
 几个值得注意的量级关系：
 
 - **签名几乎是免费的**（0.59 ms）。redpallas 签两个 Action 的开销，比证明低了 3 个数量级。
 - **验证 29.5 ms，是证明的 1/109**。这是 Halo2 相对 Groth16 的结构性特征：证明重、验证轻，且验证不需要配对。
-- **Keygen 2 645 ms 与一次证明同量级**。若某个进程在启动时必须从头生成 ProvingKey、且没有任何缓存或跨进程复用，它的首次证明成本是 5.85 s（keygen + prove）而不是 3.20 s。**这是「无缓存冷进程」的上界，不是任何具体钱包的首笔交易耗时**——实际取决于 Keygen 是否被预生成、是否复用、是否在线程池上并行（8 线程下 keygen 只要 1.36 s）。Sapling/Groth16 没有对应项，因为 CRS 是预生成的。
+- **Keygen 2 645 ms 与一次证明同量级**。2 645.3 + 3 202.4 = **5 847.7 ms**。这个数的准确含义是：**本机、单线程、无任何缓存或跨进程复用的条件下，「首次 Keygen + Prove」的成本**。
+
+  它不是「钱包第一笔交易的实测等待时间」：本实验没有覆盖钱包的完整流程（witness 获取、交易构造、签名、序列化、广播、网络），而 Keygen 是否被预生成、是否跨进程复用、是否在线程池上并行（8 线程下 keygen 只需 1.36 s）都会显著改变这个数字。它只是一条**上界**。
+
+  Sapling/Groth16 侧没有 Keygen 这一项，因为 CRS 是预生成的。但这**不等于** Sapling 加载参数没有成本——CRS 的读取、校验、内存占用只是不在本实验的测量范围内，不是零。
 
 ---
 
@@ -90,7 +105,7 @@ $$
 
 推论：
 
-- 每增加一个 Action，边际成本 **+1.29 s**；固定开销只有 **0.61 s**（共享的商多项式、承诺、IPA opening）。
+- 每增加一个 Action，边际成本 **+1.29 s**；与 Action 数无关的截距项是 **0.61 s**（统计量，不是已识别的具体操作）。
 - 常见的 2-Action 交易里，**81% 的证明时间是可归因到单个 Action 的**。这意味着任何「按 Action 摊销」的优化（Gadget 约束数、Sinsemilla 哈希、ECC 标量乘）都有 4/5 的杠杆；而**拟合截距项 0.61 s（19%）**最多只能碰这么多。
 
   注意：截距是「与 Action 数无关的那部分」的统计描述，**不等于 IPA 固定开销**。它可能包含 IPA opening、实例处理、证明系统的固定流程等多个成分，本实验没有把它们拆开。要拆需要源码级计时，属于阶段 E。
@@ -171,9 +186,21 @@ $$
 - Sapling Groth16 的 proof 是常数 192 B/份，1 Spend + 2 Outputs 需要三份（1 个 Spend proof + 2 个 Output proof）= **576 B**。
 - Orchard 2 Actions 的 proof 是 **7 264 B**，即 **12.6 倍**。
 
-这是**证明载荷之比，不是交易大小之比**。Sapling 的 Spend / Output 描述本身还各带约 384 B / 948 B 的编码开销（cv、anchor、nullifier、rk、epk、密文、签名等），Orchard 的 Action 是 820 B——两边完整 bundle 的差距远小于 12.6 倍。本报告不做完整交易大小的比较。
+这是**证明载荷之比，不是交易大小之比**，而且 384 B / 948 B 这两个数的性质要说准：
 
-12.6 倍的真正含义是：Halo2/IPA 用**证明体积**换掉了可信设置，同时把验证从"配对"变成了"内积论证"。这个权衡值得在最终报告里单独成节，但要用完整交易字节来支撑，不能只拿 proof 载荷说事。
+Sapling 的 `SpendDescription` 与 `OutputDescription` **完整编码大小**分别约为 **384 B** 和 **948 B**（Zcash v4/v5 交易格式，即 ShieldedSpend / ShieldedOutput 那一级结构；v6 的 Ironwood 描述结构未在本报告中涉及）。这两个数字**各自已经包含 192 B 的 Groth16 proof**，因此不能把它们整体称作「额外的编码开销」。
+
+| 项 | Sapling 1S+2O | Orchard 2 Actions |
+|---|---:|---:|
+| 描述/载荷合计 | 384 + 948×2 = 2 280 B | 9 009 B（Bundle 编码，含 bundle 级字段） |
+| 其中 proof | 192×3 = 576 B | 7 264 B |
+| 非证明部分 | 1 704 B（+约 10 B bundle 级） | 1 745 B（含 105 B bundle 级） |
+
+（Sapling 侧另有 bundle 级的 `valueBalance` 与计数项约 10 B，Orchard 侧含 flags 1 + value_balance 8 + anchor 32 + bsk_sig 64。）
+
+这张表要说的是：**两边的非证明部分几乎相同（1 704 B vs 1 745 B，差 2.4%），体积差距全部来自 proof 本身。** 所以 12.6× 描述的是证明载荷之争，不等于完整 bundle 的 12.6 倍（按上表估算是约 4 倍量级，但那是两个不同交易版本的结构对比，本报告不把它当作结论）。
+
+12.6 倍的真正含义是：Halo2/IPA 用**证明载荷体积**换掉了可信设置，同时把验证从「配对」变成了「内积论证」。这个权衡值得在最终报告里单独成节，但必须把三层（proof 载荷 / Bundle 编码 / 完整交易字节）分开表述，不能用一个倍数概括。
 
 ---
 
@@ -189,7 +216,7 @@ $$
 
 ## 9. 下一步
 
-V2 的这条基线是本轮所有对比的参照。后续的 NU6.3 迁移实验已经在 [`report_nu63_migration.md`](report_nu63_migration.md) 完成：同样 3 个 Action，拆成两个 Bundle 后证明成本是 5.285 s，其中 +0.80 s 与 Action 数无关，纯粹来自"多起一次证明"。
+V2 的这条基线是本轮所有对比的参照。后续的 NU6.3 迁移实验已经在 [`report_nu63_migration.md`](report_nu63_migration.md) 完成：同样 3 个 Action，拆成两个 Bundle 后证明成本是 5.2847 s，比本报告线性模型对 3-Action 单 Bundle 的预测值（4.4822 s）高出 **0.80 s**。这 0.80 s 是**模型残差**，不是受控实验测出的「拆池纯开销」——它可能来自第二次证明调用的固定流程、两个 Bundle 的工作负载差异，以及模型本身的误差，目前没有拆开。
 
 端到端实验到此收束，转入 `Config::configure()`。
 
