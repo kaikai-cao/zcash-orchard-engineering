@@ -30,3 +30,7 @@ rustc-ice-*.txt
 **/target/sampling/
 *.etl
 *.wprp
+
+# MSVC linker map files from the H1c disassembly check. Regenerable with the
+# documented `-C link-arg=/MAP:<file>` command; ~15 MB of symbol tables.
+**/*.map
