@@ -4,6 +4,7 @@
 
 # Raw measurement records: keep exactly what the tools wrote.
 results/**/*.txt -text
+results/**/*.log -text
 results/**/*.csv text eol=lf
 
 # Files whose sha256 is recorded in f0_freeze/manifest.json must land as LF on
