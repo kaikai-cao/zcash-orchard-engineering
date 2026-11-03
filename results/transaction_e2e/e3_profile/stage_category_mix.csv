@@ -1,0 +1,21 @@
+config,stage,category,self_pct_within_stage
+1p,outside,other:100.0
+1p,instance,curve arithmetic:50.0; field arithmetic:50.0
+1p,synthesis,curve arithmetic:65.5; constant-time barrier:20.7; idle/wait:6.9; other:3.4; memory / allocation:3.4
+1p,advice_commit,curve arithmetic:50.0; constant-time barrier:29.7; field arithmetic:6.8; FFT:6.8; idle/wait:4.1; MSM:2.7
+1p,eval_setup,other:100.0
+1p,lookup_permute,curve arithmetic:48.9; constant-time barrier:20.0; field arithmetic:15.6; idle/wait:8.9; other:4.4; MSM:2.2
+1p,permutation,curve arithmetic:33.3; constant-time barrier:33.3; field arithmetic:16.7; idle/wait:12.5; FFT:4.2
+1p,lookup_product,curve arithmetic:50.0; constant-time barrier:32.1; MSM:7.1; FFT:7.1; field arithmetic:3.6
+1p,quotient,field arithmetic:55.2; expression evaluation:29.8; curve arithmetic:5.7; constant-time barrier:4.4; other:3.0
+1p,opening,curve arithmetic:61.1; constant-time barrier:28.4; idle/wait:5.3; field arithmetic:3.2; MSM:1.1; other:1.1
+8p,outside,idle/wait:100.0
+8p,instance,constant-time barrier:50.0; other:25.0; curve arithmetic:25.0
+8p,synthesis,curve arithmetic:60.9; constant-time barrier:30.4; other:6.5; field arithmetic:2.2
+8p,advice_commit,curve arithmetic:60.9; constant-time barrier:21.7; field arithmetic:7.5; FFT:4.3; MSM:2.5; other:2.5
+8p,eval_setup,other:100.0
+8p,lookup_permute,curve arithmetic:57.3; constant-time barrier:17.9; field arithmetic:12.8; FFT:5.1; MSM:3.4; other:2.6
+8p,permutation,curve arithmetic:53.1; constant-time barrier:22.4; field arithmetic:10.2; FFT:6.1; MSM:4.1; idle/wait:2.0; other:2.0
+8p,lookup_product,curve arithmetic:63.0; constant-time barrier:26.0; field arithmetic:4.1; MSM:2.7; FFT:1.4; memory / allocation:1.4; other:1.4
+8p,quotient,field arithmetic:65.4; expression evaluation:23.7; curve arithmetic:4.6; other:2.9; constant-time barrier:2.5
+8p,opening,curve arithmetic:69.8; constant-time barrier:23.4; field arithmetic:3.6; MSM:1.6; other:1.0

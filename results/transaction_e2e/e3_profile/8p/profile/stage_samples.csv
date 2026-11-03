@@ -1,0 +1,11 @@
+stage_code,stage,live_samples,busy_samples,busy_pct_of_all_busy,live_pct
+0,outside,11,2,0.113,0.292
+1,instance,22,4,0.226,0.584
+2,synthesis,577,46,2.600,15.321
+3,advice_commit,379,161,9.101,10.064
+4,eval_setup,37,3,0.170,0.982
+5,lookup_permute,263,117,6.614,6.984
+6,permutation,141,49,2.770,3.744
+7,lookup_product,145,73,4.127,3.850
+8,quotient,1783,1122,63.426,47.345
+9,opening,408,192,10.854,10.834

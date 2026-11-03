@@ -1,0 +1,97 @@
+==============================================================================
+Stage E3 — CPU sampling roll-up
+==============================================================================
+[1p] window=21.212047s proofs=6 per_proof=3535.341ms ticks=3366 busy=665 threads=5 mean_busy_threads=1.01
+[8p] window=21.431985s proofs=20 per_proof=1071.599ms ticks=3766 busy=1769 threads=12 mean_busy_threads=5.76
+
+Per-stage CPU (thread) time share and absolute CPU seconds per proof
+stage                1P%  1P s/pf     8P%  8P s/pf  CPU 1P/8P
+outside             0.15    0.005    0.11    0.007       0.77
+instance            0.30    0.011    0.23    0.014       0.77
+synthesis           4.36    0.152    2.60    0.157       0.97
+advice_commit      11.13    0.389    9.10    0.550       0.71
+eval_setup          0.15    0.005    0.17    0.010       0.51
+lookup_permute      6.77    0.236    6.61    0.400       0.59
+permutation         3.61    0.126    2.77    0.167       0.75
+lookup_product      4.21    0.147    4.13    0.249       0.59
+quotient           55.04    1.922   63.43    3.831       0.50
+opening            14.29    0.499   10.85    0.656       0.76
+TOTAL             100.00    3.492  100.00    6.040       0.58
+  wall per proof: 1P 3535.341ms, 8P 1071.599ms  -> wall speed-up 3.30x
+  CPU per proof:  1P 3.492s, 8P 6.040s  -> extra CPU work in 8P 1.73x  (achieved parallel width 5.76 of 8 cores)
+
+Top hot functions by CPU self time (1P ranked; 8P share for comparison)
+ self% 1P  self% 8P    Δpp  stage         category                function
+    33.08     42.85  +9.77  quotient      field arithmetic        pasta_curves::fields::fp::Fp::mul
+    16.24     15.04  -1.20  quotient      expression evaluation   halo2_proofs::poly::evaluator::evaluate::recurse<...>
+    12.33     13.45  +1.12  opening       curve arithmetic        pasta_curves::curves::add
+    14.59      9.89  -4.69  opening       constant-time barrier   subtle::black_box<u8>
+     5.56      5.82  +0.26  advice_commit curve arithmetic        pasta_curves::curves::add
+     5.41      3.50  -1.91  opening       curve arithmetic        pasta_curves::curves::double
+     1.80      1.75  -0.05  quotient      other                   _NLG_Return2
+     1.20      1.19  -0.02  quotient      MSM                     halo2_proofs::arithmetic::Buckets<...>
+     0.75      1.19  +0.44  advice_commit curve arithmetic        pasta_curves::curves::add
+     1.05      0.85  -0.20  advice_commit FFT                     halo2_proofs::arithmetic::recursive_butterfly_arithmetic<...>
+     0.45      1.02  +0.57  lookup_permutefield arithmetic        pasta_curves::fields::fp::to_repr
+     1.80      0.51  -1.30  synthesis     curve arithmetic        pasta_curves::curves::double
+     2.71      0.17  -2.54  opening       idle/wait               NtAlertThreadByThreadIdEx
+     0.75      0.62  -0.13  synthesis     curve arithmetic        pasta_curves::curves::add
+
+Activity categories (sum of function self shares)
+category                         1P%     8P%     Δpp
+field arithmetic               33.53   43.92  +10.39
+curve arithmetic               27.07   25.55   -1.52
+expression evaluation          16.39   15.04   -1.35
+constant-time barrier          14.59    9.89   -4.69
+idle/wait                       2.71    0.40   -2.31
+other                           2.56    2.83   +0.27
+MSM                             1.35    1.19   -0.17
+FFT                             1.20    1.02   -0.19
+memory / allocation             0.60    0.17   -0.43
+
+Within-stage category mix (busy self share inside each stage)
+  [1p] outside         other 100%
+  [1p] instance        curve arithmetic 50%, field arithmetic 50%
+  [1p] synthesis       curve arithmetic 66%, constant-time barrier 21%, idle/wait 7%, other 3%
+  [1p] advice_commit   curve arithmetic 50%, constant-time barrier 30%, field arithmetic 7%, FFT 7%
+  [1p] eval_setup      other 100%
+  [1p] lookup_permute  curve arithmetic 49%, constant-time barrier 20%, field arithmetic 16%, idle/wait 9%
+  [1p] permutation     curve arithmetic 33%, constant-time barrier 33%, field arithmetic 17%, idle/wait 12%
+  [1p] lookup_product  curve arithmetic 50%, constant-time barrier 32%, MSM 7%, FFT 7%
+  [1p] quotient        field arithmetic 55%, expression evaluation 30%, curve arithmetic 6%, constant-time barrier 4%
+  [1p] opening         curve arithmetic 61%, constant-time barrier 28%, idle/wait 5%, field arithmetic 3%
+  [8p] outside         idle/wait 100%
+  [8p] instance        constant-time barrier 50%, other 25%, curve arithmetic 25%
+  [8p] synthesis       curve arithmetic 61%, constant-time barrier 30%, other 7%, field arithmetic 2%
+  [8p] advice_commit   curve arithmetic 61%, constant-time barrier 22%, field arithmetic 7%, FFT 4%
+  [8p] eval_setup      other 100%
+  [8p] lookup_permute  curve arithmetic 57%, constant-time barrier 18%, field arithmetic 13%, FFT 5%
+  [8p] permutation     curve arithmetic 53%, constant-time barrier 22%, field arithmetic 10%, FFT 6%
+  [8p] lookup_product  curve arithmetic 63%, constant-time barrier 26%, field arithmetic 4%, MSM 3%
+  [8p] quotient        field arithmetic 65%, expression evaluation 24%, curve arithmetic 5%, other 3%
+  [8p] opening         curve arithmetic 70%, constant-time barrier 23%, field arithmetic 4%, MSM 2%
+
+Top source lines (1P)
+  16.39%  pasta_curves/src/fields/fp.rs:369  pasta_curves::fields::fp::Fp::mul
+  13.53%  subtle/src/lib.rs:234  subtle::black_box<u8>
+  10.98%  pasta_curves/src/fields/fp.rs:368  pasta_curves::fields::fp::Fp::mul
+   4.96%  halo2_proofs/src/poly/evaluator.rs:175  halo2_proofs::poly::evaluator::evaluate::recurse<...>
+   4.96%  halo2_proofs/src/poly/evaluator.rs:182  halo2_proofs::poly::evaluator::evaluate::recurse<...>
+   4.36%  pasta_curves/src/fields/fp.rs:370  pasta_curves::fields::fp::Fp::mul
+   3.01%  halo2_proofs/src/poly/evaluator.rs:167  halo2_proofs::poly::evaluator::evaluate::recurse<...>
+   2.71%  <unknown>:0  NtAlertThreadByThreadIdEx
+   2.26%  halo2_proofs/src/poly/evaluator.rs:186  halo2_proofs::poly::evaluator::evaluate::recurse<...>
+   1.80%  <unknown>:0  _NLG_Return2
+
+Caller attribution — who invokes the biggest leaf hotspots (1P)
+   202  pasta_curves::fields::fp::Fp::mul          <- halo2_proofs::poly::evaluator::evaluate::recurse<...>
+    93  halo2_proofs::poly::evaluator::evaluat...  <- halo2_proofs::poly::evaluator::evaluate::recurse<...>
+    22  pasta_curves::curves::double               <- core::iter::adapters::rev::fold<...>
+    18  subtle::black_box<u8>                      <- pasta_curves::curves::add
+    17  pasta_curves::curves::add                  <- halo2_proofs::arithmetic::Buckets<...>
+    17  subtle::black_box<u8>                      <- pasta_curves::curves::add
+    17  pasta_curves::curves::add                  <- halo2_proofs::arithmetic::Buckets<...>
+    15  halo2_proofs::poly::evaluator::evaluat...  <- rayon_core::scope::ScopeBase::execute_job_closure<...>
+    15  pasta_curves::curves::add                  <- halo2_proofs::arithmetic::Buckets<...>
+    15  pasta_curves::curves::add                  <- halo2_proofs::arithmetic::Buckets<...>
+

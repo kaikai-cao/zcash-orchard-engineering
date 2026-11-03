@@ -1,0 +1,20 @@
+ M docs/orchard/06_variable_base_mul.md
+ M experiments/transaction_e2e/harness/Cargo.lock
+ M experiments/transaction_e2e/harness/Cargo.toml
+ M experiments/transaction_e2e/harness/src/main.rs
+?? .workbuddy/
+?? docs/orchard/07_note_commit_new.md
+?? docs/orchard/08_action_cost_map.md
+?? docs/orchard/09_create_proof_timing.md
+?? docs/orchard/10_cpu_sampling_profile.md
+?? docs/orchard/INDEX.md
+?? experiments/transaction_e2e/aggregate_cost.py
+?? experiments/transaction_e2e/harness/src/e3sampler.rs
+?? experiments/transaction_e2e/vendor/
+?? results/transaction_e2e/baseline/
+?? results/transaction_e2e/e2_timing/
+?? results/transaction_e2e/e3_profile/
+?? results/transaction_e2e/f0_freeze/
+?? scripts/analysis/e1_baseline_csv.py
+?? scripts/analysis/e2_stage_csv.py
+?? scripts/analysis/e3_profile_report.py

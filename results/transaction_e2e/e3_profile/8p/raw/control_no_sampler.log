@@ -1,0 +1,5 @@
+pinned to CPU mask 0xff
+PROFILE_WINDOW_START tag=ctrl8p actions=2 warmup=3 reps=20 rayon_threads=8 affinity=0xff
+  profile rep 10/20 done
+PROFILE_WINDOW_END wall_s=19.434891 reps=20 per_proof_ms=971.745
+PROFILE_META {"tag":"ctrl8p","mode":"profile","circuit":"PostNu6_3","actions":2,"warmup":3,"reps":20,"fixture_s":0.008308,"keygen_s":1.439509,"build_s":0.011512,"loop_wall_s":19.434891,"per_proof_ms":971.745,"rayon_threads":"8","affinity":"0xff"}

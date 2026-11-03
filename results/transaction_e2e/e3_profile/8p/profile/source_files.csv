@@ -1,0 +1,17 @@
+source_file,busy_self_samples,pct_of_all_busy
+pasta_curves/src/fields/fp.rs,776,43.867
+pasta_curves/src/curves.rs,445,25.155
+halo2_proofs/src/poly/evaluator.rs,266,15.037
+subtle/src/lib.rs,175,9.893
+<unknown>,48,2.713
+halo2_proofs/src/arithmetic.rs,38,2.148
+pasta_curves/src/macros.rs,7,0.396
+crossbeam-epoch/src/default.rs,4,0.226
+halo2_proofs/src/poly/domain.rs,2,0.113
+alloc/src/vec/spec_from_iter.rs,2,0.113
+pasta_curves/src/fields/modinv62.rs,1,0.057
+ff/src/lib.rs,1,0.057
+halo2_proofs/src/circuit/floor_planner/v1.rs,1,0.057
+std/src/sys/thread_local/native/mod.rs,1,0.057
+rayon-core/src/registry.rs,1,0.057
+halo2_proofs/src/plonk/lookup/prover.rs,1,0.057

@@ -1,0 +1,10 @@
+category,self_pct_1p,self_pct_8p,delta_pp
+field arithmetic,33.534,43.923,10.389
+curve arithmetic,27.068,25.551,-1.517
+expression evaluation,16.391,15.037,-1.354
+constant-time barrier,14.586,9.893,-4.694
+idle/wait,2.707,0.396,-2.311
+other,2.557,2.826,0.270
+MSM,1.353,1.187,-0.166
+FFT,1.203,1.018,-0.185
+memory / allocation,0.602,0.170,-0.432

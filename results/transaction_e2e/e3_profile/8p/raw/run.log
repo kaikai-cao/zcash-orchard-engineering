@@ -1,0 +1,18 @@
+pinned to CPU mask 0xff
+E3 sampler enabled (interval=4ms) -> ../../../results/transaction_e2e/e3_profile/8p
+PROFILE_WINDOW_START tag=e3_8p actions=2 warmup=3 reps=20 rayon_threads=8 affinity=0xff
+  profile rep 10/20 done
+E3 sampler: 3766 thread-snapshots captured (interval=4ms)
+E3 sampler: wrote raw samples -> ../../../results/transaction_e2e/e3_profile/8p/raw/e3_samples.txt
+E3 sampler: wrote module table -> ../../../results/transaction_e2e/e3_profile/8p/raw/e3_modules.txt
+E3 sampler: wrote 201 functions -> ../../../results/transaction_e2e/e3_profile/8p/profile/hot_functions.csv
+E3 sampler: wrote per-thread utilisation -> ../../../results/transaction_e2e/e3_profile/8p/profile/threads.csv
+E3 sampler: wrote per-stage totals -> ../../../results/transaction_e2e/e3_profile/8p/profile/stage_samples.csv
+E3 sampler: wrote per-stage functions -> ../../../results/transaction_e2e/e3_profile/8p/profile/stage_functions.csv
+E3 sampler: wrote per-source-file totals -> ../../../results/transaction_e2e/e3_profile/8p/profile/source_files.csv
+E3 sampler: wrote per-stage source files -> ../../../results/transaction_e2e/e3_profile/8p/profile/stage_source_files.csv
+E3 sampler: wrote caller attribution -> ../../../results/transaction_e2e/e3_profile/8p/profile/hot_callers.csv
+E3 sampler: wrote hottest source lines -> ../../../results/transaction_e2e/e3_profile/8p/profile/hot_lines.csv
+E3 sampler: summary ticks=3766 busy=1769 (47.0%) threads=12 mean_busy_threads=5.76
+PROFILE_WINDOW_END wall_s=21.431985 reps=20 per_proof_ms=1071.599
+PROFILE_META {"tag":"e3_8p","mode":"profile","circuit":"PostNu6_3","actions":2,"warmup":3,"reps":20,"fixture_s":0.008060,"keygen_s":1.438347,"build_s":0.011619,"loop_wall_s":21.431985,"per_proof_ms":1071.599,"rayon_threads":"8","affinity":"0xff"}

@@ -1,0 +1,85 @@
+source_file,line,function,busy_self_samples,pct_of_all_busy
+pasta_curves/src/fields/fp.rs,369,pasta_curves::fields::fp::Fp::mul,109,16.391
+subtle/src/lib.rs,234,subtle::black_box<u8>,90,13.534
+pasta_curves/src/fields/fp.rs,368,pasta_curves::fields::fp::Fp::mul,73,10.977
+halo2_proofs/src/poly/evaluator.rs,175,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",33,4.962
+halo2_proofs/src/poly/evaluator.rs,182,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",33,4.962
+pasta_curves/src/fields/fp.rs,370,pasta_curves::fields::fp::Fp::mul,29,4.361
+halo2_proofs/src/poly/evaluator.rs,167,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",20,3.008
+<unknown>,0,NtAlertThreadByThreadIdEx,18,2.707
+halo2_proofs/src/poly/evaluator.rs,186,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",15,2.256
+<unknown>,0,_NLG_Return2,12,1.805
+pasta_curves/src/curves.rs,481,pasta_curves::curves::impl$116::add,12,1.805
+pasta_curves/src/curves.rs,867,pasta_curves::curves::impl$95::double,10,1.504
+pasta_curves/src/curves.rs,499,pasta_curves::curves::impl$116::add,10,1.504
+pasta_curves/src/fields/fp.rs,367,pasta_curves::fields::fp::Fp::mul,9,1.353
+pasta_curves/src/curves.rs,502,pasta_curves::curves::impl$116::add,9,1.353
+pasta_curves/src/curves.rs,498,pasta_curves::curves::impl$116::add,9,1.353
+pasta_curves/src/curves.rs,494,pasta_curves::curves::impl$116::add,8,1.203
+pasta_curves/src/curves.rs,480,pasta_curves::curves::impl$116::add,8,1.203
+halo2_proofs/src/arithmetic.rs,76,halo2_proofs::arithmetic::Buckets<pasta_curves::curves::EqAffine>::sum<pasta_curves::curves::EqAffine>,7,1.053
+pasta_curves/src/curves.rs,501,pasta_curves::curves::impl$116::add,6,0.902
+halo2_proofs/src/arithmetic.rs,284,"halo2_proofs::arithmetic::recursive_butterfly_arithmetic<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp>",6,0.902
+pasta_curves/src/curves.rs,865,pasta_curves::curves::impl$95::double,6,0.902
+pasta_curves/src/curves.rs,497,pasta_curves::curves::impl$116::add,6,0.902
+pasta_curves/src/curves.rs,479,pasta_curves::curves::impl$116::add,5,0.752
+pasta_curves/src/curves.rs,440,pasta_curves::curves::impl$115::add,5,0.752
+pasta_curves/src/curves.rs,458,pasta_curves::curves::impl$115::add,4,0.602
+pasta_curves/src/curves.rs,439,pasta_curves::curves::impl$115::add,4,0.602
+pasta_curves/src/curves.rs,476,pasta_curves::curves::impl$116::add,4,0.602
+pasta_curves/src/curves.rs,455,pasta_curves::curves::impl$115::add,4,0.602
+subtle/src/lib.rs,232,subtle::black_box<u8>,4,0.602
+pasta_curves/src/curves.rs,438,pasta_curves::curves::impl$115::add,4,0.602
+pasta_curves/src/curves.rs,873,pasta_curves::curves::impl$4::double,4,0.602
+pasta_curves/src/curves.rs,874,pasta_curves::curves::impl$95::double,4,0.602
+halo2_proofs/src/poly/evaluator.rs,205,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",4,0.602
+pasta_curves/src/curves.rs,456,pasta_curves::curves::impl$115::add,4,0.602
+pasta_curves/src/curves.rs,866,pasta_curves::curves::impl$95::double,3,0.451
+pasta_curves/src/curves.rs,869,pasta_curves::curves::impl$95::double,3,0.451
+alloc/src/vec/spec_from_iter.rs,34,"alloc::vec::spec_from_iter::impl$0::from_iter<pasta_curves::fields::fp::Fp,core::iter::adapters::copied::Copied<core::iter::adapters::chain::Chain<core::slice::iter::Iter<pasta_curves::fields::fp::Fp>,core::slice::iter::Iter<pasta_curves::fields::fp::Fp> > > >",3,0.451
+halo2_proofs/src/poly/evaluator.rs,166,"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",3,0.451
+subtle/src/lib.rs,224,subtle::black_box<u8>,3,0.451
+pasta_curves/src/curves.rs,454,pasta_curves::curves::impl$115::add,3,0.451
+pasta_curves/src/curves.rs,873,pasta_curves::curves::impl$95::double,3,0.451
+pasta_curves/src/curves.rs,874,pasta_curves::curves::impl$4::double,3,0.451
+pasta_curves/src/fields/fp.rs,678,pasta_curves::fields::fp::impl$22::to_repr,2,0.301
+pasta_curves/src/curves.rs,459,pasta_curves::curves::impl$115::add,2,0.301
+pasta_curves/src/curves.rs,879,pasta_curves::curves::impl$95::double,2,0.301
+pasta_curves/src/curves.rs,880,pasta_curves::curves::impl$95::double,2,0.301
+pasta_curves/src/curves.rs,491,pasta_curves::curves::impl$116::add,2,0.301
+pasta_curves/src/curves.rs,612,pasta_curves::curves::impl$123::add,2,0.301
+pasta_curves/src/curves.rs,867,pasta_curves::curves::impl$4::double,2,0.301
+pasta_curves/src/curves.rs,870,pasta_curves::curves::impl$95::double,2,0.301
+<unknown>,0,RtlSetProcessPreferredUILanguages,2,0.301
+pasta_curves/src/curves.rs,450,pasta_curves::curves::impl$115::add,2,0.301
+pasta_curves/src/curves.rs,460,pasta_curves::curves::impl$115::add,2,0.301
+<unknown>,0,RtlGetSuiteMask,2,0.301
+pasta_curves/src/curves.rs,609,pasta_curves::curves::impl$123::add,1,0.150
+pasta_curves/src/curves.rs,481,pasta_curves::curves::impl$25::add,1,0.150
+pasta_curves/src/curves.rs,490,pasta_curves::curves::impl$116::add,1,0.150
+pasta_curves/src/curves.rs,457,pasta_curves::curves::impl$115::add,1,0.150
+pasta_curves/src/curves.rs,614,pasta_curves::curves::impl$123::add,1,0.150
+pasta_curves/src/curves.rs,493,pasta_curves::curves::impl$116::add,1,0.150
+pasta_curves/src/curves.rs,865,pasta_curves::curves::impl$4::double,1,0.150
+pasta_curves/src/curves.rs,613,pasta_curves::curves::impl$123::add,1,0.150
+halo2_proofs/src/plonk/circuit.rs,531,"enum2$<halo2_proofs::plonk::circuit::Expression<pasta_curves::fields::fp::Fp> >::evaluate<pasta_curves::fields::fp::Fp,enum2$<halo2_proofs::poly::evaluator::Ast<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff> >,enum2$<halo2_proofs::poly::evaluator::Ast<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqA ",1,0.150
+rayon-core/src/join/mod.rs,153,"rayon_core::join::join_context::closure$0<rayon_core::join::join::call::closure_env$0<tuple$<>,halo2_proofs::arithmetic::recursive_butterfly_arithmetic::closure_env$0<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp> >,rayon_core::join::join::call::closure_env$0<tuple$<>,halo2_proofs::arithmetic::recursive_butterfly_arithmetic::closure_env$1<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp> >,tuple$<>,tuple$<> >",1,0.150
+halo2_proofs/src/arithmetic.rs,279,"halo2_proofs::arithmetic::recursive_butterfly_arithmetic<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp>",1,0.150
+pasta_curves/src/curves.rs,493,pasta_curves::curves::impl$25::add,1,0.150
+pasta_curves/src/curves.rs,880,pasta_curves::curves::impl$4::double,1,0.150
+pasta_curves/src/curves.rs,498,pasta_curves::curves::impl$25::add,1,0.150
+pasta_curves/src/curves.rs,662,pasta_curves::curves::impl$126::mul,1,0.150
+pasta_curves/src/curves.rs,502,pasta_curves::curves::impl$25::add,1,0.150
+pasta_curves/src/curves.rs,435,pasta_curves::curves::impl$115::add,1,0.150
+halo2_proofs/src/arithmetic.rs,85,halo2_proofs::arithmetic::Buckets<pasta_curves::curves::EqAffine>::sum<pasta_curves::curves::EqAffine>,1,0.150
+pasta_curves/src/macros.rs,95,pasta_curves::fields::fq::impl$44::mul,1,0.150
+core/src/iter/adapters/map.rs,128,"core::iter::adapters::map::impl$2::fold<pasta_curves::fields::fp::Fp,core::iter::adapters::zip::Zip<core::slice::iter::Iter<enum2$<halo2_proofs::plonk::assigned::Assigned<pasta_curves::fields::fp::Fp> > >,core::iter::adapters::map::Map<alloc::vec::into_iter::IntoIter<enum2$<core::option::Option<pasta_curves::fields::fp::Fp> >,alloc::alloc::Global>,halo2_proofs::poly::batch_invert_assigned::closure$2::closure_env$0<pasta_curves::fields::fp::Fp> > >,halo2_proofs::poly::impl$12::invert::closure_env$0<pasta_curves::fields::fp::Fp,core::iter::adapters::map::Map<alloc::vec::into_iter::IntoIter<enum2$<core::option::Option<pasta_curves::fields::fp::Fp> >,alloc::alloc::Global>,halo2_proofs::poly::batch_invert_assigned::closure$2::closure_env$0<pasta_curves::fields::fp::Fp> > >,tuple$<>,core::iter::traits::iterator::Iterator::for_each::call::closure_env$0<pasta_curves::fields::fp::Fp,alloc::vec::impl$20::extend_trusted::closure_env$0<pasta_curves::fields::fp::Fp,alloc::alloc::Global,core::iter::adapters::map::Map<core ",1,0.150
+rayon/src/iter/plumbing/mod.rs,410,"rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::iter::rev::RevProducer<rayon::iter::enumerate::EnumerateProducer<rayon::slice::IterMutProducer<halo2_proofs::arithmetic::Buckets<pasta_curves::curves::EqAffine> > > >,rayon::iter::map::MapConsumer<rayon::iter::reduce::ReduceConsumer<halo2_proofs::arithmetic::best_multiexp::closure_env$1<pasta_curves::curves::EqAffine>,pasta_curves::curves::Eq (*)()>,halo2_proofs::arithmetic::best_multiexp::closure_env$0<pasta_curves::curves::EqAffine> > >",1,0.150
+pasta_curves/src/curves.rs,871,pasta_curves::curves::impl$95::double,1,0.150
+pasta_curves/src/curves.rs,480,pasta_curves::curves::impl$25::add,1,0.150
+pasta_curves/src/curves.rs,500,pasta_curves::curves::impl$116::add,1,0.150
+pasta_curves/src/curves.rs,670,pasta_curves::curves::impl$35::mul,1,0.150
+pasta_curves/src/curves.rs,870,pasta_curves::curves::impl$4::double,1,0.150
+pasta_curves/src/fields/fp.rs,687,pasta_curves::fields::fp::impl$22::to_repr,1,0.150
+pasta_curves/src/curves.rs,436,pasta_curves::curves::impl$115::add,1,0.150
+ff/src/lib.rs,175,"ff::Field::pow<pasta_curves::fields::fq::Fq,array$<u64,4> >",1,0.150

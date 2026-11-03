@@ -1,0 +1,4 @@
+pinned to CPU mask 0x1
+PROFILE_WINDOW_START tag=ctrl1p actions=2 warmup=3 reps=6 rayon_threads=1 affinity=0x1
+PROFILE_WINDOW_END wall_s=20.092958 reps=6 per_proof_ms=3348.826
+PROFILE_META {"tag":"ctrl1p","mode":"profile","circuit":"PostNu6_3","actions":2,"warmup":3,"reps":6,"fixture_s":0.008704,"keygen_s":2.687007,"build_s":0.011617,"loop_wall_s":20.092958,"per_proof_ms":3348.826,"rayon_threads":"1","affinity":"0x1"}

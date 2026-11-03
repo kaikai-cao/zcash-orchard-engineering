@@ -1,0 +1,14 @@
+source_file,busy_self_samples,pct_of_all_busy
+pasta_curves/src/fields/fp.rs,223,33.534
+pasta_curves/src/curves.rs,179,26.917
+halo2_proofs/src/poly/evaluator.rs,108,16.241
+subtle/src/lib.rs,97,14.586
+<unknown>,34,5.113
+halo2_proofs/src/arithmetic.rs,15,2.256
+alloc/src/vec/spec_from_iter.rs,3,0.451
+ff/src/lib.rs,1,0.150
+pasta_curves/src/macros.rs,1,0.150
+core/src/iter/adapters/map.rs,1,0.150
+rayon/src/iter/plumbing/mod.rs,1,0.150
+rayon-core/src/join/mod.rs,1,0.150
+halo2_proofs/src/plonk/circuit.rs,1,0.150

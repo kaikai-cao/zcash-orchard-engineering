@@ -1,0 +1,4 @@
+config,mul,mulx,adcx,adox,adc,add,mov,lea,sub,instr_total,followed_call
+fp060_default,24,0,0,0,59,37,104,1,1,279,
+fp060_bmi2adx,0,24,0,0,59,37,57,1,1,232,
+fp061_asm,0,24,15,15,34,5,33,0,1,170,_RNvNtNtCsgsFf2Ls52fX_12pasta_curves3asm6x86_643mul

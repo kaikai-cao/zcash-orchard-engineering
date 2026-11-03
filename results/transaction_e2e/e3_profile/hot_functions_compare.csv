@@ -1,0 +1,15 @@
+function,short_name,stage,source_file,self_pct_1p,self_pct_8p,delta_pp,category
+pasta_curves::fields::fp::Fp::mul,pasta_curves::fields::fp::Fp::mul,quotient,pasta_curves/src/fields/fp.rs,33.083,42.849,9.766,field arithmetic
+"halo2_proofs::poly::evaluator::impl$5::evaluate::recurse<halo2_proofs::plonk::prover::create_proof::closure_env$6<pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine>,ref_mut$<ref_mut$<ref_mut$<rand::rngs::std::StdRng> > >,halo2_proofs::transcript::Blake2bWrite<alloc::vec::Vec<u8,alloc::alloc::Global>,pasta_curves::curves::EqAffine,halo2_proofs::transcript::Challenge255<pasta_curves::curves::EqAffine> >,orchard::circuit::Circuit>,pasta_curves::fields::fp::Fp,halo2_proofs::poly::ExtendedLagrangeCoeff>",halo2_proofs::poly::evaluator::evaluate::recurse<...>,quotient,halo2_proofs/src/poly/evaluator.rs,16.241,15.037,-1.204,expression evaluation
+pasta_curves::curves::impl$116::add,pasta_curves::curves::add,opening,pasta_curves/src/curves.rs,12.331,13.454,1.123,curve arithmetic
+subtle::black_box<u8>,subtle::black_box<u8>,opening,subtle/src/lib.rs,14.586,9.893,-4.694,constant-time barrier
+pasta_curves::curves::impl$115::add,pasta_curves::curves::add,advice_commit,pasta_curves/src/curves.rs,5.564,5.822,0.259,curve arithmetic
+pasta_curves::curves::impl$95::double,pasta_curves::curves::double,opening,pasta_curves/src/curves.rs,5.413,3.505,-1.909,curve arithmetic
+_NLG_Return2,_NLG_Return2,quotient,<unknown>,1.804,1.752,-0.052,other
+halo2_proofs::arithmetic::Buckets<pasta_curves::curves::EqAffine>::sum<pasta_curves::curves::EqAffine>,halo2_proofs::arithmetic::Buckets<...>,quotient,halo2_proofs/src/arithmetic.rs,1.203,1.187,-0.016,MSM
+pasta_curves::curves::impl$123::add,pasta_curves::curves::add,advice_commit,pasta_curves/src/curves.rs,0.752,1.187,0.435,curve arithmetic
+"halo2_proofs::arithmetic::recursive_butterfly_arithmetic<pasta_curves::fields::fp::Fp,pasta_curves::fields::fp::Fp>",halo2_proofs::arithmetic::recursive_butterfly_arithmetic<...>,advice_commit,halo2_proofs/src/arithmetic.rs,1.053,0.848,-0.205,FFT
+pasta_curves::fields::fp::impl$22::to_repr,pasta_curves::fields::fp::to_repr,lookup_permute,pasta_curves/src/fields/fp.rs,0.451,1.018,0.566,field arithmetic
+pasta_curves::curves::impl$4::double,pasta_curves::curves::double,synthesis,pasta_curves/src/curves.rs,1.804,0.509,-1.296,curve arithmetic
+NtAlertThreadByThreadIdEx,NtAlertThreadByThreadIdEx,opening,<unknown>,2.707,0.170,-2.537,idle/wait
+pasta_curves::curves::impl$25::add,pasta_curves::curves::add,synthesis,pasta_curves/src/curves.rs,0.752,0.622,-0.130,curve arithmetic

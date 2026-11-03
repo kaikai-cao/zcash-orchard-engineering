@@ -1,0 +1,22 @@
+Stage F1 -- Pallas Fp::mul microbenchmark
+==============================================================================
+
+config                                            lat     thr  lat_call  thr_call
+                                                   ns      ns        ns        ns
+---------------------------------------------------------------------------------
+pasta_curves 0.6.0 (Orchard baseline)          14.748  10.135    21.726    12.594
+0.6.0 + target-feature=+bmi2,+adx              15.198  10.184    21.500    12.679
+0.6.1 + asm backend (reference ceiling)        18.769   9.872    19.127    10.171
+
+Relative to 0.6.0 baseline (negative = faster):
+  fp060_bmi2adx        lat_ns +3.1%, thr_ns +0.5%, lat_call_ns -1.0%, thr_call_ns +0.7%
+  fp061_asm            lat_ns +27.3%, thr_ns -2.6%, lat_call_ns -12.0%, thr_call_ns -19.2%
+
+Instructions for one full 4-limb multiply (linked binary):
+config                  mul   mulx   adcx   adox    adc    add    mov    lea    sub   total
+-------------------------------------------------------------------------------------------
+fp060_default            24      0      0      0     59     37    104      1      1     279
+fp060_bmi2adx             0     24      0      0     59     37     57      1      1     232
+fp061_asm                 0     24     15     15     34      5     33      0      1     170
+  fp061_asm: measured inside _RNvNtNtCsgsFf2Ls52fX_12pasta_curves3asm6x86_643mul
+

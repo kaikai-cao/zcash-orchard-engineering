@@ -1,0 +1,93 @@
+{
+  "stage": "F0",
+  "purpose": "Freeze the Stage E evidence baseline that every Stage F comparison must use.",
+  "frozen_at_local": "2026-11-03T20:40:00+08:00",
+  "repo": {
+    "name": "zcash-orchard-engineering",
+    "commit": "6d852ff2c07c1db57671df16dfffd05baa6cc510",
+    "working_tree": "dirty",
+    "dirty_entries": 19,
+    "dirty_manifest": "git_status_at_freeze.txt"
+  },
+  "dependencies": {
+    "orchard-upstream": {
+      "commit": "616a669df8c9a59c33d47064d3ce04b25d026b2e",
+      "version": "0.16.0"
+    },
+    "halo2_proofs": {
+      "version": "0.4.0",
+      "source": "vendor + [patch.crates-io]",
+      "src_sha256": "f6f9dd17904b8852961bd6ffd9ac5fd932f37c50a84a24c2337adab789e6d1b2",
+      "diff_vs_crates_io": "only src/plonk/prover.rs (E2 timers + E3 stage tags)"
+    },
+    "pasta_curves": {
+      "version": "0.6.0",
+      "checksum": "7ec2f82051d06ea52d7ec6a47546c592fc52392b6040e503e05a764dd10dd1de",
+      "src_sha256": "7e77f7c919eebbed3f7ebfa54881e1806e6eba3b1e5b802252f16846c3c080ef",
+      "note": "0.6.1 exists and adds an `asm` backend; it is NOT in the frozen graph."
+    },
+    "subtle": {
+      "version": "2.6.1",
+      "checksum": "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+    },
+    "cargo_lock": {
+      "sha256": "31a08b37b73ee7ebdd42e7032e6d83c5cdde78d9ba3afda9d3f7bd53553d07db",
+      "copy": "Cargo.lock.frozen"
+    }
+  },
+  "toolchain": {
+    "rustc": "1.88.0 (6b00bc388 2025-06-23)",
+    "cargo": "1.88.0",
+    "host": "x86_64-pc-windows-msvc",
+    "rust_toolchain_toml_channel": "1.88"
+  },
+  "build_profile": {
+    "release": {
+      "opt_level": 3,
+      "debug": false,
+      "lto": false,
+      "codegen_units": 16,
+      "panic": "unwind",
+      "target_cpu": "generic (no RUSTFLAGS)"
+    },
+    "sampling": {
+      "inherits": "release",
+      "debug": true,
+      "dir": "target/sampling"
+    },
+    "baseline_binary_untouched": "target/release/orchard-e2e.exe (2025-11-03 19:08)"
+  },
+  "machine": {
+    "cpu": "i7-14700",
+    "p_cores": 8,
+    "logical_ids": "0-7",
+    "affinity_1p": "0x1",
+    "affinity_8p": "0xFF",
+    "power_plan": "balanced",
+    "elevated": false
+  },
+  "baseline_prove_ms": {
+    "1p": {"n": 5, "mean": 3374.6, "median": 3351.1, "min": 3332.5, "max": 3482.8, "cv_pct": 1.86},
+    "8p": {"n": 5, "mean": 931.6, "median": 928.3, "min": 921.8, "max": 946.4, "cv_pct": 1.05}
+  },
+  "sampling_perturbation": {
+    "1p": {"without": 3348.8, "with": 3535.3, "delta_pct": 5.6},
+    "8p": {"without": 971.7, "with": 1071.6, "delta_pct": 10.3},
+    "superseded_values": [8.1, 15.4],
+    "note": "+8.1% and +15.4% were early single-run readings and are RETRACTED. Only +5.6% / +10.3% may be cited."
+  },
+  "metric_conventions": {
+    "stage_cpu_share": "denominator = busy samples; additive to 100%",
+    "self_pct": "leaf frame function; denominator = busy samples; additive to 100%",
+    "coverage_pct": "function present >=1 time in stack; NOT additive, may exceed 100%",
+    "wall_share": "E2 phase interval / create_proof outer wall clock; additive",
+    "rule": "1P: stage_cpu_share ~= wall_share. 8P: wall_share_i ~= cpu_share_i / speedup_i (NOT equal)."
+  },
+  "stage_f1_artifacts": [
+    "experiments/f1_fp_mul/",
+    "experiments/f1_fp_mul_asmref/",
+    "scripts/analysis/f1_summarize.py",
+    "results/transaction_e2e/f1_fp_mul/",
+    "docs/orchard/12_fp_mul_microbench.md"
+  ]
+}

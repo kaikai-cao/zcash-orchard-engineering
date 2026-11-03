@@ -1,0 +1,7 @@
+phase,1p_ms,8p_ms,speedup,1p_share_%
+synthesis,152.10,140.53,1.08,4.6
+advice_commit,371.30,99.81,3.72,11.3
+lookup,372.94,102.29,3.65,11.3
+permutation,113.38,31.18,3.64,3.4
+quotient,1803.61,429.22,4.20,54.9
+opening,474.83,93.23,5.09,14.4
