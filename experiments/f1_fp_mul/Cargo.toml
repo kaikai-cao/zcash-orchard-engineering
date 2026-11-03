@@ -1,0 +1,26 @@
+[package]
+name = "f1-fp-mul"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Stage F1: Pallas Fp::mul microbenchmark and assembly audit (standalone, does not touch Orchard production code)"
+
+[dependencies]
+# Pinned to the EXACT version in the frozen Orchard Cargo.lock (0.6.0).
+# `0.6` would resolve to 0.6.1, which added a hand-written asm backend
+# (`asm` feature) -- that is a different implementation and must not be used
+# for the baseline measurement. 0.6.1 is measured separately as a reference
+# ceiling (see docs/orchard/12_fp_mul_microbench.md).
+pasta_curves = { version = "=0.6.0", features = ["glv"] }
+ff = "0.14"
+windows-sys = { version = "0.59", features = [
+    "Win32_System_Threading",
+    "Win32_Foundation",
+] }
+
+# Deliberately identical to the frozen Orchard baseline profile (Stage E1/E2):
+# opt-level 3, lto off, codegen-units 16, panic=unwind, debug=false.
+# Do NOT add lto/codegen-units overrides here -- the whole point of F1 is to
+# measure the field arithmetic as the real prover compiles it.
+[profile.release]
+debug = false
