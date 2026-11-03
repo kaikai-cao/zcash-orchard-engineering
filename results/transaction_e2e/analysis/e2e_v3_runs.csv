@@ -1,0 +1,7 @@
+tag,pool,bundle_version,circuit,actions,reps,build_ms_mean,prove_s_mean,prove_s_min,sign_ms_mean,verify_ms_mean,proof_bytes,encoded_bytes,ws_before_mib,ws_after_mib,rayon_threads,affinity,keygen_s
+e2e_v3_shape,orchard,orchard_v3,PostNu6_3,2,1,11.952,3.306731,3.306731,0.5929,30.6547,7264,9009,43.2,44.6,1,0x1,2.749
+e2e_v3_shape,ironwood,ironwood_v3,PostNu6_3,1,1,4.4884,1.940205,1.940205,0.3563,25.872,4992,,45.9,44.3,1,0x1,2.749
+e2e_v3_t1,orchard,orchard_v3,PostNu6_3,2,5,12.1731,3.260751,3.191162,0.7027,32.2252,7264,9009,43.1,46.9,1,0x1,2.729
+e2e_v3_t1,ironwood,ironwood_v3,PostNu6_3,1,5,4.5017,2.023981,1.928303,0.3809,26.763,4992,,45.9,46.0,1,0x1,2.729
+e2e_v3_t8,orchard,orchard_v3,PostNu6_3,2,5,13.6526,0.80432,0.750854,0.6663,7.1642,7264,9009,43.5,48.0,8,0x5555,1.384
+e2e_v3_t8,ironwood,ironwood_v3,PostNu6_3,1,5,5.0831,0.47937,0.436502,0.4838,6.0007,4992,,48.0,48.7,8,0x5555,1.384

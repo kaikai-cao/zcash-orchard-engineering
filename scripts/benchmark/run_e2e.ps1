@@ -16,6 +16,7 @@
 
 param(
     [Parameter(Mandatory = $true)][string]$RunId,
+    [string]$Mode = "v2",
     [int]$Threads = 1,
     [string]$Mask = "0x1",
     [string]$Version = "v2",
@@ -36,8 +37,8 @@ $log = Join-Path $OutDir "$RunId.log"
 
 # cmd handles the redirection: PowerShell 5.1 turns native stderr into a
 # terminating error, and cargo/the harness write progress there.
-$inner = 'set "RAYON_NUM_THREADS={0}" && "{1}" --version {2} --spends {3} --outputs {4} --reps {5} --seed {6} --mask {7} --tag {8} > "{9}" 2>&1' -f `
-    $Threads, $Bin, $Version, $Spends, $Outputs, $Reps, $Seed, $Mask, $RunId, $log
+$inner = 'set "RAYON_NUM_THREADS={0}" && "{1}" --mode {2} --version {3} --spends {4} --outputs {5} --reps {6} --seed {7} --mask {8} --tag {9} > "{10}" 2>&1' -f `
+    $Threads, $Bin, $Mode, $Version, $Spends, $Outputs, $Reps, $Seed, $Mask, $RunId, $log
 
 $t0 = Get-Date
 & cmd.exe /c $inner
@@ -51,5 +52,5 @@ if ($exit -ne 0) {
 }
 
 Write-Host "==> $RunId  threads=$Threads mask=$Mask wall=$([math]::Round($wall,2))s"
-Get-Content $log | Where-Object { $_ -match '^(STAGE|RESULT)' } | ForEach-Object { Write-Host "  $_" }
+Get-Content $log | Where-Object { $_ -match '^(STAGE|BUNDLE|RESULT)' } | ForEach-Object { Write-Host "  $_" }
 "WALL_S=$wall" | Add-Content -Path $log

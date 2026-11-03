@@ -9,7 +9,11 @@
 
 ## 0. 一句话结论
 
-在**库级**（`Builder::build` → `create_proof` → `apply_signatures`），1 Spend + 2 Outputs 的 Orchard 交易，单线程 P 核证明生成 **3.202 s**，而除证明之外的全部环节加起来只有 **42.6 ms（1.3%）**。真实交易的成本几乎就是 Halo2 证明的成本；`Builder`、签名、序列化都不是瓶颈，且没有任何优化价值。
+在**库级**（`Builder::build` → `create_proof` → `apply_signatures`）的固定工作负载与合成夹具下，1 Spend + 2 Outputs 的 Orchard bundle，单线程 P 核证明生成 **3.202 s**，`create_proof` 占整个 Bundle 生命周期测量时间的 **98.72%**；`Builder` 构建（12.5 ms）与签名（0.59 ms）占比极低。
+
+因此：**当前工作负载的主要性能优化对象是 Halo2 proving 路径。**
+
+这句话不能外推成「真实钱包的交易构造、Witness 获取、序列化、广播都没有优化空间」——那些环节根本不在本实验的测量范围内，本实验也没有覆盖任何钱包实现。
 
 ---
 
@@ -64,7 +68,7 @@ Harness 代码：`experiments/transaction_e2e/harness/`（独立 crate，通过 
 
 - **签名几乎是免费的**（0.59 ms）。redpallas 签两个 Action 的开销，比证明低了 3 个数量级。
 - **验证 29.5 ms，是证明的 1/109**。这是 Halo2 相对 Groth16 的结构性特征：证明重、验证轻，且验证不需要配对。
-- **Keygen 2 645 ms 与一次证明同量级**。钱包冷启动第一笔交易的真实等待是 5.85 s（keygen + prove），而不是 3.20 s。这个数字在 Sapling 那边完全不存在（Groth16 的 CRS 是预生成的）。
+- **Keygen 2 645 ms 与一次证明同量级**。若某个进程在启动时必须从头生成 ProvingKey、且没有任何缓存或跨进程复用，它的首次证明成本是 5.85 s（keygen + prove）而不是 3.20 s。**这是「无缓存冷进程」的上界，不是任何具体钱包的首笔交易耗时**——实际取决于 Keygen 是否被预生成、是否复用、是否在线程池上并行（8 线程下 keygen 只要 1.36 s）。Sapling/Groth16 没有对应项，因为 CRS 是预生成的。
 
 ---
 
@@ -87,7 +91,9 @@ $$
 推论：
 
 - 每增加一个 Action，边际成本 **+1.29 s**；固定开销只有 **0.61 s**（共享的商多项式、承诺、IPA opening）。
-- 常见的 2-Action 交易里，**81% 的证明时间是可归因到单个 Action 的**。这意味着任何「按 Action 摊销」的优化（Gadget 约束数、Sinsemilla 哈希、ECC 标量乘）都有 4/5 的杠杆；而优化 IPA 固定开销最多只能碰 19%。
+- 常见的 2-Action 交易里，**81% 的证明时间是可归因到单个 Action 的**。这意味着任何「按 Action 摊销」的优化（Gadget 约束数、Sinsemilla 哈希、ECC 标量乘）都有 4/5 的杠杆；而**拟合截距项 0.61 s（19%）**最多只能碰这么多。
+
+  注意：截距是「与 Action 数无关的那部分」的统计描述，**不等于 IPA 固定开销**。它可能包含 IPA opening、实例处理、证明系统的固定流程等多个成分，本实验没有把它们拆开。要拆需要源码级计时，属于阶段 E。
 
 ---
 
@@ -116,7 +122,9 @@ $$
 
 8 Actions × 8 线程：2.629 s，相对单线程 10.948 s 是 **4.16×**，效率 0.52——**比 2 Action 的 0.57 还低**。
 
-如果瓶颈是「每任务固定开销 + 同步」，负载越大效率应该越高；实际相反，说明瓶颈更可能是**内存带宽 / 共享缓存竞争**。单 Action 的工作集随 n 线性增长（见 §6），8 Action 时 237 MiB 已经远超 L3。这个观察直接指向阶段 E 的一个可检验假设，但现在还不能下结论。
+如果瓶颈是「每任务固定开销 + 同步」，负载越大效率应该越高；实际相反。
+
+**但这是一个假设，不是结论。** 它可能指向内存带宽或共享缓存竞争，也可能来自 rayon 在更大工作集上的切分策略。关键是不能用「峰值工作集 242 MiB 超过 L3 容量」去证明缓存竞争——**工作集大小和竞争强度是两件不同的事**，工作集超容量只是竞争的必要条件之一，不是证据。验证需要硬件性能计数器（cache miss rate、内存带宽），并且要设计成可证伪的形式，属于阶段 E。
 
 ---
 
@@ -150,13 +158,28 @@ $$
 - 证明大小 `= 2720 + 2272·n`，与 `Proof::expected_proof_size(n)` **逐字节相等**（该常量由 crate 用 `CircuitCost` 交叉校验过）。
 - Bundle 编码按协议布局计算：每 Action `cv_net 32 + nf 32 + rk 32 + cmx 32 + epk 32 + enc_ct 580 + out_ct 80 = 820`；Bundle 级 `flags 1 + value_balance 8 + anchor 32 + proof + bsk_sig 64 = 105`。这是按规范算出来的字节数，**不是任何编码器的输出**——Zcash 的交易编码在 `zcash_primitives`，不在本 crate。
 
-对照 Sapling：一个 Sapling Spend 的 proof 是 192 B、Output 是 192 B（Groth16 常数大小），1S+2O 合计 576 B 证明。**Orchard 同形状要 7 264 B，是 12.6 倍**。这是 Halo2/IPA 用证明体积换掉可信设置的直接代价，值得在最终报告里单独成节。
+这里有三个不同的量，必须分开：
+
+| 概念 | 值 | 来源 |
+|---|---:|---|
+| **证明载荷**（proof 字节） | 7 264 B | 实测 `proof.as_ref().len()`，与 `expected_proof_size` 一致 |
+| **Bundle 编码长度** | 9 009 B | 按协议布局计算，**不是编码器输出** |
+| **完整交易字节** | 未测 | 需要 v5/v6 交易编码 + 透明部分 + 其他 Pool 的 bundle |
+
+能与 Sapling 比较的**只有第一项对第一项**：
+
+- Sapling Groth16 的 proof 是常数 192 B/份，1 Spend + 2 Outputs 需要三份（1 个 Spend proof + 2 个 Output proof）= **576 B**。
+- Orchard 2 Actions 的 proof 是 **7 264 B**，即 **12.6 倍**。
+
+这是**证明载荷之比，不是交易大小之比**。Sapling 的 Spend / Output 描述本身还各带约 384 B / 948 B 的编码开销（cv、anchor、nullifier、rk、epk、密文、签名等），Orchard 的 Action 是 820 B——两边完整 bundle 的差距远小于 12.6 倍。本报告不做完整交易大小的比较。
+
+12.6 倍的真正含义是：Halo2/IPA 用**证明体积**换掉了可信设置，同时把验证从"配对"变成了"内积论证"。这个权衡值得在最终报告里单独成节，但要用完整交易字节来支撑，不能只拿 proof 载荷说事。
 
 ---
 
 ## 8. 局限与未完成
 
-1. **只做了 V2（`FixedPostNu6_2`）**。NU6.3 之后的 `PostNu6_3` 电路禁止跨地址转账，`add_output` 会被拒，必须走 `add_change_output`（每个 change output 会配对一笔伪造的零值 Spend，Action 数会变）。harness 里 `--version v3` 目前是显式 panic 的占位。
+1. **本报告只覆盖 V2（`FixedPostNu6_2`）**，即 NU6.3 之前的历史工作负载。NU6.3 的迁移形状（Orchard V3 的 1 Spend + 1 Change，加 Ironwood V3 的 1 Output，合计 3 Actions / 2 Bundles）已单独测量，见 [`report_nu63_migration.md`](report_nu63_migration.md)。
 2. **fixture 是合成数据**：叶子 0、空兄弟路径。Merkle 路径长度固定 32，所以电路成本不受影响，但这不是从真实链状态导出的 witness。
 3. **不含交易层**：sighash、v5/v6 序列化、fee 计算、广播。`encoded_bytes` 是算出来的，不是编码器输出的。
 4. **未测** `InsecurePreNu6_2` 版本；未做 CPU 采样剖析（阶段 E）。
@@ -166,7 +189,9 @@ $$
 
 ## 9. 下一步
 
-按计划顺序，V3 那组（Orchard → Ironwood turnstile 形状）需要先解决 `Builder` 的跨地址限制：用 `add_change_output` 配 `BundleVersion::orchard_v3()`，观察动作数从 2 变成 3 后各阶段的成本。之后再回到 `Config::configure()`。
+V2 的这条基线是本轮所有对比的参照。后续的 NU6.3 迁移实验已经在 [`report_nu63_migration.md`](report_nu63_migration.md) 完成：同样 3 个 Action，拆成两个 Bundle 后证明成本是 5.285 s，其中 +0.80 s 与 Action 数无关，纯粹来自"多起一次证明"。
+
+端到端实验到此收束，转入 `Config::configure()`。
 
 ---
 

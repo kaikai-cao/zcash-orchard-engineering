@@ -1,13 +1,15 @@
-//! End-to-end Orchard bundle harness: fixture -> keygen -> build -> prove -> sign -> verify.
+//! End-to-end Orchard bundle harness.
+//!
+//! Two modes:
+//!   --mode v2  historical pre-NU6.3 shape (BundleVersion::orchard_v2, FixedPostNu6_2)
+//!   --mode v3  NU6.3 migration shape: an Orchard V3 bundle (spend + change) and an
+//!              Ironwood V3 bundle (output), both on the PostNu6_3 circuit.
 //!
 //! Deliberately lives OUTSIDE the upstream checkout so `D:\Research\orchard-upstream`
 //! stays byte-identical to `616a669d`. Consumed via a Cargo path dependency.
 //!
 //! Stages are timed independently because `Builder::build()` does NOT create the
 //! Halo2 proof: it returns a `Bundle<InProgress<Unproven, Unauthorized>, i64>`.
-//! Proof creation is a separate `Bundle::create_proof` call, and authorization is a
-//! third `apply_signatures` call. Collapsing them into one number hides the
-//! attribution we actually want.
 
 use std::time::Instant;
 
@@ -18,7 +20,7 @@ use orchard::{
     circuit::{OrchardCircuitVersion, ProvingKey, VerifyingKey},
     keys::{FullViewingKey, Scope, SpendingKey},
     note::{ExtractedNoteCommitment, Note, NoteVersion, RandomSeed, Rho},
-    tree::{MerkleHashOrchard, MerklePath},
+    tree::{Anchor, MerkleHashOrchard, MerklePath},
     value::NoteValue,
     Address,
 };
@@ -27,7 +29,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 const MERKLE_DEPTH: usize = 32; // orchard::NOTE_COMMITMENT_TREE_DEPTH
 
 // ---------------------------------------------------------------------------
-// Process memory counters (no external crate: raw FFI to kernel32)
+// Process memory counters (no external crate: raw FFI)
 // ---------------------------------------------------------------------------
 
 #[cfg(windows)]
@@ -98,9 +100,8 @@ mod mem {
 // ---------------------------------------------------------------------------
 //
 // Pinning from the launcher is brittle on this box (PowerShell 5.1 refuses to
-// Start-Process when both HTTP_PROXY and http_proxy are present), and it also
-// pins the *launcher*, not just the measured work. Pinning here confines every
-// rayon worker created afterwards, which is what we actually want.
+// Start-Process when both HTTP_PROXY and http_proxy are present), and it would
+// also pin the launcher, not just the measured work.
 
 #[cfg(windows)]
 mod affinity {
@@ -147,6 +148,7 @@ mod affinity {
 // ---------------------------------------------------------------------------
 
 struct Args {
+    mode: String,
     version: String,
     spends: usize,
     outputs: usize,
@@ -158,6 +160,7 @@ struct Args {
 
 fn parse_args() -> Args {
     let mut a = Args {
+        mode: "v2".into(),
         version: "v2".into(),
         spends: 1,
         outputs: 2,
@@ -175,6 +178,7 @@ fn parse_args() -> Args {
             argv.get(i).cloned().unwrap_or_default()
         };
         match key {
+            "--mode" => a.mode = val(),
             "--version" => a.version = val(),
             "--spends" => a.spends = val().parse().expect("--spends"),
             "--outputs" => a.outputs = val().parse().expect("--outputs"),
@@ -206,7 +210,7 @@ fn note_at_leaf_zero(
     value: u64,
     version: NoteVersion,
     rng: &mut StdRng,
-) -> (Note, MerklePath, orchard::tree::Anchor) {
+) -> (Note, MerklePath, Anchor) {
     let recipient = fvk.address_at(0u32, Scope::External);
 
     let rho = loop {
@@ -234,13 +238,23 @@ fn note_at_leaf_zero(
     };
 
     let cmx: ExtractedNoteCommitment = note.commitment().into();
-    let auth_path: [MerkleHashOrchard; MERKLE_DEPTH] = core::array::from_fn(|l| {
-        MerkleHashOrchard::empty_root(Level::from(l as u8))
-    });
+    let auth_path: [MerkleHashOrchard; MERKLE_DEPTH] =
+        core::array::from_fn(|l| MerkleHashOrchard::empty_root(Level::from(l as u8)));
     let path = MerklePath::from_parts(0, auth_path);
     let anchor = path.root(cmx);
 
     (note, path, anchor)
+}
+
+fn mean(v: &[f64]) -> f64 {
+    v.iter().sum::<f64>() / v.len() as f64
+}
+
+fn fmt(v: &[f64]) -> String {
+    v.iter()
+        .map(|x| format!("{x:.6}"))
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 // ---------------------------------------------------------------------------
@@ -260,16 +274,27 @@ fn main() {
         eprintln!("pinned to CPU mask 0x{m:x}");
     }
 
+    match args.mode.as_str() {
+        "v2" => run_v2(&args, pinned),
+        "v3" => run_v3(&args, pinned),
+        other => panic!("unknown --mode {other} (expected v2 or v3)"),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mode v2: historical pre-NU6.3 shape
+// ---------------------------------------------------------------------------
+
+fn run_v2(args: &Args, pinned: Option<usize>) {
     let mut rng = StdRng::from_seed([args.seed as u8; 32]);
 
     let (bundle_version, circuit_version) = match args.version.as_str() {
-        "v2" => (BundleVersion::orchard_v2(), OrchardCircuitVersion::FixedPostNu6_2),
-        "v3" => (BundleVersion::orchard_v3(), OrchardCircuitVersion::PostNu6_3),
-        other => panic!("unsupported --version {other} (expected v2 or v3)"),
+        "v2" => (
+            BundleVersion::orchard_v2(),
+            OrchardCircuitVersion::FixedPostNu6_2,
+        ),
+        other => panic!("unsupported --version {other} for --mode v2"),
     };
-    if args.version == "v3" {
-        panic!("v3 (cross-address disabled) needs change outputs; not wired up yet");
-    }
     let note_version = bundle_version.note_version();
     let flags: Flags = bundle_version.default_flags();
 
@@ -307,7 +332,6 @@ fn main() {
 
     for rep in 0..args.reps {
         // ---- stage 2: bundle construction (no proof) ----------------------
-        let ws0 = mem::working_set_mib();
         let t_build = Instant::now();
 
         let mut builder =
@@ -329,7 +353,6 @@ fn main() {
             .expect("bundle is produced");
         build_ms.push(t_build.elapsed().as_secs_f64() * 1e3);
         num_actions = bundle.actions().len();
-        let _ = ws0;
 
         // ---- stage 3: Halo2 proof generation ------------------------------
         let ws1 = mem::working_set_mib();
@@ -359,18 +382,7 @@ fn main() {
 
     let peak_mib = mem::peak_working_set_mib();
 
-    // Orchard bundle encoding size, from the protocol layout:
-    //   per Action: cv_net 32 + nf 32 + rk 32 + cmx 32 + epk 32 + enc_ct 580 + out_ct 80
-    //   bundle:     flags 1 + value_balance 8 + anchor 32 + zkproof + bsk_sig 64
     let encoded_bytes = num_actions * 820 + 1 + 8 + 32 + proof_bytes + 64;
-
-    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
-    let fmt = |v: &[f64]| {
-        v.iter()
-            .map(|x| format!("{x:.6}"))
-            .collect::<Vec<_>>()
-            .join(",")
-    };
 
     println!("STAGE fixture_s={fixture_s:.6}");
     println!("STAGE keygen_s={keygen_s:.6}");
@@ -379,10 +391,10 @@ fn main() {
     println!("STAGE sign_ms={}", fmt(&sign_ms));
     println!("STAGE verify_ms={}", fmt(&verify_ms));
     println!(
-        "RESULT {{\"tag\":\"{}\",\"version\":\"{}\",\"spends\":{},\"outputs\":{},\"actions\":{},\
-\"seed\":{},\"reps\":{},\"fixture_s\":{:.6},\"keygen_s\":{:.6},\"build_ms_mean\":{:.4},\
-\"prove_s_mean\":{:.6},\"prove_s_min\":{:.6},\"sign_ms_mean\":{:.4},\"verify_ms_mean\":{:.4},\
-\"proof_bytes\":{},\"encoded_bytes\":{},\"ws_before_prove_mib\":{:.1},\
+        "RESULT {{\"tag\":\"{}\",\"mode\":\"v2\",\"version\":\"{}\",\"spends\":{},\"outputs\":{},\
+\"actions\":{},\"seed\":{},\"reps\":{},\"fixture_s\":{:.6},\"keygen_s\":{:.6},\
+\"build_ms_mean\":{:.4},\"prove_s_mean\":{:.6},\"prove_s_min\":{:.6},\"sign_ms_mean\":{:.4},\
+\"verify_ms_mean\":{:.4},\"proof_bytes\":{},\"encoded_bytes\":{},\"ws_before_prove_mib\":{:.1},\
 \"ws_after_prove_mib\":{:.1},\"peak_ws_mib\":{:.1},\"ws_after_keygen_mib\":{:.1},\
 \"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
         args.tag,
@@ -405,6 +417,294 @@ fn main() {
         ws_after_prove,
         peak_mib,
         ws_after_keygen,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode v3: NU6.3 migration shape
+// ---------------------------------------------------------------------------
+//
+// Orchard V3 (cross-address disabled) with 1 real spend + 1 change output gives
+// 1 + 1 = 2 actions, NOT max(1,1)=1: when the cross-address check is on, each
+// spend and each output gets its own action, paired with a fabricated
+// zero-valued counterpart. Ironwood V3 (cross-address permitted) with 1 output
+// and UNPADDED gives 1 action. Both use the same PostNu6_3 proving key.
+
+struct PoolRun {
+    pool: &'static str,
+    bundle_version_label: &'static str,
+    actions: usize,
+    build_ms: Vec<f64>,
+    prove_s: Vec<f64>,
+    sign_ms: Vec<f64>,
+    verify_ms: Vec<f64>,
+    proof_bytes: usize,
+    ws_before: f64,
+    ws_after: f64,
+}
+
+fn run_v3(args: &Args, pinned: Option<usize>) {
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+
+    let orchard_bv = BundleVersion::orchard_v3();
+    let ironwood_bv = BundleVersion::ironwood_v3();
+    assert_eq!(
+        orchard_bv.circuit_version(),
+        ironwood_bv.circuit_version(),
+        "both NU6.3 pools must share the post-NU6.3 circuit"
+    );
+    let circuit_version = orchard_bv.circuit_version();
+
+    // ---- stage 0: fixture -------------------------------------------------
+    let t_fixture = Instant::now();
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    // The change address must be the SAME address as the spent note: with the
+    // cross-address restriction on, the circuit forces the spend's and the
+    // output's (g_d, pk_d) to be equal, and a different diversifier index would
+    // already differ in d.
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+    let fixture_s = t_fixture.elapsed().as_secs_f64();
+
+    // ---- stage 1: one keygen for both pools -------------------------------
+    let t_keygen = Instant::now();
+    let pk = ProvingKey::build(circuit_version);
+    let keygen_s = t_keygen.elapsed().as_secs_f64();
+    let vk: VerifyingKey = pk.verifying_key();
+
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+
+    let mut orchard = PoolRun {
+        pool: "orchard",
+        bundle_version_label: "orchard_v3",
+        actions: 0,
+        build_ms: Vec::new(),
+        prove_s: Vec::new(),
+        sign_ms: Vec::new(),
+        verify_ms: Vec::new(),
+        proof_bytes: 0,
+        ws_before: 0.0,
+        ws_after: 0.0,
+    };
+    let mut ironwood = PoolRun {
+        pool: "ironwood",
+        bundle_version_label: "ironwood_v3",
+        actions: 0,
+        build_ms: Vec::new(),
+        prove_s: Vec::new(),
+        sign_ms: Vec::new(),
+        verify_ms: Vec::new(),
+        proof_bytes: 0,
+        ws_before: 0.0,
+        ws_after: 0.0,
+    };
+
+    for rep in 0..args.reps {
+        // ---------- Orchard V3: 1 spend + 1 change ----------
+        let t_build = Instant::now();
+        let mut b = Builder::new(
+            BundleType::UNPADDED,
+            orchard_bv,
+            orchard_bv.default_flags(), // cross-address disabled by construction
+            anchor,
+        )
+        .expect("orchard v3 builder");
+        b.add_spend(fvk.clone(), note, path.clone())
+            .expect("add_spend");
+        b.add_change_output(
+            fvk.clone(),
+            None,
+            own_address,
+            NoteValue::from_raw(85_000_000),
+            [0u8; 512],
+        )
+        .expect("add_change_output");
+        let (bundle, meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+        orchard.build_ms.push(t_build.elapsed().as_secs_f64() * 1e3);
+        orchard.actions = bundle.actions().len();
+
+        if rep == 0 {
+            // Structure assertions are the point of V3-A: an action count alone
+            // would not distinguish "spend and change share an action" from
+            // "each got its own", and those are different circuits.
+            let f = bundle.flags();
+            let spend_at: Vec<String> = (0..1)
+                .map(|i| match meta.spend_action_index(i) {
+                    Some(x) => x.to_string(),
+                    None => "none".into(),
+                })
+                .collect();
+            let out_at: Vec<String> = (0..1)
+                .map(|i| match meta.output_action_index(i) {
+                    Some(x) => x.to_string(),
+                    None => "none".into(),
+                })
+                .collect();
+            println!(
+                "SHAPE {{\"pool\":\"orchard\",\"bundle_version\":\"{}\",\"flag_byte\":{},\
+\"spends_enabled\":{},\"outputs_enabled\":{},\"cross_address_enabled\":{},\
+\"value_balance\":{},\"actions\":{},\"spend_action_index\":[{}],\
+\"output_action_index\":[{}]}}",
+                orchard.bundle_version_label,
+                bundle.flag_byte(),
+                f.spends_enabled(),
+                f.outputs_enabled(),
+                f.cross_address_enabled(),
+                *bundle.value_balance(),
+                bundle.actions().len(),
+                spend_at.join(","),
+                out_at.join(","),
+            );
+        }
+
+        let ws1 = mem::working_set_mib();
+        let t_prove = Instant::now();
+        let proven = bundle.create_proof(&pk, &mut rng).expect("orchard proof");
+        orchard.prove_s.push(t_prove.elapsed().as_secs_f64());
+        orchard.ws_after = mem::working_set_mib();
+        if rep == 0 {
+            orchard.ws_before = ws1;
+        }
+
+        let t_sign = Instant::now();
+        let authorized = proven
+            .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+            .expect("orchard signatures");
+        orchard.sign_ms.push(t_sign.elapsed().as_secs_f64() * 1e3);
+
+        let t_verify = Instant::now();
+        authorized.verify_proof(&vk).expect("orchard verify");
+        orchard.verify_ms.push(t_verify.elapsed().as_secs_f64() * 1e3);
+        orchard.proof_bytes = authorized.authorization().proof().as_ref().len();
+
+        // ---------- Ironwood V3: 1 output, no real spend ----------
+        let t_build = Instant::now();
+        let mut b = Builder::new(
+            BundleType::UNPADDED,
+            ironwood_bv,
+            ironwood_bv.default_flags(), // cross-address permitted
+            Anchor::empty_tree(),
+        )
+        .expect("ironwood builder");
+        b.add_output(None, own_address, NoteValue::from_raw(10_000_000), [0u8; 512])
+            .expect("add_output");
+        let (bundle, meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+        ironwood.build_ms.push(t_build.elapsed().as_secs_f64() * 1e3);
+        ironwood.actions = bundle.actions().len();
+
+        if rep == 0 {
+            let f = bundle.flags();
+            let out_at: Vec<String> = (0..1)
+                .map(|i| match meta.output_action_index(i) {
+                    Some(x) => x.to_string(),
+                    None => "none".into(),
+                })
+                .collect();
+            println!(
+                "SHAPE {{\"pool\":\"ironwood\",\"bundle_version\":\"{}\",\"flag_byte\":{},\
+\"spends_enabled\":{},\"outputs_enabled\":{},\"cross_address_enabled\":{},\
+\"value_balance\":{},\"actions\":{},\"num_spends\":0,\
+\"output_action_index\":[{}]}}",
+                ironwood.bundle_version_label,
+                bundle.flag_byte(),
+                f.spends_enabled(),
+                f.outputs_enabled(),
+                f.cross_address_enabled(),
+                *bundle.value_balance(),
+                bundle.actions().len(),
+                out_at.join(","),
+            );
+        }
+
+        let ws1 = mem::working_set_mib();
+        let t_prove = Instant::now();
+        let proven = bundle.create_proof(&pk, &mut rng).expect("ironwood proof");
+        ironwood.prove_s.push(t_prove.elapsed().as_secs_f64());
+        ironwood.ws_after = mem::working_set_mib();
+        if rep == 0 {
+            ironwood.ws_before = ws1;
+        }
+
+        // No real spends: the dummy spend's authorization key is carried in the
+        // builder's signing metadata and applied during `prepare`.
+        let t_sign = Instant::now();
+        let authorized = proven
+            .apply_signatures(&mut rng, sighash, &[])
+            .expect("ironwood signatures");
+        ironwood.sign_ms.push(t_sign.elapsed().as_secs_f64() * 1e3);
+
+        let t_verify = Instant::now();
+        authorized.verify_proof(&vk).expect("ironwood verify");
+        ironwood.verify_ms.push(t_verify.elapsed().as_secs_f64() * 1e3);
+        ironwood.proof_bytes = authorized.authorization().proof().as_ref().len();
+    }
+
+    let peak_mib = mem::peak_working_set_mib();
+
+    for r in [&orchard, &ironwood] {
+        // Bundle encoding for Orchard-layout bundles; the v6/Ironwood encoding is
+        // not implemented in this crate, so we report proof size only for it.
+        let encoded = if r.pool == "orchard" {
+            format!("\"encoded_bytes\":{},", r.actions * 820 + 1 + 8 + 32 + r.proof_bytes + 64)
+        } else {
+            String::new()
+        };
+        println!(
+            "BUNDLE {{\"tag\":\"{}\",\"pool\":\"{}\",\"bundle_version\":\"{}\",\
+\"circuit\":\"PostNu6_3\",\"actions\":{},\"reps\":{},\"build_ms_mean\":{:.4},\
+\"prove_s_mean\":{:.6},\"prove_s_min\":{:.6},\"prove_s\":[{}],\"sign_ms_mean\":{:.4},\
+\"verify_ms_mean\":{:.4},\"proof_bytes\":{},{} \"ws_before_mib\":{:.1},\
+\"ws_after_mib\":{:.1}}}",
+            args.tag,
+            r.pool,
+            r.bundle_version_label,
+            r.actions,
+            r.prove_s.len(),
+            mean(&r.build_ms),
+            mean(&r.prove_s),
+            r.prove_s.iter().cloned().fold(f64::INFINITY, f64::min),
+            fmt(&r.prove_s),
+            mean(&r.sign_ms),
+            mean(&r.verify_ms),
+            r.proof_bytes,
+            encoded,
+            r.ws_before,
+            r.ws_after,
+        );
+    }
+
+    let orchard_prove = mean(&orchard.prove_s);
+    let ironwood_prove = mean(&ironwood.prove_s);
+
+    println!(
+        "RESULT {{\"tag\":\"{}\",\"mode\":\"v3\",\"seed\":{},\"reps\":{},\"fixture_s\":{:.6},\
+\"keygen_s\":{:.6},\"orchard_actions\":{},\"ironwood_actions\":{},\"total_actions\":{},\
+\"orchard_prove_s\":{:.6},\"ironwood_prove_s\":{:.6},\"prove_sum_s\":{:.6},\
+\"orchard_verify_ms\":{:.4},\"ironwood_verify_ms\":{:.4},\
+\"orchard_proof_bytes\":{},\"ironwood_proof_bytes\":{},\
+\"orchard_encoded_bytes\":{},\"peak_ws_mib\":{:.1},\
+\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        args.tag,
+        args.seed,
+        args.reps,
+        fixture_s,
+        keygen_s,
+        orchard.actions,
+        ironwood.actions,
+        orchard.actions + ironwood.actions,
+        orchard_prove,
+        ironwood_prove,
+        orchard_prove + ironwood_prove,
+        mean(&orchard.verify_ms),
+        mean(&ironwood.verify_ms),
+        orchard.proof_bytes,
+        ironwood.proof_bytes,
+        orchard.actions * 820 + 1 + 8 + 32 + orchard.proof_bytes + 64,
+        peak_mib,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
     );

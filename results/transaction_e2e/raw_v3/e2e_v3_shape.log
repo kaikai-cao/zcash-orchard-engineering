@@ -1,0 +1,7 @@
+pinned to CPU mask 0x1
+SHAPE {"pool":"orchard","bundle_version":"orchard_v3","flag_byte":3,"spends_enabled":true,"outputs_enabled":true,"cross_address_enabled":false,"value_balance":15000000,"actions":2,"spend_action_index":[1],"output_action_index":[0]}
+SHAPE {"pool":"ironwood","bundle_version":"ironwood_v3","flag_byte":7,"spends_enabled":true,"outputs_enabled":true,"cross_address_enabled":true,"value_balance":-10000000,"actions":1,"num_spends":0,"output_action_index":[0]}
+BUNDLE {"tag":"e2e_v3_shape","pool":"orchard","bundle_version":"orchard_v3","circuit":"PostNu6_3","actions":2,"reps":1,"build_ms_mean":11.9520,"prove_s_mean":3.306731,"prove_s_min":3.306731,"sign_ms_mean":0.5929,"verify_ms_mean":30.6547,"proof_bytes":7264,"encoded_bytes":9009, "ws_before_mib":43.2,"ws_after_mib":44.6}
+BUNDLE {"tag":"e2e_v3_shape","pool":"ironwood","bundle_version":"ironwood_v3","circuit":"PostNu6_3","actions":1,"reps":1,"build_ms_mean":4.4884,"prove_s_mean":1.940205,"prove_s_min":1.940205,"sign_ms_mean":0.3563,"verify_ms_mean":25.8720,"proof_bytes":4992, "ws_before_mib":45.9,"ws_after_mib":44.3}
+RESULT {"tag":"e2e_v3_shape","mode":"v3","seed":7,"reps":1,"fixture_s":0.009017,"keygen_s":2.748635,"orchard_actions":2,"ironwood_actions":1,"total_actions":3,"orchard_prove_s":3.306731,"ironwood_prove_s":1.940205,"prove_sum_s":5.246936,"orchard_verify_ms":30.6547,"ironwood_verify_ms":25.8720,"orchard_proof_bytes":7264,"ironwood_proof_bytes":4992,"orchard_encoded_bytes":9009,"peak_ws_mib":113.2,"rayon_threads":"1","affinity":"0x1"}
+WALL_S=8.4671098
