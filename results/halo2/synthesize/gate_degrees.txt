@@ -1,0 +1,21 @@
+gates parsed: 55
+max gate degree: 9
+
+gates at degree 9:
+  [9] range check  (1 constraint(s), attaining: <unnamed>)
+  [9] Running sum coordinates check  (3 constraint(s), attaining: check x)
+  [9] Full-width fixed-base scalar mul  (4 constraint(s), attaining: check x)
+
+top 12 gates by degree:
+  9  range check  (1 constraint(s))
+  9  Running sum coordinates check  (3 constraint(s))
+  9  Full-width fixed-base scalar mul  (4 constraint(s))
+  6  complete addition  (12 constraint(s))
+  6  full round  (3 constraint(s))
+  6  partial rounds  (4 constraint(s))
+  6  Sinsemilla gate  (2 constraint(s))
+  6  Sinsemilla gate (instance 2)  (2 constraint(s))
+  5  witness point  (2 constraint(s))
+  5  overflow checks  (5 constraint(s))
+  5  Canonicity checks  (8 constraint(s))
+  4  witness non-identity point  (1 constraint(s))

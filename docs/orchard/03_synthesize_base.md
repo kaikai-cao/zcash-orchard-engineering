@@ -262,6 +262,9 @@ v_new · (1 − enable_output) = 0     // L365–L368
 
 1. ~~`magnitude` 为什么落在 `advices[9]`——恰好是 `LookupRangeCheckConfig` 的列？范围检查是怎样被 `ScalarFixedShort` 触发的？~~
    **已解决，见 `04_cv_net.md` §1。** 结论：`v_net = v_old − v_new` 确实在 host 侧算（`Value<ValueSum>`，`value.rs` L142–L152），电路只见证 `(m, s)`；但 64 位范围约束**不由 `advices[9]` 的 `LookupRangeCheckConfig` 完成**，而是由定基短标量乘的 `RunningSumConfig`（纯门，8 项乘积，次数 9）在 `advices[4]` 上完成，`m` 只是借 `advices[9]` 存放初始见证。
-2. `derive_nullifier` 是 `cm + [Poseidon(nk, rho) + psi]·NullifierK`。`psi` 用普通加法（`AddChip`，落在 `advices[6..9]`），为什么不是再进一次 Poseidon？`NullifierK` 是 `FixedPointBaseField`（基域标量乘）而非 `ScalarFixed`，区别在哪？
-3. `nf_old` 只 `extract_p()` 取 x 再绑 `Instance[NF_OLD]`——y 为什么不需要？
-4. 这一步同时产出 `rho_new = nf_old`（L805）：新 note 的 `ρ` 直接复用旧 nullifier 的 x 坐标，跨 note 的链式关系是怎么在**约束层面**表达出来的（copy 而非计算）？
+2. ~~`derive_nullifier` 是 `cm + [Poseidon(nk, rho) + psi]·NullifierK`。`psi` 用普通加法（`AddChip`），为什么不是再进一次 Poseidon？`NullifierK` 是 `FixedPointBaseField`（基域标量乘）而非 `ScalarFixed`，区别在哪？~~
+   **已解决，见 `05_nf_old.md` §2、§4.1。** 结论：ψ 本身就是带 `rseed` 的 PRF 输出，加法已足以把 `rseed` 掺进标量 `a`，再哈希只是多付一个 permutation；`NullifierK` 的差别不在窗口数（同为 85），而在输入域是 **Pallas Base**，因此必须额外证 $0\le\alpha<p$（85 窗口 + strict 只保证 $\alpha<2^{255}$，`[α+p]𝒦 ≠ [α]𝒦`）。
+3. ~~`nf_old` 只 `extract_p()` 取 x 再绑 `Instance[NF_OLD]`——y 为什么不需要？~~
+   **已解决，见 `05_nf_old.md` §4.1(b)。** 绑几行由链下消费者决定：`cv_net`/`rk` 各绑 2 行（同态余额、验签需要完整点），`nf` 只绑 1 行（双花检测只需 x）；且该点在电路内由完整加法完全约束，y 的符号不是自由度。
+4. ~~这一步同时产出 `rho_new = nf_old`（L805）：新 note 的 `ρ` 直接复用旧 nullifier 的 x 坐标，跨 note 的链式关系是怎么在**约束层面**表达出来的（copy 而非计算）？~~
+   **已解决，见 `05_nf_old.md` F24。** `rho_new = nf_old.inner().clone()`（L805）就是一次 `AssignedCell` 复用，后续 `note_commit` 直接消费同一个 cell；关系由 copy constraint 表达，没有任何额外门。

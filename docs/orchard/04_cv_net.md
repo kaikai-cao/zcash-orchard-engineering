@@ -33,7 +33,7 @@
    ```
    `LookupRangeCheckConfig` 在 `utilities/lookup_range_check.rs`，`RunningSumConfig` 在 `utilities/decompose_running_sum.rs`。名字都带 "running sum"，但前者查表、后者用 8 项乘积门。
 
-2. **次数 9 是这套机制的指纹。** `range_check(word, 8) = word·(1−word)···(7−word)`（`utilities.rs` L170–L174）是 8 次，乘上 selector 就是 **9 次** —— 正是 `02_configure.md` 实测的 `cs.degree() = 9`。也就是说，整份电路的最高次数来自这里，而不是 Poseidon 或 Sinsemilla。
+2. **次数 9 与这套机制相符，但不能只归因于它。** `range_check(word, 8) = word·(1−word)···(7−word)`（`utilities.rs` L170–L174）是 8 次，乘上 selector 就是 **9 次**。但它不是唯一的 9 次来源：`05_nf_old.md` §6 用逐门次数实测证明，真实 CS 里另有两个门（`Running sum coordinates check`、`Full-width fixed-base scalar mul`）也含 9 次约束，其中一个的 9 次来自 x 坐标的 7 次 Lagrange 插值而非范围检查。所以 `cs.degree() = 9` 只说明"某个门达到 9"，不能把最高次数唯一归给 `RunningSumConfig`。
 
 3. **`window` 与 `running_sum_config.z` 是同一列。** `RunningSumConfig::configure(meta, q, window)` 把 `z` 直接绑到传入的 `window`（`advices[4]`），所以 "z 列" 和 "窗口列" 不是两列；同区域里 `sign` 也被 copy 到这一列（`short.rs` L164–L169），只是不同行。
 
@@ -147,7 +147,7 @@ pub const NUM_WINDOWS: usize = 255_usize.div_ceil(3);        // → 85
 | # | 结论 | 依据 |
 |---|---|---|
 | F9 | `advices[9]` 上的 lookup 式 range check 与 `v_net` 无关；`m` 只是借用该列作见证 | L628–L637、`circuit.rs` L417 |
-| F10 | 定基短标量乘用 `RunningSumConfig`（纯门，8 项乘积，次数 9），**不是** `LookupRangeCheckConfig` | `mul_fixed.rs` L5/L34/L65、`decompose_running_sum.rs` L85–L113 |
+| F10 | 定基短标量乘用 `RunningSumConfig`（纯门，8 项乘积），**不是** `LookupRangeCheckConfig`；该门名为 `range check`，实测次数 9 —— 但 9 次另有来源，不可唯一归因（见 05 §6） | `mul_fixed.rs` L5/L34/L65、`decompose_running_sum.rs` L101–L113 |
 | F11 | `m < 2^64` 由"21×3 bit + 末窗口 `bool_check(z_21)` + `z_22=0`"共同闭合；末窗口同时受 3-bit 与 bool 两重约束 | `short.rs` L52–L70、L83–L102 |
 | F12 | 全宽标量乘（`rcv`）走 85 个直接窗口，无 running sum、无 strict，允许非规范表示；因 `R` 阶为 `p` 而无害 | `constants.rs` L18–L25、`full_width.rs` L34–L100 |
 | F13 | `m`/`s` 各自出现在 `[9]→[4]→[2]/[3]` 三处，说明"金额关系"与"承诺内容"共用同一批 cell | L628–L637、L846–L859、`short.rs` L164–L169 |
