@@ -1,0 +1,17 @@
+[package]
+name = "orchard-e2e"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "End-to-end Orchard bundle build/prove/sign/verify measurement harness (external to the upstream repo)"
+
+# The upstream checkout is kept pristine; we consume it as a path dependency.
+# Path is relative to this crate: harness -> transaction_e2e -> experiments -> repo -> D:\Research
+[dependencies]
+orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
+rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
+incrementalmerkletree = "0.9"
+pasta_curves = "0.6"
+
+[profile.release]
+debug = false

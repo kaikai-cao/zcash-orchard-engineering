@@ -1,0 +1,8 @@
+STAGE fixture_s=0.008835
+STAGE keygen_s=2.598674
+STAGE build_ms=12.084400,21.790100,21.362800
+STAGE prove_s=6.835105,6.675042,7.087911
+STAGE sign_ms=1.316400,1.174800,1.164700
+STAGE verify_ms=57.331800,55.180200,55.307700
+RESULT {"tag":"e2e_v2_1s2o_unpinned","version":"v2","spends":1,"outputs":2,"actions":2,"seed":7,"reps":3,"fixture_s":0.008835,"keygen_s":2.598674,"build_ms_mean":18.4124,"prove_s_mean":6.866019,"prove_s_min":6.675042,"sign_ms_mean":1.2186,"verify_ms_mean":55.9399,"proof_bytes":7264,"encoded_bytes":9009,"ws_before_prove_mib":43.0,"ws_after_prove_mib":44.8,"peak_ws_mib":114.2,"ws_after_keygen_mib":42.9,"rayon_threads":"1","affinity":"0x0"}
+WALL_S=23.4863298

@@ -1,0 +1,9 @@
+pinned to CPU mask 0x55
+STAGE fixture_s=0.008690
+STAGE keygen_s=1.491336
+STAGE build_ms=12.784600,13.249300,12.711000,12.746800,12.438200
+STAGE prove_s=1.034122,1.014232,1.003237,0.992972,1.007740
+STAGE sign_ms=0.600500,0.639700,0.641200,0.595600,0.604400
+STAGE verify_ms=9.340600,8.944900,8.655300,8.630600,9.332400
+RESULT {"tag":"e2e_v2_1s2o_t4","version":"v2","spends":1,"outputs":2,"actions":2,"seed":7,"reps":5,"fixture_s":0.008690,"keygen_s":1.491336,"build_ms_mean":12.7860,"prove_s_mean":1.010461,"prove_s_min":0.992972,"sign_ms_mean":0.6163,"verify_ms_mean":8.9808,"proof_bytes":7264,"encoded_bytes":9009,"ws_before_prove_mib":43.3,"ws_after_prove_mib":45.4,"peak_ws_mib":114.9,"ws_after_keygen_mib":43.2,"rayon_threads":"4","affinity":"0x55"}
+WALL_S=6.7275198

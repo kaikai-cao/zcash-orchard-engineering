@@ -1,0 +1,9 @@
+pinned to CPU mask 0x1
+STAGE fixture_s=0.008819
+STAGE keygen_s=2.645467
+STAGE build_ms=12.936500
+STAGE prove_s=3.232685
+STAGE sign_ms=0.626100
+STAGE verify_ms=30.074300
+RESULT {"tag":"e2e_smoke","version":"v2","spends":1,"outputs":2,"actions":2,"seed":7,"reps":1,"fixture_s":0.008819,"keygen_s":2.645467,"build_ms_mean":12.9365,"prove_s_mean":3.232685,"prove_s_min":3.232685,"sign_ms_mean":0.6261,"verify_ms_mean":30.0743,"proof_bytes":7264,"encoded_bytes":9009,"ws_before_prove_mib":44.8,"ws_after_prove_mib":45.9,"peak_ws_mib":114.1,"ws_after_keygen_mib":44.8,"rayon_threads":"1","affinity":"0x1"}
+WALL_S=6.3072328

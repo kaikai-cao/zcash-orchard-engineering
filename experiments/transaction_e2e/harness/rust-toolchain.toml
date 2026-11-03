@@ -1,0 +1,5 @@
+[toolchain]
+# Same toolchain the Orchard baseline was frozen on (see docs/environment/orchard_environment.md).
+# Must be the MSVC host: the default toolchain on this machine is windows-gnu, and the
+# upstream crate is built and benchmarked with windows-msvc.
+channel = "1.88"
