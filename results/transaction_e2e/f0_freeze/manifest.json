@@ -83,6 +83,12 @@
     "wall_share": "E2 phase interval / create_proof outer wall clock; additive",
     "rule": "1P: stage_cpu_share ~= wall_share. 8P: wall_share_i ~= cpu_share_i / speedup_i (NOT equal)."
   },
+  "fingerprint_conventions": {
+    "hash_normalization": "sha256 over LF-normalised bytes (CRLF->LF); .gitattributes pins these paths to `text eol=lf` so a clone reproduces them exactly",
+    "halo2_src_scope": "concatenation of the 57 .rs files under vendor/halo2_proofs-0.4.0/src, sorted by path",
+    "pasta_src_scope": "concatenation of the 16 .rs files under the cargo registry copy of pasta_curves-0.6.0/src, sorted by path",
+    "verify": "python scripts/analysis/f0_verify_frozen.py  (exit 0 = all fingerprints match)"
+  },
   "stage_f1_artifacts": [
     "experiments/f1_fp_mul/",
     "experiments/f1_fp_mul_asmref/",

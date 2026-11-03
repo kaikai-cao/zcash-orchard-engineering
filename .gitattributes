@@ -5,3 +5,12 @@
 # Raw measurement records: keep exactly what the tools wrote.
 results/**/*.txt -text
 results/**/*.csv text eol=lf
+
+# Files whose sha256 is recorded in f0_freeze/manifest.json must land as LF on
+# checkout, otherwise the frozen hashes cannot be re-verified from a clone.
+results/transaction_e2e/f0_freeze/Cargo.lock.frozen text eol=lf
+**/Cargo.lock text eol=lf
+experiments/transaction_e2e/vendor/** text eol=lf
+
+# Must stay last: the vendor rule above would otherwise re-enable EOL conversion.
+*.patch -text
