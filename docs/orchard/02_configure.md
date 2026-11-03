@@ -168,9 +168,9 @@ Constraints::with_selector(q_orchard, [
 
 | fixed 列号 | 用途 | 谁声明的 |
 |---|---|---|
-| 0, 1, 2 | Sinsemilla 生成元查表（`table_idx`, `table_x`, `table_y`） | `circuit.rs:377-382` |
+| 0, 1, 2 | Sinsemilla 生成元查表（`table_idx`, `table_x`, `table_y`） | `circuit.rs:377-382`，并由 `constants` dump 反证：`lagrange_coeffs[0]` 落在 fixed 3 |
 | 3–10 | `lagrange_coeffs[0..8]` | `circuit.rs:398-407` |
-| 11, 12 | 两套 Sinsemilla 各自的 `q_sinsemilla2` | `SinsemillaChip::configure` 内部（`sinsemilla/chip.rs:190`） |
+| 11, 12 | 两套 Sinsemilla 各自的 `q_sinsemilla2` | 由 `sinsemilla/chip.rs:190` 每次 `configure` 各建 1 个；**列号是扣除法推断**（见 §7） |
 | 13 | 未能定位到具体来源，见 §7 | — |
 
 这批 lagrange 列的复用是**省证明体积的关键手段**，源码注释写得很直白：
@@ -335,7 +335,9 @@ cross_address_disabled.copy_advice(…, config.advices[9], offset)?;
 
 **14 个 fixed 列里，13 个能追到出处，第 13 号（下标 13）没有定位到。**
 
-已确认：`0-2` 查表列、`3-10` lagrange、`11-12` 两套 `q_sinsemilla2`。剩下的 1 个由某个 chip 在 `configure` 内部新建，我没有在源码里找到对应的 `fixed_column()` 调用点——`halo2_gadgets` 里所有 `meta.fixed_column()` 的非测试调用只有 `sinsemilla/chip.rs:190`。
+已确认的链条：`constants` dump 显示 `lagrange_coeffs[0]` = fixed **3**，反推出查表列是 0–2、lagrange 是 3–10；`permutation` dump 显示参与置换的 fixed 列是 3、8、9、10，而 8/9/10 正是 `rc_b = lagrange_coeffs[5..8]`，与 Poseidon 的 `enable_equality(rc_b)` 吻合——这条交叉验证把 0–10 共 11 列的归属锁死了。
+
+剩下 3 列（11、12、13）里，必须有两列是两套 Sinsemilla 的 `q_sinsemilla2`（`sinsemilla/chip.rs:190`，每次 `configure` 建一个），第 3 列来源未知。所以 §4.1 表里把 `q_sinsemilla2` 标在 11、12 上，是按"扣除法 + 创建顺序"推的，**没有直接证据**证明它不是 12、13。
 
 它不影响任何结论：
 
