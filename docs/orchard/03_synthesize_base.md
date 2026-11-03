@@ -260,7 +260,8 @@ v_new · (1 − enable_output) = 0     // L365–L368
 
 第二块（`cv_net` 与 `nf_old`，L610–L684）需要回答四个问题：
 
-1. `v_net = v_old − v_new` 是在**host 侧**算的（`Value<ValueSum>`，`value.rs` L142–L152），电路里没有减法门；电路只见证 `(magnitude, sign)` 并约束 `v_old − v_new = magnitude·sign`。那 `magnitude` 为什么落在 `advices[9]`——恰好是 `LookupRangeCheckConfig` 的列？范围检查是怎样被 `ScalarFixedShort` 触发的？
+1. ~~`magnitude` 为什么落在 `advices[9]`——恰好是 `LookupRangeCheckConfig` 的列？范围检查是怎样被 `ScalarFixedShort` 触发的？~~
+   **已解决，见 `04_cv_net.md` §1。** 结论：`v_net = v_old − v_new` 确实在 host 侧算（`Value<ValueSum>`，`value.rs` L142–L152），电路只见证 `(m, s)`；但 64 位范围约束**不由 `advices[9]` 的 `LookupRangeCheckConfig` 完成**，而是由定基短标量乘的 `RunningSumConfig`（纯门，8 项乘积，次数 9）在 `advices[4]` 上完成，`m` 只是借 `advices[9]` 存放初始见证。
 2. `derive_nullifier` 是 `cm + [Poseidon(nk, rho) + psi]·NullifierK`。`psi` 用普通加法（`AddChip`，落在 `advices[6..9]`），为什么不是再进一次 Poseidon？`NullifierK` 是 `FixedPointBaseField`（基域标量乘）而非 `ScalarFixed`，区别在哪？
 3. `nf_old` 只 `extract_p()` 取 x 再绑 `Instance[NF_OLD]`——y 为什么不需要？
 4. 这一步同时产出 `rho_new = nf_old`（L805）：新 note 的 `ρ` 直接复用旧 nullifier 的 x 坐标，跨 note 的链式关系是怎么在**约束层面**表达出来的（copy 而非计算）？
