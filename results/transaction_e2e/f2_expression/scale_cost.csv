@@ -1,0 +1,7 @@
+# Stage F2 follow-up: cost of Ast::Scale(-1) vs negation, 16384-element buffer,
+# 200 passes x 5 rounds, median, pinned to P-core 0 (pasta_curves 0.6.0, release).
+# Neg for Ast is implemented as Scale(self, -F::ONE) in poly/evaluator.rs:352.
+mode,ns_per_element
+negate,1.1273
+scale_by_minus_one,11.2180
+scale_by_two,10.6007

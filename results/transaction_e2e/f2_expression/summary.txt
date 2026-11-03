@@ -1,0 +1,54 @@
+Stage F2 - constraint expression accounting
+========================================================================
+
+[constraint system]  (raw_1p.log)
+  gates                     55
+  gate polynomials          193
+  expression nodes          7531
+    product 1424  sum 1514  scaled 199  negated 1263
+    advice 968  fixed 1161  constant 1002  instance 0  selector 0
+  max depth                 14
+  distinct subtrees         1157  (of 7531 nodes; 6374 repeated, 84.6%)
+  leaf occurrences          2129  over 49 distinct queries (43.4x reuse)
+  CSE headroom (gates)      1002 vector-muls saved
+  degree min/max            0/9
+  queries advice/fixed/inst 25/29/1
+
+[evaluator calls]
+  raw_1p.log: 13 calls, largest poly_len=16384 chunk=4096 x4
+    quotient ast: nodes 16345 (mul 3086 scale 3054 add 3344 poly 4632), distribute_terms 430
+    vector-muls 6570  -> field muls 107642880  |  field adds 54788096  |  leaf elements 75890688
+    isolated evaluate: first 1693.3 ms, bench median 1666.0 ms (min 1631.8, max 1671.2, n=3)
+  raw_1p_2.log: 13 calls, largest poly_len=16384 chunk=4096 x4
+    quotient ast: nodes 16345 (mul 3086 scale 3054 add 3344 poly 4632), distribute_terms 430
+    vector-muls 6570  -> field muls 107642880  |  field adds 54788096  |  leaf elements 75890688
+    isolated evaluate: first 1680.8 ms, bench median 1681.2 ms (min 1676.7, max 1688.3, n=3)
+  raw_1p_3.log: 13 calls, largest poly_len=16384 chunk=4096 x4
+    quotient ast: nodes 16345 (mul 3086 scale 3054 add 3344 poly 4632), distribute_terms 430
+    vector-muls 6570  -> field muls 107642880  |  field adds 54788096  |  leaf elements 75890688
+    isolated evaluate: first 1685.6 ms, bench median 1683.2 ms (min 1679.1, max 1733.3, n=3)
+  raw_1p_ratio.log: 13 calls, largest poly_len=16384 chunk=4096 x4
+    quotient ast: nodes 16345 (mul 3086 scale 3054 add 3344 poly 4632), distribute_terms 430
+    vector-muls 6570  -> field muls 107642880  |  field adds 54788096  |  leaf elements 75890688
+    isolated evaluate: first 1592.7 ms (single run, no bench re-runs)
+  raw_8p.log: 13 calls, largest poly_len=16384 chunk=512 x32
+    quotient ast: nodes 16345 (mul 3086 scale 3054 add 3344 poly 4632), distribute_terms 430
+    vector-muls 6570  -> field muls 107642880  |  field adds 54788096  |  leaf elements 75890688
+    isolated evaluate: first 394.6 ms, bench median 391.2 ms (min 386.8, max 392.6, n=3)
+
+[term attribution of the quotient tree]
+  gate         terms  386  mul  2848  scale  2924  add  3028  poly  4258  vector-muls  5772 (94.0%)
+  permutation  terms   14  mul   106  scale    20  add   146  poly   138  vector-muls   126 (2.1%)
+  lookup       terms   30  mul   132  scale   110  add   170  poly   236  vector-muls   242 (3.9%)
+
+  attribution check: gate segment mul/scale = 2848/2924 vs expected 2848/2924 (instances=2, product / scaled+negated)  -> OK
+
+[cross-check against the Stage E3 sampler]
+  raw_1p.log     field muls 107,905,024  at 10.14 ns inline throughput = 1.094 s
+  raw_1p_2.log   field muls 107,905,024  at 10.14 ns inline throughput = 1.094 s
+  raw_1p_3.log   field muls 107,905,024  at 10.14 ns inline throughput = 1.094 s
+  raw_1p_ratio.log field muls 107,905,024  at 10.14 ns inline throughput = 1.094 s
+  raw_8p.log     field muls 107,905,024  at 10.14 ns inline throughput = 1.094 s
+
+note: field_muls_total counts Vector<F> operations x poly_len for every
+      evaluate call, including the 12 small Lagrange-basis calls.
