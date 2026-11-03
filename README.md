@@ -6,8 +6,8 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 
 ## 当前状态
 
-阶段 A–E 已完成，Stage F 进行中（F0/F1/F2 已收口）。研究问题从「哪个阶段最慢」推进到
-「哪些底层操作消耗了 CPU」，再推进到「这些操作是按什么形态被执行的」。
+阶段 A–E 已完成，Stage F 进行中（F0/F1/F2 与 H1c 验证已收口）。研究问题从「哪个阶段最慢」
+推进到「哪些底层操作消耗了 CPU」，再推进到「这些操作是按什么形态被执行的」。
 
 | 阶段 | 内容 | 结论 | 文档 |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 | F0 | 证据冻结 | 扰动口径统一为 1P +5.6% / 8P +10.3% | `docs/orchard/11` |
 | F1 | `Fp::mul` 微基准 + 汇编审计 | **H1 否决**：`+bmi2,+adx` 无收益；差异在调用形态（上限 10.6%，F2 修正为 ≈1.8%） | `docs/orchard/12` |
 | F2 | 表达式求值器成本归因 | quotient 的 **89.1%** 是求值器；6570 次整块乘 × 16384 = **1.076 亿次域乘**；**38.4% 是乘 −1** | `docs/orchard/13` |
+| H1c | LTO 单因子验证（只改 `lto=fat`） | **LTO 不内联 `Fp::mul`**（调用点 9→9）；端到端 **+0.00%** [−1.57, +1.14]，**10.6% 被排除 → 关档** | `docs/orchard/14` |
 
 | 冻结项 | 值 |
 | --- | --- |
