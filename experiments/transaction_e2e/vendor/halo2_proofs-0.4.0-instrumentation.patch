@@ -1,0 +1,1071 @@
+# Stage E2/E3/F2 instrumentation for halo2_proofs 0.4.0 (crates.io)
+#
+# Apply inside a clean halo2_proofs-0.4.0 copy (the crate root, where src/ lives):
+#   patch -p1 < halo2_proofs-0.4.0-instrumentation.patch
+#
+# Six hooks, no algorithmic change:
+#   src/lib.rs            + pub mod f2
+#   src/f2.rs             new: accounting + report plumbing
+#   src/plonk.rs          + VerifyingKey::cs_f2() accessor
+#   src/plonk/keygen.rs   + f2::maybe_run(&vk) at end of keygen_vk
+#   src/plonk/prover.rs   + E2 phase timers, E3 stage codes, F2 term counters
+#   src/poly/evaluator.rs + evaluate wrapper (counts + timing) and Ast accounting
+#
+diff -ruN a/src/f2.rs b/src/f2.rs
+--- a/src/f2.rs	1970-01-01 08:00:00.000000000 +0800
++++ b/src/f2.rs	2026-11-03 21:14:21.030263000 +0800
+@@ -0,0 +1,616 @@
++//! Stage F2 diagnostics: what the constraint expressions look like, and what the
++//! evaluator actually does with them.
++//!
++//! Inert unless `ORCHARD_F2` is set. Two recording points:
++//!
++//! * [`maybe_run`] — called once from `keygen_vk`, after the `ConstraintSystem`
++//!   is finalised (selectors compressed). Summarises every gate expression tree:
++//!   node counts by variant, depth distribution, repeated subtrees, leaf reuse.
++//! * [`record_eval`] — called from `Evaluator::evaluate` for every invocation.
++//!   Carries the exact chunk geometry plus the node counts of the *fused* tree
++//!   (gates + permutation + lookup + `distribute_powers`), which is the tree the
++//!   prover really walks.
++//!
++//! Why this exists: Stage E3 measured `Fp::mul` at ~33% of prover self-samples,
++//! with 92% of those samples sitting under `evaluate::recurse`. Sampling cannot
++//! say where those multiplications come from — the recursion visits a `Vec<F>` of
++//! 8k elements per node, so one source-level `*=` becomes 8192 multiplications.
++//! Here the arithmetic is *counting*: field-op totals are derived as
++//! `nodes × polynomial length`, which makes them checkable against the sampler
++//! rather than a replacement for it.
++//!
++//! This is measurement scaffolding in a vendored copy, not an upstream patch.
++
++// Measurement scaffolding: per-counter doc comments and Debug impls would be noise
++// on a module that only ever prints JSON, and the crate lints both by default.
++#![allow(missing_docs, missing_debug_implementations)]
++
++use std::collections::HashMap;
++use std::sync::{Mutex, OnceLock};
++
++use ff::PrimeField;
++
++use crate::plonk::{ConstraintSystem, Expression, VerifyingKey};
++
++// ---------------------------------------------------------------------------
++// Enabling / report plumbing
++// ---------------------------------------------------------------------------
++
++/// True when `ORCHARD_F2` is present. Cached: this is called on every `evaluate`.
++pub fn enabled() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| std::env::var_os("ORCHARD_F2").is_some())
++}
++
++/// How many extra times to re-evaluate the real quotient tree (0 = don't).
++pub fn bench_reps() -> usize {
++    static N: OnceLock<usize> = OnceLock::new();
++    *N.get_or_init(|| {
++        std::env::var("ORCHARD_F2_BENCH")
++            .ok()
++            .and_then(|v| v.parse().ok())
++            .unwrap_or(0)
++    })
++}
++
++/// Term counts of the three sources that feed the fused quotient tree.
++///
++/// Not derivable from the `ConstraintSystem`: the permutation argument emits
++/// several `Ast`s per advice column (first set, last set, the shifted
++/// constraints, and the grand-product step), and the lookup argument does
++/// likewise. The prover therefore reports the real lengths instead of the
++/// analysis guessing them.
++static SEG_COUNTS: [std::sync::atomic::AtomicUsize; 3] = [
++    std::sync::atomic::AtomicUsize::new(0),
++    std::sync::atomic::AtomicUsize::new(0),
++    std::sync::atomic::AtomicUsize::new(0),
++];
++
++/// Wrap one of the three sources feeding the fused tree so the number of `Ast`
++/// terms it actually yields can be counted.
++///
++/// The sources are lazy iterators, so their lengths are not knowable up front
++/// (the permutation argument, for instance, emits a different number of terms
++/// per advice column). Counting as they are pulled keeps the ordering and the
++/// work identical — `inspect` adds one relaxed increment per term, ~430 per
++/// proof.
++///
++/// `slot`: 0 = gate polynomials, 1 = permutation argument, 2 = lookup argument.
++pub fn counted<I>(slot: usize, inner: I) -> impl Iterator<Item = I::Item>
++where
++    I: Iterator,
++{
++    inner.inspect(move |_| {
++        if enabled() {
++            SEG_COUNTS[slot].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
++    })
++}
++
++fn parts() -> &'static Mutex<Vec<(&'static str, String)>> {
++    static PARTS: OnceLock<Mutex<Vec<(&'static str, String)>>> = OnceLock::new();
++    PARTS.get_or_init(|| Mutex::new(Vec::new()))
++}
++
++fn push(key: &'static str, json: String) {
++    parts().lock().unwrap().push((key, json));
++}
++
++/// Drain everything recorded so far as one JSON object.
++pub fn take_report() -> String {
++    if enabled() {
++        let seg: [usize; 3] = std::array::from_fn(|i| {
++            SEG_COUNTS[i].load(std::sync::atomic::Ordering::Relaxed)
++        });
++        if seg != [0, 0, 0] {
++            push(
++                "segments",
++                format!(
++                    "{{\"gates\":{},\"permutation\":{},\"lookup\":{}}}",
++                    seg[0], seg[1], seg[2]
++                ),
++            );
++        }
++    }
++    let drained: Vec<(&'static str, String)> = std::mem::take(&mut *parts().lock().unwrap());
++    let body = drained
++        .into_iter()
++        .map(|(k, v)| format!("\"{k}\":{v}"))
++        .collect::<Vec<_>>()
++        .join(",");
++    format!("{{{body}}}")
++}
++
++// ---------------------------------------------------------------------------
++// Expression trees
++// ---------------------------------------------------------------------------
++
++/// Node counts of one `Expression` tree, by variant.
++#[derive(Default, Clone, Copy)]
++pub struct Nodes {
++    pub constant: u64,
++    pub selector: u64,
++    pub fixed: u64,
++    pub advice: u64,
++    pub instance: u64,
++    pub negated: u64,
++    pub sum: u64,
++    pub product: u64,
++    pub scaled: u64,
++}
++
++impl Nodes {
++    pub fn total(&self) -> u64 {
++        self.constant
++            + self.selector
++            + self.fixed
++            + self.advice
++            + self.instance
++            + self.negated
++            + self.sum
++            + self.product
++            + self.scaled
++    }
++
++    fn add(&mut self, o: &Nodes) {
++        self.constant += o.constant;
++        self.selector += o.selector;
++        self.fixed += o.fixed;
++        self.advice += o.advice;
++        self.instance += o.instance;
++        self.negated += o.negated;
++        self.sum += o.sum;
++        self.product += o.product;
++        self.scaled += o.scaled;
++    }
++
++    pub fn to_json(&self) -> String {
++        format!(
++            "{{\"constant\":{},\"selector\":{},\"fixed\":{},\"advice\":{},\"instance\":{},\
++\"negated\":{},\"sum\":{},\"product\":{},\"scaled\":{},\"total\":{}}}",
++            self.constant,
++            self.selector,
++            self.fixed,
++            self.advice,
++            self.instance,
++            self.negated,
++            self.sum,
++            self.product,
++            self.scaled,
++            self.total()
++        )
++    }
++}
++
++/// FNV-1a over bytes; shared with the `Ast` accounting in `poly::evaluator`.
++#[inline]
++pub(crate) fn fnv(bytes: &[u8]) -> u64 {
++    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
++    for b in bytes {
++        h ^= *b as u64;
++        h = h.wrapping_mul(0x0000_0100_0000_01b3);
++    }
++    h
++}
++
++/// Tagged pair combiner; shared with the `Ast` accounting in `poly::evaluator`.
++#[inline]
++pub(crate) fn comb(tag: u64, a: u64, b: u64) -> u64 {
++    let mut h = 0xcbf2_9ce4_8422_2325u64 ^ tag;
++    h = h.wrapping_mul(0x0000_0100_0000_01b3) ^ a;
++    h = h.wrapping_mul(0x0000_0100_0000_01b3) ^ b;
++    h
++}
++
++#[inline]
++fn query_key(index: usize, column: usize, rotation: i32) -> u64 {
++    fnv(&[
++        index.to_le_bytes().as_slice(),
++        column.to_le_bytes().as_slice(),
++        (rotation as i64).to_le_bytes().as_slice(),
++    ]
++    .concat())
++}
++
++/// One-pass accounting of a single expression tree.
++///
++/// Returns node counts, depth and the structural hash of the root, and (as side
++/// effects) the number of times each *distinct* subtree hash occurs. No memo:
++/// every node is visited exactly once, so repeats are counted as repeats. Trees
++/// here are 10^2 nodes, so linear re-walking is not a concern.
++fn analyze<F: PrimeField>(
++    expr: &Expression<F>,
++    hashes: &mut HashMap<u64, (u64, u64)>,
++    leaves: &mut HashMap<(u8, u64), u64>,
++    leaf_occ: &mut u64,
++) -> (Nodes, u32, u64) {
++    let mut n = Nodes::default();
++    let (depth, hash) = match expr {
++        Expression::Constant(c) => {
++            n.constant = 1;
++            (0, comb(1, fnv(c.to_repr().as_ref()), 0))
++        }
++        // Virtual selectors are compressed away before the prover sees the CS;
++        // if one survives, `selector` in the report is non-zero and that is a bug.
++        Expression::Selector(s) => {
++            n.selector = 1;
++            *leaf_occ += 1;
++            *leaves.entry((2, fnv(&s.0.to_le_bytes()))).or_insert(0) += 1;
++            (0, comb(2, fnv(&s.0.to_le_bytes()), 0))
++        }
++        Expression::Fixed(q) => {
++            n.fixed = 1;
++            let k = query_key(q.index, q.column_index, q.rotation.0);
++            *leaf_occ += 1;
++            *leaves.entry((3, k)).or_insert(0) += 1;
++            (0, comb(3, k, 0))
++        }
++        Expression::Advice(q) => {
++            n.advice = 1;
++            let k = query_key(q.index, q.column_index, q.rotation.0);
++            *leaf_occ += 1;
++            *leaves.entry((4, k)).or_insert(0) += 1;
++            (0, comb(4, k, 0))
++        }
++        Expression::Instance(q) => {
++            n.instance = 1;
++            let k = query_key(q.index, q.column_index, q.rotation.0);
++            *leaf_occ += 1;
++            *leaves.entry((5, k)).or_insert(0) += 1;
++            (0, comb(5, k, 0))
++        }
++        Expression::Negated(a) => {
++            let (na, da, ha) = analyze(a, hashes, leaves, leaf_occ);
++            n.add(&na);
++            n.negated += 1;
++            (da + 1, comb(6, ha, 0))
++        }
++        Expression::Sum(a, b) => {
++            let (na, da, ha) = analyze(a, hashes, leaves, leaf_occ);
++            let (nb, db, hb) = analyze(b, hashes, leaves, leaf_occ);
++            n.add(&na);
++            n.add(&nb);
++            n.sum += 1;
++            (da.max(db) + 1, comb(7, ha, hb))
++        }
++        Expression::Product(a, b) => {
++            let (na, da, ha) = analyze(a, hashes, leaves, leaf_occ);
++            let (nb, db, hb) = analyze(b, hashes, leaves, leaf_occ);
++            n.add(&na);
++            n.add(&nb);
++            n.product += 1;
++            (da.max(db) + 1, comb(8, ha, hb))
++        }
++        Expression::Scaled(a, c) => {
++            let (na, da, ha) = analyze(a, hashes, leaves, leaf_occ);
++            n.add(&na);
++            n.scaled += 1;
++            (da + 1, comb(9, ha, fnv(c.to_repr().as_ref())))
++        }
++    };
++    // Record this node's structural identity. `count` accumulates so repeats
++    // stand out; `local` is 1 when this node itself multiplies two whole chunks
++    // (Product / Scaled) and 0 otherwise.
++    //
++    // Recording the *local* cost rather than the subtree cost matters: a subtree
++    // cost would be counted again at every enclosing node, and a tree of nested
++    // repeats would appear to save more multiplications than it contains. With
++    // local costs, the saving is simply
++    //     (multiplications in the tree) - (multiplications in its DAG)
++    // which is exactly what a shared-evaluation plan could remove, and can never
++    // exceed the total.
++    let local = u64::from(matches!(expr, Expression::Product(..) | Expression::Scaled(..)));
++    let entry = hashes.entry(hash).or_insert((0, local));
++    entry.0 += 1;
++    entry.1 = local;
++    (n, depth, hash)
++}
++
++/// Aggregate accounting for a whole `ConstraintSystem`.
++pub struct CsStats {
++    pub gates: usize,
++    pub gate_polys: usize,
++    pub nodes: Nodes,
++    pub max_depth: u32,
++    pub depth_hist: Vec<(u32, u64)>,
++    pub distinct_subtrees: u64,
++    pub repeat_nodes: u64,
++    pub max_repeat: u64,
++    /// Vector multiplications a perfect CSE over the gate expressions would save,
++    /// in `Vec<F>` units: multiplications in the tree minus multiplications in
++    /// its DAG. Never exceeds the tree total.
++    pub cse_saving_vector_muls: u64,
++    pub leaf_occ: u64,
++    pub leaf_distinct: u64,
++    pub advice_queries: usize,
++    pub fixed_queries: usize,
++    pub instance_queries: usize,
++    pub advice_columns: usize,
++    pub fixed_columns: usize,
++    pub min_degree: usize,
++    pub max_degree: usize,
++}
++
++fn cs_stats<F: PrimeField>(cs: &ConstraintSystem<F>) -> CsStats {
++    let mut nodes = Nodes::default();
++    let mut max_depth = 0u32;
++    let mut depth_hist: HashMap<u32, u64> = HashMap::new();
++    let mut subtree_hashes: HashMap<u64, (u64, u64)> = HashMap::new();
++    let mut leaves: HashMap<(u8, u64), u64> = HashMap::new();
++    let mut leaf_occ = 0u64;
++    let mut gate_polys = 0usize;
++
++    for gate in cs.gates.iter() {
++        for expr in gate.polynomials().iter() {
++            gate_polys += 1;
++            let (n, d, _) = analyze(expr, &mut subtree_hashes, &mut leaves, &mut leaf_occ);
++            nodes.add(&n);
++            max_depth = max_depth.max(d);
++            *depth_hist.entry(d).or_insert(0) += 1;
++        }
++    }
++
++    let repeat_nodes = subtree_hashes.values().map(|(c, _)| c - 1).sum::<u64>();
++    let max_repeat = subtree_hashes.values().map(|(c, _)| *c).max().unwrap_or(0);
++    // CSE headroom: multiplications that vanish if every structural repeat is
++    // evaluated once. Equals `sum(local) over all nodes - sum(local) over
++    // distinct nodes`, because the fused tree already shares nothing.
++    let total_local: u64 = nodes.product + nodes.scaled;
++    let distinct_local: u64 = subtree_hashes.values().map(|(_, local)| local).sum();
++    let cse_saving_vector_muls = total_local.saturating_sub(distinct_local);
++    let mut depth_hist: Vec<(u32, u64)> = depth_hist.into_iter().collect();
++    depth_hist.sort_unstable();
++
++    CsStats {
++        gates: cs.gates.len(),
++        gate_polys,
++        nodes,
++        max_depth,
++        depth_hist,
++        distinct_subtrees: subtree_hashes.len() as u64,
++        repeat_nodes,
++        max_repeat,
++        cse_saving_vector_muls,
++        leaf_occ,
++        leaf_distinct: leaves.len() as u64,
++        advice_queries: cs.advice_queries.len(),
++        fixed_queries: cs.fixed_queries.len(),
++        instance_queries: cs.instance_queries.len(),
++        advice_columns: cs.num_advice_columns,
++        fixed_columns: cs.num_fixed_columns,
++        min_degree: cs.minimum_degree.unwrap_or(0),
++        max_degree: cs.degree(),
++    }
++}
++
++impl CsStats {
++    fn to_json(&self) -> String {
++        let hist = self
++            .depth_hist
++            .iter()
++            .map(|(d, c)| format!("{{\"depth\":{d},\"polys\":{c}}}"))
++            .collect::<Vec<_>>()
++            .join(",");
++        format!(
++            "{{\"gates\":{},\"gate_polys\":{},\"nodes\":{},\"max_depth\":{},\
++\"depth_hist\":[{}],\"distinct_subtrees\":{},\"repeat_nodes\":{},\"max_repeat\":{},\
++\"cse_saving_vector_muls\":{},\
++\"leaf_occ\":{},\"leaf_distinct\":{},\"advice_queries\":{},\"fixed_queries\":{},\
++\"instance_queries\":{},\"advice_columns\":{},\"fixed_columns\":{},\
++\"min_degree\":{},\"max_degree\":{}}}",
++            self.gates,
++            self.gate_polys,
++            self.nodes.to_json(),
++            self.max_depth,
++            hist,
++            self.distinct_subtrees,
++            self.repeat_nodes,
++            self.max_repeat,
++            self.cse_saving_vector_muls,
++            self.leaf_occ,
++            self.leaf_distinct,
++            self.advice_queries,
++            self.fixed_queries,
++            self.instance_queries,
++            self.advice_columns,
++            self.fixed_columns,
++            self.min_degree,
++            self.max_degree
++        )
++    }
++}
++
++/// Entry point from `keygen_vk`. No-op unless `ORCHARD_F2` is set.
++pub fn maybe_run<C>(vk: &VerifyingKey<C>)
++where
++    C: crate::arithmetic::CurveAffine,
++    C::Scalar: PrimeField,
++{
++    if !enabled() {
++        return;
++    }
++    let stats = cs_stats(vk.cs_f2());
++    push("cs", stats.to_json());
++}
++
++// ---------------------------------------------------------------------------
++// Evaluator accounting
++// ---------------------------------------------------------------------------
++
++/// Node counts of the fused `Ast` the prover actually evaluates.
++#[derive(Default, Clone)]
++pub struct AstStats {
++    pub poly: u64,
++    pub add: u64,
++    pub mul: u64,
++    pub scale: u64,
++    pub distribute: u64,
++    pub distribute_terms: u64,
++    pub linear: u64,
++    pub constant: u64,
++    pub max_depth: u32,
++    /// Per top-level `distribute_powers` term: (mul, scale, poly, add, nodes).
++    /// The terms arrive in a known order — every gate expression first, then the
++    /// permutation arguments, then the lookup arguments — so this breakdown is
++    /// what separates "gate constraints" from "the rest" in the fused tree.
++    pub terms: Vec<[u64; 5]>,
++}
++
++impl AstStats {
++    /// Multiplications of a whole `Vec<F>` (i.e. `len` field muls each):
++    /// `Mul`, `Scale`, and the `acc *= base` step of every `distribute_powers`
++    /// term. This is the number Stage E3's `Fp::mul` samples should account for.
++    pub fn vector_muls(&self) -> u64 {
++        self.mul + self.scale + self.distribute_terms
++    }
++
++    fn add(&mut self, o: &AstStats) {
++        self.poly += o.poly;
++        self.add += o.add;
++        self.mul += o.mul;
++        self.scale += o.scale;
++        self.distribute += o.distribute;
++        self.distribute_terms += o.distribute_terms;
++        self.linear += o.linear;
++        self.constant += o.constant;
++        self.max_depth = self.max_depth.max(o.max_depth);
++    }
++
++    fn to_json(&self) -> String {
++        let terms = self
++            .terms
++            .iter()
++            .map(|t| format!("[{},{},{},{},{}]", t[0], t[1], t[2], t[3], t[4]))
++            .collect::<Vec<_>>()
++            .join(",");
++        format!(
++            "{{\"poly\":{},\"add\":{},\"mul\":{},\"scale\":{},\"distribute\":{},\
++\"distribute_terms\":{},\"linear\":{},\"constant\":{},\"nodes\":{},\
++\"max_depth\":{},\"vector_muls\":{},\"terms\":[{}]}}",
++            self.poly,
++            self.add,
++            self.mul,
++            self.scale,
++            self.distribute,
++            self.distribute_terms,
++            self.linear,
++            self.constant,
++            self.poly
++                + self.add
++                + self.mul
++                + self.scale
++                + self.distribute
++                + self.linear
++                + self.constant,
++            self.max_depth,
++            self.vector_muls(),
++            terms
++        )
++    }
++}
++
++/// One `Evaluator::evaluate` invocation as observed from inside.
++pub struct EvalRecord {
++    pub poly_len: usize,
++    pub chunk_size: usize,
++    pub num_chunks: usize,
++    pub ast: AstStats,
++    /// Wall time of the single call that ran as part of the proof.
++    pub first_ms: f64,
++    /// Median over the optional re-runs (`ORCHARD_F2_BENCH`); 0 when not repeated.
++    pub bench_median_ms: f64,
++    pub bench_min_ms: f64,
++    pub bench_max_ms: f64,
++    pub bench_reps: usize,
++}
++
++static EVALS: OnceLock<Mutex<Vec<EvalRecord>>> = OnceLock::new();
++
++fn evals() -> &'static Mutex<Vec<EvalRecord>> {
++    EVALS.get_or_init(|| Mutex::new(Vec::new()))
++}
++
++/// Record one evaluation. `bench` carries the re-run samples, if any.
++pub fn record_eval(
++    poly_len: usize,
++    chunk_size: usize,
++    num_chunks: usize,
++    ast: AstStats,
++    first_ms: f64,
++    bench: &mut Vec<f64>,
++) {
++    if !enabled() {
++        return;
++    }
++    bench.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
++    let rec = EvalRecord {
++        poly_len,
++        chunk_size,
++        num_chunks,
++        ast,
++        first_ms,
++        bench_median_ms: if bench.is_empty() {
++            0.0
++        } else {
++            bench[bench.len() / 2]
++        },
++        bench_min_ms: bench.first().copied().unwrap_or(0.0),
++        bench_max_ms: bench.last().copied().unwrap_or(0.0),
++        bench_reps: bench.len(),
++    };
++    evals().lock().unwrap().push(rec);
++}
++
++/// Fold all recorded evaluations into a report part. Called by `take_report`
++/// callers after the proving run; kept separate so the numbers stay per-call.
++pub fn flush_evals() {
++    let drained: Vec<EvalRecord> = std::mem::take(&mut *evals().lock().unwrap());
++    if drained.is_empty() {
++        push("evals", "[]".to_string());
++        return;
++    }
++    let mut total = AstStats::default();
++    let mut total_poly_len = 0u64;
++    let mut total_muls = 0u64;
++    let mut total_adds = 0u64;
++    let mut total_leaf_elems = 0u64;
++    let mut calls = 0u64;
++    let mut items = Vec::new();
++
++    for r in &drained {
++        total.add(&r.ast);
++        total_poly_len += r.poly_len as u64;
++        total_muls += r.ast.vector_muls() * r.poly_len as u64;
++        total_adds += r.ast.add * r.poly_len as u64;
++        total_leaf_elems += r.ast.poly * r.poly_len as u64;
++        calls += 1;
++        items.push(format!(
++            "{{\"poly_len\":{},\"chunk_size\":{},\"num_chunks\":{},\"ast\":{},\
++\"first_ms\":{:.6},\"bench_reps\":{},\"bench_median_ms\":{:.6},\
++\"bench_min_ms\":{:.6},\"bench_max_ms\":{:.6}}}",
++            r.poly_len,
++            r.chunk_size,
++            r.num_chunks,
++            r.ast.to_json(),
++            r.first_ms,
++            r.bench_reps,
++            r.bench_median_ms,
++            r.bench_min_ms,
++            r.bench_max_ms
++        ));
++    }
++
++    let summary = format!(
++        "{{\"calls\":{},\"sum_poly_len\":{},\"total_nodes\":{},\"vector_muls_total\":{},\
++\"field_muls_total\":{},\"field_adds_total\":{},\"leaf_elements_copied\":{},\"items\":[{}]}}",
++        calls,
++        total_poly_len,
++        total.poly + total.add + total.mul + total.scale + total.distribute + total.linear + total.constant,
++        total.vector_muls(),
++        total_muls,
++        total_adds,
++        total_leaf_elems,
++        items.join(",")
++    );
++    push("evals", summary);
++}
+diff -ruN a/src/lib.rs b/src/lib.rs
+--- a/src/lib.rs	2026-11-03 21:14:20.830094600 +0800
++++ b/src/lib.rs	2026-11-03 21:14:20.958392800 +0800
+@@ -10,6 +10,8 @@
+ 
+ pub mod arithmetic;
+ pub mod circuit;
++/// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
++pub mod f2;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff -ruN a/src/plonk/keygen.rs b/src/plonk/keygen.rs
+--- a/src/plonk/keygen.rs	2026-11-03 21:14:20.844592500 +0800
++++ b/src/plonk/keygen.rs	2026-11-03 21:14:20.971411000 +0800
+@@ -239,12 +239,10 @@
+         })
+         .collect();
+ 
+-    Ok(VerifyingKey::from_parts(
+-        domain,
+-        fixed_commitments,
+-        permutation_vk,
+-        cs,
+-    ))
++    let vk = VerifyingKey::from_parts(domain, fixed_commitments, permutation_vk, cs);
++    // Stage F2: summarise the finalised constraint system (no-op unless ORCHARD_F2).
++    crate::f2::maybe_run(&vk);
++    Ok(vk)
+ }
+ 
+ /// Generate a `ProvingKey` from a `VerifyingKey` and an instance of `Circuit`.
+diff -ruN a/src/plonk/prover.rs b/src/plonk/prover.rs
+--- a/src/plonk/prover.rs	2026-11-03 21:14:20.860609800 +0800
++++ b/src/plonk/prover.rs	2026-11-03 21:14:21.005249600 +0800
+@@ -27,6 +27,89 @@
+     transcript::{EncodedChallenge, TranscriptWrite},
+ };
+ 
++// ===== Stage E2: optional source-level phase timing (env-gated, default OFF) =====
++// Enabled only when `ORCHARD_E2_TIMING` is present in the environment. When off,
++// every `e2_add` call early-returns and the only cost is a couple of
++// `Instant::now()` snapshots (sub-nanosecond, negligible vs a multi-second proof).
++// Stages are measured with contiguous, non-overlapping wall-clock intervals so the
++// sum of stages never double-counts a region (no nested accumulation).
++use std::collections::HashMap;
++use std::sync::{Mutex, OnceLock};
++
++static E2_ENABLED: OnceLock<bool> = OnceLock::new();
++static E2_TIMINGS: OnceLock<Mutex<HashMap<&'static str, std::time::Duration>>> = OnceLock::new();
++
++fn e2_enabled() -> bool {
++    *E2_ENABLED.get_or_init(|| std::env::var("ORCHARD_E2_TIMING").is_ok())
++}
++
++#[allow(dead_code)]
++fn e2_add(stage: &'static str, d: std::time::Duration) {
++    if !e2_enabled() {
++        return;
++    }
++    let mut guard = E2_TIMINGS
++        .get_or_init(|| Mutex::new(HashMap::new()))
++        .lock()
++        .unwrap();
++    let e = guard
++        .entry(stage)
++        .or_insert_with(std::time::Duration::default);
++    *e = *e + d;
++}
++
++/// Take and reset the accumulated stage timings (stage -> seconds).
++/// Returns an empty vector when timing is disabled, so callers can emit
++/// unconditionally and simply skip empty results.
++pub fn take_e2_timings() -> Vec<(String, f64)> {
++    if !e2_enabled() {
++        return Vec::new();
++    }
++    let mut guard = E2_TIMINGS
++        .get_or_init(|| Mutex::new(HashMap::new()))
++        .lock()
++        .unwrap();
++    let out: Vec<(String, f64)> = guard
++        .drain()
++        .map(|(k, v)| (k.to_string(), v.as_secs_f64()))
++        .collect();
++    out
++}
++
++// ===== Stage E3: publish the current phase for the in-process sampler =====
++// The sampler runs inside the same process, so it can read this atomic at each
++// sampling tick and tag every captured stack with the phase it was executing.
++// This turns "which function belongs to which E2 stage" into a measurement
++// instead of a guess. Codes match the order of the E2 stages in `create_proof`;
++// they are only written when E2 timing is enabled, so release builds are
++// untouched.
++/// Current `create_proof` phase, published for the Stage E3 in-process sampler.
++pub static E3_STAGE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
++
++/// Human-readable name for a stage code (0 = outside create_proof).
++pub fn e3_stage_name(code: u8) -> &'static str {
++    match code {
++        1 => "instance",
++        2 => "synthesis",
++        3 => "advice_commit",
++        4 => "eval_setup",
++        5 => "lookup_permute",
++        6 => "permutation",
++        7 => "lookup_product",
++        8 => "quotient",
++        9 => "opening",
++        _ => "outside",
++    }
++}
++
++#[inline]
++fn e3_set(code: u8) {
++    if e2_enabled() {
++        E3_STAGE.store(code, std::sync::atomic::Ordering::Relaxed);
++    }
++}
++
++
+ /// This creates a proof for the provided `circuit` when given the public
+ /// parameters `params` and the proving key [`ProvingKey`] that was
+ /// generated previously for the same circuit. The provided `instances`
+@@ -72,6 +155,8 @@
+         pub instance_cosets: Vec<Polynomial<C::Scalar, ExtendedLagrangeCoeff>>,
+     }
+ 
++    e3_set(1);
++    let t_instance = std::time::Instant::now();
+     let instance: Vec<InstanceSingle<C>> = instances
+         .iter()
+         .map(|instance| -> Result<InstanceSingle<C>, Error> {
+@@ -126,6 +211,7 @@
+             })
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("instance", t_instance.elapsed());
+ 
+     struct AdviceSingle<C: CurveAffine> {
+         pub advice_values: Vec<Polynomial<C::Scalar, LagrangeCoeff>>,
+@@ -283,6 +369,8 @@
+             };
+ 
+             // Synthesize the circuit to obtain the witness and other information.
++            e3_set(2);
++            let t_synth = std::time::Instant::now();
+             ConcreteCircuit::FloorPlanner::synthesize(
+                 &mut witness,
+                 circuit,
+@@ -298,8 +386,11 @@
+                     *cell = C::Scalar::random(&mut rng);
+                 }
+             }
++            e2_add("synthesis", t_synth.elapsed());
+ 
+             // Compute commitments to advice column polynomials
++            e3_set(3);
++            let t_acommit = std::time::Instant::now();
+             let advice_blinds: Vec<_> = advice
+                 .iter()
+                 .map(|_| Blind(C::Scalar::random(&mut rng)))
+@@ -331,6 +422,7 @@
+                 .iter()
+                 .map(|poly| domain.coeff_to_extended(poly.clone()))
+                 .collect();
++            e2_add("advice_commit", t_acommit.elapsed());
+ 
+             Ok(AdviceSingle {
+                 advice_values: advice,
+@@ -342,6 +434,8 @@
+         .collect::<Result<Vec<_>, _>>()?;
+ 
+     // Create polynomial evaluator context for values.
++    e3_set(4);
++    let t_eval = std::time::Instant::now();
+     let mut value_evaluator = poly::new_evaluator(|| {});
+ 
+     // Register fixed values with the polynomial evaluator.
+@@ -416,6 +510,7 @@
+         .iter()
+         .map(|poly| coset_evaluator.register_poly(poly.clone()))
+         .collect();
++    e2_add("eval_setup", t_eval.elapsed());
+ 
+     // Register boundary polynomials used in the lookup and permutation arguments.
+     let l0 = coset_evaluator.register_poly(pk.l0.clone());
+@@ -425,6 +520,8 @@
+     // Sample theta challenge for keeping lookup columns linearly independent
+     let theta: ChallengeTheta<_> = transcript.squeeze_challenge_scalar();
+ 
++    e3_set(5);
++    let t_lperm = std::time::Instant::now();
+     let lookups: Vec<Vec<lookup::prover::Permuted<C, _>>> = instance_values
+         .iter()
+         .zip(instance_cosets.iter())
+@@ -457,6 +554,7 @@
+                 .collect()
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("lookup_permute", t_lperm.elapsed());
+ 
+     // Sample beta challenge
+     let beta: ChallengeBeta<_> = transcript.squeeze_challenge_scalar();
+@@ -465,6 +563,8 @@
+     let gamma: ChallengeGamma<_> = transcript.squeeze_challenge_scalar();
+ 
+     // Commit to permutations.
++    e3_set(6);
++    let t_perm = std::time::Instant::now();
+     let permutations: Vec<permutation::prover::Committed<C, _>> = instance
+         .iter()
+         .zip(advice.iter())
+@@ -484,7 +584,10 @@
+             )
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("permutation", t_perm.elapsed());
+ 
++    e3_set(7);
++    let t_lprod = std::time::Instant::now();
+     let lookups: Vec<Vec<lookup::prover::Committed<C, _>>> = lookups
+         .into_iter()
+         .map(|lookups| -> Result<Vec<_>, _> {
+@@ -505,8 +608,11 @@
+                 .collect::<Result<Vec<_>, _>>()
+         })
+         .collect::<Result<Vec<_>, _>>()?;
++    e2_add("lookup_product", t_lprod.elapsed());
+ 
+     // Commit to the vanishing argument's random polynomial for blinding h(x_3)
++    e3_set(8);
++    let t_quot = std::time::Instant::now();
+     let vanishing = vanishing::Argument::commit(params, domain, &mut rng, transcript)?;
+ 
+     // Obtain challenge for keeping all separate gates linearly independent
+@@ -545,6 +651,10 @@
+         })
+         .unzip();
+ 
++    // Stage F2: the three sources below feed one fused `distribute_powers` tree.
++    // Their term counts cannot be inferred from the constraint system alone — the
++    // permutation argument emits a different number of `Ast`s per advice column —
++    // so each chain is wrapped in a counting adapter. The wrapper only observes.
+     let expressions = advice_cosets
+         .iter()
+         .zip(instance_cosets.iter())
+@@ -555,7 +665,7 @@
+                 let fixed_cosets = &fixed_cosets;
+                 iter::empty()
+                     // Custom constraints
+-                    .chain(meta.gates.iter().flat_map(move |gate| {
++                    .chain(crate::f2::counted(0, meta.gates.iter().flat_map(move |gate| {
+                         gate.polynomials().iter().map(move |expr| {
+                             expr.evaluate(
+                                 &poly::Ast::ConstantTerm,
+@@ -581,11 +691,14 @@
+                                 &|a, scalar| a * scalar,
+                             )
+                         })
+-                    }))
++                    })))
+                     // Permutation constraints, if any.
+-                    .chain(permutation_expressions)
++                    .chain(crate::f2::counted(1, permutation_expressions))
+                     // Lookup constraints, if any.
+-                    .chain(lookup_expressions.into_iter().flatten())
++                    .chain(crate::f2::counted(
++                        2,
++                        lookup_expressions.into_iter().flatten(),
++                    ))
+             },
+         );
+ 
+@@ -599,7 +712,10 @@
+         &mut rng,
+         transcript,
+     )?;
++    e2_add("quotient", t_quot.elapsed());
+ 
++    e3_set(9);
++    let t_open = std::time::Instant::now();
+     let x: ChallengeX<_> = transcript.squeeze_challenge_scalar();
+     let xn = x.pow([params.n, 0, 0, 0]);
+ 
+@@ -726,7 +842,11 @@
+         // We query the h(X) polynomial at x
+         .chain(vanishing.open(x));
+ 
+-    multiopen::create_proof(params, rng, transcript, instances).map_err(|_| Error::Opening)
++    let opening_result = multiopen::create_proof(params, rng, transcript, instances)
++        .map_err(|_| Error::Opening);
++    e2_add("opening", t_open.elapsed());
++    e3_set(0);
++    opening_result
+ }
+ 
+ #[test]
+diff -ruN a/src/plonk.rs b/src/plonk.rs
+--- a/src/plonk.rs	2026-11-03 21:14:20.813526500 +0800
++++ b/src/plonk.rs	2026-11-03 21:14:20.940235500 +0800
+@@ -156,6 +156,13 @@
+     pub fn get_domain(&self) -> &EvaluationDomain<C::Scalar> {
+         &self.domain
+     }
++
++    /// Stage F2: read-only view of the finalised constraint system, for the
++    /// expression-tree accounting in [`crate::f2`]. `ConstraintSystem` keeps its
++    /// fields crate-private, so this accessor exists rather than a public field.
++    pub(crate) fn cs_f2(&self) -> &ConstraintSystem<C::Scalar> {
++        &self.cs
++    }
+ }
+ 
+ #[derive(Clone, Copy, Debug)]
+diff -ruN a/src/poly/evaluator.rs b/src/poly/evaluator.rs
+--- a/src/poly/evaluator.rs	2026-11-03 21:14:20.815062400 +0800
++++ b/src/poly/evaluator.rs	2026-11-03 21:14:20.958392800 +0800
+@@ -126,6 +126,14 @@
+     }
+ 
+     /// Evaluates the given polynomial operation against this context.
++    ///
++    /// Stage F2: when `ORCHARD_F2` is set, this wraps [`Self::evaluate_inner`]
++    /// with accounting — one structural count of the fused tree, the wall time of
++    /// the real call, and (with `ORCHARD_F2_BENCH=n`) `n` extra re-runs of the
++    /// same tree for a stable per-call figure. The re-runs use the real `Ast` and
++    /// the real polynomials registered with this evaluator, so what gets measured
++    /// is the quotient evaluation itself rather than a reconstruction of it.
++    /// With the env var unset this is a single predictable branch.
+     pub(crate) fn evaluate(
+         &self,
+         ast: &Ast<E, F, B>,
+@@ -136,6 +144,41 @@
+         F: WithSmallOrderMulGroup<3>,
+         B: BasisOps,
+     {
++        if !crate::f2::enabled() {
++            return self.evaluate_inner(ast, domain);
++        }
++
++        let poly_len = self.polys.first().unwrap().len();
++        let (chunk_size, num_chunks) = get_chunk_params(poly_len);
++        let stats = f2_ast_stats(ast);
++
++        let t = std::time::Instant::now();
++        let out = self.evaluate_inner(ast, domain);
++        let first_ms = t.elapsed().as_secs_f64() * 1e3;
++
++        let reps = crate::f2::bench_reps();
++        let mut bench = Vec::with_capacity(reps);
++        for _ in 0..reps {
++            let t = std::time::Instant::now();
++            let repeated = self.evaluate_inner(ast, domain);
++            bench.push(t.elapsed().as_secs_f64() * 1e3);
++            std::hint::black_box(&repeated);
++        }
++
++        crate::f2::record_eval(poly_len, chunk_size, num_chunks, stats, first_ms, &mut bench);
++        out
++    }
++
++    fn evaluate_inner(
++        &self,
++        ast: &Ast<E, F, B>,
++        domain: &EvaluationDomain<F>,
++    ) -> Polynomial<F, B>
++    where
++        E: Copy + Send + Sync,
++        F: WithSmallOrderMulGroup<3>,
++        B: BasisOps,
++    {
+         // We're working in a single basis, so all polynomials are the same length.
+         let poly_len = self.polys.first().unwrap().len();
+         let (chunk_size, _num_chunks) = get_chunk_params(poly_len);
+@@ -661,3 +704,61 @@
+         test_case(k, new_evaluator::<_, _, ExtendedLagrangeCoeff>(|| {}));
+     }
+ }
++
++// ---------------------------------------------------------------------------
++// Stage F2: structural accounting of the fused expression tree
++// ---------------------------------------------------------------------------
++
++/// Count the nodes of a fused `Ast` and its maximum depth.
++///
++/// The counts are what turn Stage E3's samples into an account: each `Mul`,
++/// `Scale` and `distribute_powers` term multiplies a whole chunk of field
++/// elements, so a handful of source-level operators becomes millions of
++/// `Fp::mul` calls per proof.
++fn f2_ast_stats<E, F: Field, B: Basis>(ast: &Ast<E, F, B>) -> crate::f2::AstStats {
++    fn go<E, F: Field, B: Basis>(ast: &Ast<E, F, B>, s: &mut crate::f2::AstStats, depth: u32) {
++        s.max_depth = s.max_depth.max(depth);
++        match ast {
++            Ast::Poly(_) => s.poly += 1,
++            Ast::Add(a, b) => {
++                s.add += 1;
++                go(a, s, depth + 1);
++                go(b, s, depth + 1);
++            }
++            Ast::Mul(AstMul(a, b)) => {
++                s.mul += 1;
++                go(a, s, depth + 1);
++                go(b, s, depth + 1);
++            }
++            Ast::Scale(a, _) => {
++                s.scale += 1;
++                go(a, s, depth + 1);
++            }
++            Ast::DistributePowers(terms, _) => {
++                s.distribute += 1;
++                // The fold does one `acc *= base` per term, on the whole chunk,
++                // so this count is also a count of vector multiplications.
++                s.distribute_terms += terms.len() as u64;
++                for term in terms.iter() {
++                    // Snapshot the counters and diff, so each top-level term gets
++                    // its own cost. Terms arrive gates-first, then permutation,
++                    // then lookup, which is what makes the split attributable.
++                    let before = [s.mul, s.scale, s.poly, s.add];
++                    go(term, s, depth + 1);
++                    let d_mul = s.mul - before[0];
++                    let d_scale = s.scale - before[1];
++                    let d_poly = s.poly - before[2];
++                    let d_add = s.add - before[3];
++                    s.terms
++                        .push([d_mul, d_scale, d_poly, d_add, d_mul + d_scale + d_poly + d_add]);
++                }
++            }
++            Ast::LinearTerm(_) => s.linear += 1,
++            Ast::ConstantTerm(_) => s.constant += 1,
++        }
++    }
++
++    let mut s = crate::f2::AstStats::default();
++    go(ast, &mut s, 0);
++    s
++}

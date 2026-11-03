@@ -126,7 +126,50 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
     }
 
     /// Evaluates the given polynomial operation against this context.
+    ///
+    /// Stage F2: when `ORCHARD_F2` is set, this wraps [`Self::evaluate_inner`]
+    /// with accounting — one structural count of the fused tree, the wall time of
+    /// the real call, and (with `ORCHARD_F2_BENCH=n`) `n` extra re-runs of the
+    /// same tree for a stable per-call figure. The re-runs use the real `Ast` and
+    /// the real polynomials registered with this evaluator, so what gets measured
+    /// is the quotient evaluation itself rather than a reconstruction of it.
+    /// With the env var unset this is a single predictable branch.
     pub(crate) fn evaluate(
+        &self,
+        ast: &Ast<E, F, B>,
+        domain: &EvaluationDomain<F>,
+    ) -> Polynomial<F, B>
+    where
+        E: Copy + Send + Sync,
+        F: WithSmallOrderMulGroup<3>,
+        B: BasisOps,
+    {
+        if !crate::f2::enabled() {
+            return self.evaluate_inner(ast, domain);
+        }
+
+        let poly_len = self.polys.first().unwrap().len();
+        let (chunk_size, num_chunks) = get_chunk_params(poly_len);
+        let stats = f2_ast_stats(ast);
+
+        let t = std::time::Instant::now();
+        let out = self.evaluate_inner(ast, domain);
+        let first_ms = t.elapsed().as_secs_f64() * 1e3;
+
+        let reps = crate::f2::bench_reps();
+        let mut bench = Vec::with_capacity(reps);
+        for _ in 0..reps {
+            let t = std::time::Instant::now();
+            let repeated = self.evaluate_inner(ast, domain);
+            bench.push(t.elapsed().as_secs_f64() * 1e3);
+            std::hint::black_box(&repeated);
+        }
+
+        crate::f2::record_eval(poly_len, chunk_size, num_chunks, stats, first_ms, &mut bench);
+        out
+    }
+
+    fn evaluate_inner(
         &self,
         ast: &Ast<E, F, B>,
         domain: &EvaluationDomain<F>,
@@ -660,4 +703,62 @@ mod tests {
         test_case(k, new_evaluator::<_, _, LagrangeCoeff>(|| {}));
         test_case(k, new_evaluator::<_, _, ExtendedLagrangeCoeff>(|| {}));
     }
+}
+
+// ---------------------------------------------------------------------------
+// Stage F2: structural accounting of the fused expression tree
+// ---------------------------------------------------------------------------
+
+/// Count the nodes of a fused `Ast` and its maximum depth.
+///
+/// The counts are what turn Stage E3's samples into an account: each `Mul`,
+/// `Scale` and `distribute_powers` term multiplies a whole chunk of field
+/// elements, so a handful of source-level operators becomes millions of
+/// `Fp::mul` calls per proof.
+fn f2_ast_stats<E, F: Field, B: Basis>(ast: &Ast<E, F, B>) -> crate::f2::AstStats {
+    fn go<E, F: Field, B: Basis>(ast: &Ast<E, F, B>, s: &mut crate::f2::AstStats, depth: u32) {
+        s.max_depth = s.max_depth.max(depth);
+        match ast {
+            Ast::Poly(_) => s.poly += 1,
+            Ast::Add(a, b) => {
+                s.add += 1;
+                go(a, s, depth + 1);
+                go(b, s, depth + 1);
+            }
+            Ast::Mul(AstMul(a, b)) => {
+                s.mul += 1;
+                go(a, s, depth + 1);
+                go(b, s, depth + 1);
+            }
+            Ast::Scale(a, _) => {
+                s.scale += 1;
+                go(a, s, depth + 1);
+            }
+            Ast::DistributePowers(terms, _) => {
+                s.distribute += 1;
+                // The fold does one `acc *= base` per term, on the whole chunk,
+                // so this count is also a count of vector multiplications.
+                s.distribute_terms += terms.len() as u64;
+                for term in terms.iter() {
+                    // Snapshot the counters and diff, so each top-level term gets
+                    // its own cost. Terms arrive gates-first, then permutation,
+                    // then lookup, which is what makes the split attributable.
+                    let before = [s.mul, s.scale, s.poly, s.add];
+                    go(term, s, depth + 1);
+                    let d_mul = s.mul - before[0];
+                    let d_scale = s.scale - before[1];
+                    let d_poly = s.poly - before[2];
+                    let d_add = s.add - before[3];
+                    s.terms
+                        .push([d_mul, d_scale, d_poly, d_add, d_mul + d_scale + d_poly + d_add]);
+                }
+            }
+            Ast::LinearTerm(_) => s.linear += 1,
+            Ast::ConstantTerm(_) => s.constant += 1,
+        }
+    }
+
+    let mut s = crate::f2::AstStats::default();
+    go(ast, &mut s, 0);
+    s
 }

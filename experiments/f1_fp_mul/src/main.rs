@@ -456,6 +456,65 @@ fn set_affinity(mask: usize) {
     }
 }
 
+/// Stage F2 follow-up: what does `Ast::Scale` cost when the scalar is -1?
+///
+/// `Neg for Ast` is implemented as `Scale(self, -F::ONE)` (poly/evaluator.rs), so
+/// every `Negated` node in a constraint expression becomes a full Montgomery
+/// multiplication by -1 over a whole chunk. This measures the two forms head to
+/// head on the same buffer size the quotient evaluator uses (16384 elements),
+/// with the same access pattern (streaming a Vec<Fp>).
+fn cmd_scale_cost() {
+    use std::time::Instant;
+    const N: usize = 16384;
+    const REPS: usize = 200;
+
+    let minus_one = Fp::from(0) - Fp::from(1); // -1 mod p, not a literal
+    let two = Fp::from(2u64);
+
+    let mut neg = Vec::new();
+    let mut scale = Vec::new();
+    let mut mul = Vec::new();
+
+    for _ in 0..5 {
+        let mut v = vec![Fp::from(7u64); N];
+
+        let t = Instant::now();
+        for _ in 0..REPS {
+            for x in v.iter_mut() {
+                *x = -*x;
+            }
+        }
+        neg.push(t.elapsed().as_secs_f64() * 1e9 / (REPS * N) as f64);
+
+        let t = Instant::now();
+        for _ in 0..REPS {
+            for x in v.iter_mut() {
+                *x *= minus_one;
+            }
+        }
+        scale.push(t.elapsed().as_secs_f64() * 1e9 / (REPS * N) as f64);
+
+        let t = Instant::now();
+        for _ in 0..REPS {
+            for x in v.iter_mut() {
+                *x *= two;
+            }
+        }
+        mul.push(t.elapsed().as_secs_f64() * 1e9 / (REPS * N) as f64);
+
+        black_box(&v);
+    }
+
+    let m = |v: &mut Vec<f64>| {
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v[v.len() / 2]
+    };
+    println!("mode,ns_per_element");
+    println!("negate,{:.4}", m(&mut neg));
+    println!("scale_by_minus_one,{:.4}", m(&mut scale));
+    println!("scale_by_two,{:.4}", m(&mut mul));
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let cmd = args.get(1).map(|s| s.as_str()).unwrap_or("info");
@@ -483,6 +542,9 @@ fn main() {
             black_box(f1_square_blackbox(black_box(Fp::from(7u64))));
             black_box(f1_add_blackbox(black_box(Fp::from(11u64)), black_box(Fp::from(13u64))));
             cmd_bench();
+        }
+        "scale-cost" => {
+            cmd_scale_cost();
         }
         "info" => {
             println!("affinity_mask_requested=0x{:x}", mask);

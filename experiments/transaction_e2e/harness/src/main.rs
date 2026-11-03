@@ -4,6 +4,10 @@
 //!   --mode v2  historical pre-NU6.3 shape (BundleVersion::orchard_v2, FixedPostNu6_2)
 //!   --mode v3  NU6.3 migration shape: an Orchard V3 bundle (spend + change) and an
 //!              Ironwood V3 bundle (output), both on the PostNu6_3 circuit.
+//!   --mode f2  Stage F2: constraint-expression accounting. Keygen summarises every
+//!              gate expression tree; one proof records the fused `Ast` the
+//!              evaluator walks, with the real quotient evaluation re-run
+//!              `--reps` times for an isolated per-call figure.
 //!   --mode profile  Stage E3: build the Orchard V3 bundle ONCE, then loop
 //!              `create_proof` only (no keygen/build/sign/verify in the window).
 //!              Prints PROFILE_WINDOW_START/END markers so an ETW session can be
@@ -309,7 +313,8 @@ fn main() {
         "v2" => run_v2(&args, pinned),
         "v3" => run_v3(&args, pinned),
         "profile" => run_profile(&args, pinned),
-        other => panic!("unknown --mode {other} (expected v2, v3 or profile)"),
+        "f2" => run_f2(&args, pinned),
+        other => panic!("unknown --mode {other} (expected v2, v3, profile or f2)"),
     }
 }
 
@@ -757,6 +762,87 @@ fn run_v3(args: &Args, pinned: Option<usize>) {
 // PROFILE_WINDOW_END markers so the ETW session can be scoped to the prove loop.
 // No E2 timers, no signing, no verify: this mode exists purely to put the
 // prover's CPU cost under a sampler.
+
+// ---------------------------------------------------------------------------
+// Mode f2: constraint-expression accounting + isolated evaluator timing
+// ---------------------------------------------------------------------------
+
+/// Stage F2. Answers "why does walking the constraint expression produce millions
+/// of field multiplications?" with counts rather than samples.
+///
+/// Three numbers come out of one run:
+///
+/// 1. `cs` — every gate expression summarised: node counts by variant, depth
+///    distribution, repeated subtrees, leaf reuse. Captured at keygen, when the
+///    `ConstraintSystem` is finalised.
+/// 2. `evals` — the *fused* tree the prover really walks (gates + permutation +
+///    lookup + `distribute_powers`), with the exact chunk geometry. Field-op
+///    totals follow from `nodes x polynomial length`.
+/// 3. `bench_*` — the real quotient evaluation re-run `--reps` times inside the
+///    evaluator, so its cost is isolated from FFT / vanishing division / MSM.
+///
+/// The env var has to be set before keygen: `f2::enabled()` caches on first use,
+/// and the first use is the keygen hook.
+fn run_f2(args: &Args, pinned: Option<usize>) {
+    std::env::set_var("ORCHARD_F2", "1");
+    std::env::set_var("ORCHARD_F2_BENCH", args.reps.to_string());
+    // Also arm the E2 phase timers: with `--reps 0` this yields, in the SAME
+    // process, both the isolated evaluator time and the quotient stage it sits
+    // in, so their ratio is immune to the ~7% drift seen between batches.
+    std::env::set_var("ORCHARD_E2_TIMING", "1");
+
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let t_keygen = Instant::now();
+    let pk = ProvingKey::build(circuit_version);
+    let keygen_s = t_keygen.elapsed().as_secs_f64();
+
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+
+    // One proof: the point is the accounting, not a timing distribution.
+    let actions = bundle.actions().len();
+    let t_proof = Instant::now();
+    let _ = bundle.create_proof(&pk, &mut rng).expect("f2 proof");
+    let proof_s = t_proof.elapsed().as_secs_f64();
+    emit_e2("f2", 0);
+
+    halo2_proofs::f2::flush_evals();
+    println!("F2_REPORT {}", halo2_proofs::f2::take_report());
+    println!(
+        "F2_META {{\"mode\":\"f2\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"keygen_s\":{:.6},\"proof_s\":{:.6},\"bench_reps\":{},\"rayon_threads\":\"{}\",\
+\"affinity\":\"0x{:x}\"}}",
+        actions,
+        keygen_s,
+        proof_s,
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
 
 fn run_profile(args: &Args, pinned: Option<usize>) {
     let mut rng = StdRng::from_seed([args.seed as u8; 32]);

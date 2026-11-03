@@ -10,6 +10,8 @@
 
 pub mod arithmetic;
 pub mod circuit;
+/// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+pub mod f2;
 pub use pasta_curves as pasta;
 mod multicore;
 pub mod plonk;

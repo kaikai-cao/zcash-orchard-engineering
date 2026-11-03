@@ -239,12 +239,10 @@ where
         })
         .collect();
 
-    Ok(VerifyingKey::from_parts(
-        domain,
-        fixed_commitments,
-        permutation_vk,
-        cs,
-    ))
+    let vk = VerifyingKey::from_parts(domain, fixed_commitments, permutation_vk, cs);
+    // Stage F2: summarise the finalised constraint system (no-op unless ORCHARD_F2).
+    crate::f2::maybe_run(&vk);
+    Ok(vk)
 }
 
 /// Generate a `ProvingKey` from a `VerifyingKey` and an instance of `Circuit`.

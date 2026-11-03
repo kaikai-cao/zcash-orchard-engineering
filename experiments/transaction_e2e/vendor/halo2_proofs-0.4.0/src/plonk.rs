@@ -156,6 +156,13 @@ impl<C: CurveAffine> VerifyingKey<C> {
     pub fn get_domain(&self) -> &EvaluationDomain<C::Scalar> {
         &self.domain
     }
+
+    /// Stage F2: read-only view of the finalised constraint system, for the
+    /// expression-tree accounting in [`crate::f2`]. `ConstraintSystem` keeps its
+    /// fields crate-private, so this accessor exists rather than a public field.
+    pub(crate) fn cs_f2(&self) -> &ConstraintSystem<C::Scalar> {
+        &self.cs
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

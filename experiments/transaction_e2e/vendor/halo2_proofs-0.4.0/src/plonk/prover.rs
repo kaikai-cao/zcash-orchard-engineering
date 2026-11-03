@@ -651,6 +651,10 @@ pub fn create_proof<
         })
         .unzip();
 
+    // Stage F2: the three sources below feed one fused `distribute_powers` tree.
+    // Their term counts cannot be inferred from the constraint system alone — the
+    // permutation argument emits a different number of `Ast`s per advice column —
+    // so each chain is wrapped in a counting adapter. The wrapper only observes.
     let expressions = advice_cosets
         .iter()
         .zip(instance_cosets.iter())
@@ -661,7 +665,7 @@ pub fn create_proof<
                 let fixed_cosets = &fixed_cosets;
                 iter::empty()
                     // Custom constraints
-                    .chain(meta.gates.iter().flat_map(move |gate| {
+                    .chain(crate::f2::counted(0, meta.gates.iter().flat_map(move |gate| {
                         gate.polynomials().iter().map(move |expr| {
                             expr.evaluate(
                                 &poly::Ast::ConstantTerm,
@@ -687,11 +691,14 @@ pub fn create_proof<
                                 &|a, scalar| a * scalar,
                             )
                         })
-                    }))
+                    })))
                     // Permutation constraints, if any.
-                    .chain(permutation_expressions)
+                    .chain(crate::f2::counted(1, permutation_expressions))
                     // Lookup constraints, if any.
-                    .chain(lookup_expressions.into_iter().flatten())
+                    .chain(crate::f2::counted(
+                        2,
+                        lookup_expressions.into_iter().flatten(),
+                    ))
             },
         );
 
