@@ -52,9 +52,15 @@ fn scalar_var_from_base(&self, _layouter: &mut impl Layouter<pallas::Base>, base
 }
 ```
 
-**F25｜`ScalarVar::from_base` 是零成本转换。** 它不分配 cell、不加门、不建 region，
-只是给已有 `AssignedCell` 套一层枚举标签。所以"地址派生"的行数开销全部来自
-`g_d_old.mul(...)`，转换本身是 0 行。
+**F25｜`ScalarVar::from_base` 这一步是零成本转换。** 它不分配 cell、不加门、不建
+region，只是给已有 `AssignedCell` 套一层枚举标签。因此，**从已经算好的 `ivk` 到计算
+`pk_{d,old} = [ivk] g_d` 这一步的电路开销，全部落在 `g_d_old.mul(...)` 里，转换本身是
+0 行。**
+
+但必须划定边界：`ScalarVar::from_base` 零成本，**不代表整个地址派生没有别的成本**。
+`ivk` 本身由独立的 `CommitIvk` 电路路径算出（`commit_ivk` 里的 Sinsemilla 哈希 +
+`rivk` 的固定基乘法），那部分行数应**单独记账**，不能因为 `from_base` 免费就误归到本篇
+的 137 行里。本篇的"137 行"只描述 `[ivk] g_d` 这一次变基乘，不含 `CommitIvk`。
 
 顺带一个语义边界：`ScalarVar` 的文档注释（`chip.rs` L449–460）明说
 "You are not guaranteed that a scalar field element fits in a curve's base field, and in
@@ -94,8 +100,10 @@ T_Q = 45560315531506369815346746415080538113 = 0x224698fc0994a8dd8c46eb210000000
 
 这一点很容易读错，必须写清：`t_q ≈ 2^125`，而典型 `ivk` 只有 ~126 bit，
 所以 **`k = ivk + t_q` 的 bit 254 通常是 0**（实测：`ivk=7` 时 `k` 只有 126 bit）。
-只有当 `ivk ≥ 2^254 - t_q`（即 `ivk` 落在 `[p - 2t_q, p)` 这条宽约 `9×10^37` 的窄缝里）时，
-`k_254` 才为 1。
+只有当 `ivk ≥ 2^254 - t_q = p - (t_p + t_q)`（即 `ivk` 落在一个很窄的高位区间，精确下界是
+`p - (t_p + t_q)`，不要写成 `p - 2t_q` 的近似）时，`k_254` 才为 1。这里 `p = 2^254 + t_p`
+是 Pallas **基域**模数、`q = 2^254 + t_q` 是 Pallas **标量域**模数，`t_p ≠ t_q`，
+所以 `p - (t_p + t_q)` 与 `p - 2t_q` 不是一回事；该区间的精确写法是 `[p - (t_p + t_q), q)`。
 
 那"常数 2^254"由谁提供？由**累加器的初值**：
 
@@ -270,20 +278,42 @@ canonicity           : (1 − k_254)·(1 − z_130·η)·s_minus_lo_130      deg
 （`s_minus_lo_130 = (s − Σ_{i<130} s_i 2^i)/2^130`）**交回门里**条件约束，
 而不是要求它归零。
 
-**F29｜这 5 条里只有 1 条是"模 p 意义"的。** `recovery` 是
-`z_0 ≡ alpha + t_q (mod p)`，其中 `z_0` 是 255 个 running sum 反向后的首项，
-也就是 `Σ k_i 2^i` 作为基域元素的取值。仅凭它，prover 可以用 `k' = k + p` 的位串
-（同样满足 `z_0 ≡ alpha + t_q`，且 `[k']T ≠ [k]T` 因为 `p` 不是 `q` 的倍数）。
-其余四条的作用就是把位串钉在**整数**意义下的那个值上。
+**F29｜这 5 条约束都要在 `𝔽_p` 中成立——它们是门等式，不是整数等式。** 区分两层语义：
+
+- *门等式（在 `𝔽_p` 上）*：`s_check` 约束 `s ≡ α + k_254·2^130 (mod p)`，`recovery`
+  约束 `z_0 ≡ α + t_q (mod p)`；另外三条（`lo_zero` / `s_minus_lo_130_check` /
+  `canonicity`）同样是在 `𝔽_p` 上的多项式等式，所以"只有 recovery 是模 p 的"这个说法
+  不准确。
+- *整数语义（位串的正确取值范围）*：单看 `recovery`，prover 确实可以用
+  `k' = k + p` 的位串（同样满足 `z_0 ≡ α + t_q`，且 `[k']T ≠ [k]T` 因为 `p` 不是
+  `q` 的倍数）。把位串真正钉在**整数**区间 `[0, 2^255)` 上的，是 `lo_zero` /
+  `s_minus_lo_130_check` / `canonicity` 三条**结合条件约束**、外加 **13 次 10-bit
+  lookup**（`copy_check`，`strict=false`）的**组合效果**，不是某一条等式单独完成的。
+  Halo2 Book 对这套范围检查有完整推导。
+
+一句话：**五条都是模 p 的门等式**；差别在于 `recovery` / `s_check` 给出模关系，
+其余三条 + lookup 负责把整数取值范围收口。
 
 **F30｜5 条里最高次数是 5（`canonicity`），因此这个门是 5 次，不是 9 次。**
 它与 §5 的 9 次来源无关，也不是 `cs.degree()=9` 的因素。`s_check` / `recovery` 都是 2 次。
 
-**证据边界**：`k_254` 分支的具体几何读法（`k_254 = 1` 时 `s < 2^130` 与
-`s = alpha + 2^130` 如何共存）我没有重推，halo2 book 的推导见
+**关于 `k_254 = 1` 分支的几何读法**（之前列为证据边界，这里补清）：
+
+` s = (α + 2^130) mod p ` 当 `k_254 = 1` 时，`α` 已经处于接近 `p` 的高位区间，
+因此加上 `2^130` 会发生模 `p` 回绕，回绕后的 `s` 完全可能小于 `2^130`——这与
+`s ≡ α + k_254·2^130 (mod p)` 中 `k_254 = 1` 并不矛盾，只是同一等式在 `𝔽_p` 中的
+两种读法。更精确地，由 `p = 2^254 + t_p`、`q = 2^254 + t_q`、`k = α + t_q`：
+
+```text
+k_254 = 1  ⇒  α ≥ 2^254 − t_q = p − (t_p + t_q)
+```
+
+所以触发最高位为 1 的 `α` 落在一个很窄的高位区间，精确下界是 `p − (t_p + t_q)`，
+不要写成 `p − 2t_q`（`t_p ≠ t_q`，后者至多是近似）。Halo2 Book 的完整推导见
 `https://p.z.cash/halo2-0.1:ecc-var-mul-overflow`（源码注释即引此链接）。
-我确认的是：`t_q` 是硬编码常数、`η = inv0(z_130)`、13 词 lookup 的 `strict=false`、
-以及五条约束的条数与次数——这些都来自实测表达式，不依赖对 book 的转述。
+
+我实测确认的部分：`t_q` 是硬编码常数、`η = inv0(z_130)`、13 词 lookup 的
+`strict=false`、以及五条约束的条数与次数——这些来自实测表达式，不依赖对 book 的转述。
 
 ---
 
@@ -417,7 +447,7 @@ g_d_old 见证（NonIdentityPoint::new，只约束 on-curve / 非恒等）
 
 | # | 结论 | 依据 |
 |---|---|---|
-| F25 | `ScalarVar::from_base` 零成本（不分配 cell、不加门） | `ecc.rs` L225–233、`chip.rs` L712–718 |
+| F25 | `ScalarVar::from_base` 零成本（不分配 cell、不加门），但仅限 `ivk → pk_d_old` 这一步；`CommitIvk` 成本需单独记账，不计入 137 行 | `ecc.rs` L225–233、`chip.rs` L712–718 |
 | F26 | 变基乘占 137 行（0–136），与手算 offset 一致 | `layout_v2.txt` |
 | F27 | 251 bit 走 126 行：hi/lo 同区间、不同列，`x_p/y_p` 共用 | `mul.rs` L87–117、L212–235 |
 | F28 | 不完整加法的退化条件是见证期检查，不是约束 | `incomplete.rs` L245–252 |
@@ -485,9 +515,9 @@ python scripts/analysis/gate_degree.py results/halo2/synthesize/gates_raw.txt --
 
 ## 12. 遗留
 
-- **`k_254 = 1` 分支的几何读法**（§5 证据边界）：需要把 halo2 book 的 overflow
-  推导完整走一遍，才能说清 `s = alpha + k_254·2^130` 与 `s < 2^130` 如何共存。
-  它只影响"极端 `ivk`"（`ivk ∈ [p − 2t_q, p)`）的正确性论证，不影响成本结论。
+- ~~**`k_254 = 1` 分支的几何读法**（§5 证据边界）~~：已在 §5 补清——回绕语义 +
+  精确下界 `α ≥ p − (t_p + t_q)`，只影响极端 `ivk`（`ivk ∈ [p − (t_p + t_q), q)`）
+  的正确性论证，不影响成本结论。
 - **逐位权重记账**（§2.3）：`Acc=[2]T` → `2^254 + k` 的指数链未重推。
 - **`note_commit` 里的 `CommitDomain::commit`**：`self.R.mul` 是定基（`NoteCommitR`），
   已计入 05 的 5×85 窗口清点，但没有单独展开其 region 布局。

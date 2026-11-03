@@ -1,0 +1,141 @@
+# 11 · Stage F 总纲：从热点证据到可验证的优化假设
+
+> Stage E 结束时我们手上只有两样东西：**阶段时间**（E2）和**函数级 CPU 归属**（E3）。
+> Stage F 的任务不是"把最热的函数改快"，而是把"热点"转成**可证伪的假设**，再用**独立微基准 + 端到端证明**
+> 两级证据决定是否落地。本文冻结 Stage E 的证据基线，并登记 Stage F 的假设与验收门槛。
+>
+> 原则：**先测量，后修改。** F0/F1/F2 只产出证据，只有 F3 才允许动代码，且一次只动一个因素。
+
+---
+
+## 1. F0：证据冻结（本次提交后不再变动）
+
+### 1.1 代码与依赖指纹
+
+| 项 | 值 |
+|---|---|
+| `zcash-orchard-engineering` commit | `6d852ff2c07c1db57671df16dfffd05baa6cc510` |
+| 工作区状态 | dirty（19 项，清单见 `results/transaction_e2e/f0_freeze/git_status_at_freeze.txt`），E2/E3 插桩尚未提交 |
+| `orchard-upstream` commit | `616a669df8c9a59c33d47064d3ce04b25d026b2e` |
+| `halo2_proofs` | 0.4.0（vendor + `[patch.crates-io]`），`src/` 聚合指纹 `f6f9dd17904b8852961bd6ffd9ac5fd932f37c50a84a24c2337adab789e6d1b2` |
+| vendor 与 crates.io 0.4.0 的差异 | **仅 `src/plonk/prover.rs`**（E2 计时桩 + E3 阶段打标），其余文件逐字节相同 |
+| `pasta_curves` | 0.6.0，checksum `7ec2f82051d06ea52d7ec6a47546c592fc52392b6040e503e05a764dd10dd1de`，`src/` 聚合指纹 `7e77f7c919eebbed3f7ebfa54881e1806e6eba3b1e5b802252f16846c3c080ef` |
+| `subtle` | 2.6.1，checksum `13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292` |
+| `Cargo.lock` | sha256 `31a08b37b73ee7ebdd42e7032e6d83c5cdde78d9ba3afda9d3f7bd53553d07db`，冻结副本 `results/transaction_e2e/f0_freeze/Cargo.lock.frozen` |
+| 工具链 | rustc / cargo 1.88.0，`x86_64-pc-windows-msvc`（`rust-toolchain.toml` channel = 1.88） |
+
+### 1.2 编译配置（E1/E2/E3 共用，Stage F 的对照必须与之一致）
+
+| 参数 | 值 | 备注 |
+|---|---|---|
+| profile | `[profile.release] debug = false` | 未设 `lto`，即 `lto = false` |
+| `opt-level` | 3 | 默认 |
+| `codegen-units` | 16 | 默认，**跨 CGU 内联受限**，这会影响 `Fp::mul` 能否被完全内联 |
+| `panic` | unwind | 默认 |
+| `target-cpu` | **未设置（generic x86-64）** | 没有 `RUSTFLAGS`，故不启用 BMI2/ADX；这是 F1 要审计的关键点 |
+| 采样构建 | `[profile.sampling] inherits = "release"` + `debug = true` → `target/sampling/` | **不覆盖** `target/release/` |
+
+### 1.3 机器与绑定
+
+| 项 | 值 |
+|---|---|
+| CPU | i7-14700，逻辑 0–7 = 8 个 P-core |
+| 1P | `RAYON_NUM_THREADS=1`，mask `0x1`（逻辑 0） |
+| 8P | `RAYON_NUM_THREADS=8`，mask `0xFF` |
+| 环境 | Windows，电源计划=平衡；**非管理员**（ETW 内核采样不可用，见 10 号文档 §2） |
+| 电路 | PostNu6_3，2 Action，K=11 |
+
+### 1.4 冻结的基线耗时（E1，n=5）
+
+| 配置 | 均值 | 中位数 | min–max | CV |
+|---|---:|---:|---|---:|
+| 1P | **3374.6 ms** | 3351.1 ms | 3332.5–3482.8 | 1.86% |
+| 8P | **931.6 ms** | 928.3 ms | 921.8–946.4 | 1.05% |
+
+### 1.5 采样扰动：唯一正式口径
+
+| 配置 | 无采样器 | 开采样器 | 扰动 |
+|---|---:|---:|---:|
+| 1P | 3348.8 ms | 3535.3 ms | **+5.6%** |
+| 8P | 971.7 ms | 1071.6 ms | **+10.3%** |
+
+**口径统一**：开发阶段曾出现的 `+8.1%`、`+15.4%`（单轮、未做重复的早期读数）**即日起作废**，任何文档、
+汇报、答辩中引用采样扰动，只能引用上表的 +5.6% / +10.3%。同时，"采样构建本身中性"的正确表述是
+**−0.8%（3348.8 vs 3374.6 ms），即未观察到 `debug = true` 带来的可观测运行时代价**，不宣称绝对零开销。
+
+### 1.6 三种百分比口径：定义、分母与不可加性
+
+Stage E 的结论里混着三套百分比，**它们的分母不同，不能相加，也不能互相替代**。Stage F 引用时必须标注口径。
+
+| 口径 | 符号 | 定义 | 分母 | 是否可加 |
+|---|---|---|---|---|
+| **阶段 CPU 份额** | `stage_cpu_share` | 样本的阶段标签 = 该阶段 | busy 样本总数 | ✅ 加总 100% |
+| **函数自耗时份额** | `self%`（exclusive） | 叶子帧 = 该函数 | busy 样本总数 | ✅ 函数间互斥，加总 100% |
+| **去重覆盖度** | `cov%`（coverage） | 该函数在栈中出现 ≥1 次即计 1 | busy 样本总数 | ❌ **不可加**，多子树可重叠，可 >100% |
+| （对照）**阶段墙钟份额** | `wall_share` | E2 的阶段区间计时 | `create_proof` 外层墙钟 | ✅ 加总 100% |
+
+两条推论，Stage F 全篇遵守：
+
+1. **1P 下 `stage_cpu_share ≈ wall_share`**（同时只有一个线程忙），因此 1P 的 CPU 份额可以当时间份额读；
+   **8P 下二者不等**：`wall_share_i ∝ cpu_share_i / speedup_i`，所以 8P 的 quotient CPU 份额 63.4% 对应的
+   墙钟份额是 47.9%。**禁止把 8P 的 CPU 份额说成墙钟份额。**
+2. **`cov%` 只用于判断"某棵子树整体占多少"**（MSM 28.7%、FFT 3.0%），不能与 `self%` 相加，
+   也不能用 `cov%` 去估算优化收益（覆盖度含被调用者的时间）。
+
+---
+
+## 2. 从 E3 继承的、Stage F 不得再犯的三个错误
+
+| 错误表述 | 为什么错 | 正确表述 |
+|---|---|---|
+| "quotient 阶段 54.9%，是 FFT 耗时" | 阶段内是域乘 55% + 表达式求值 30%，FFT 子树全程序仅 3.0% | "quotient 是**逐行表达式求值 + 域乘**，不是 FFT 阶段" |
+| "`Fp::mul` 占 33.1%，优化它能快 33.1%" | 热点份额是 CPU 归属，不是可兑现收益；受调用频次、ILP、流水线、Amdahl 约束 | "上限 33.1%，**实际收益需端到端验证**" |
+| "synthesis 只占 4.36%，所以改 Merkle/NoteCommit 没用" | 改电路可能改变约束项数 → 影响 `evaluate::recurse` 的项数 → 影响 quotient | "**减行**不等于**减时间**；要看是否减少求值表达式项" |
+
+---
+
+## 3. 优化假设登记表
+
+每条假设必须写清：证据、机制、**可证伪判据**、状态。判据不通过即否决，不进入 F3。
+
+| ID | 假设 | 证据 | 机制（待验证） | 可证伪判据 | 状态 |
+|---|---|---|---|---|---|
+| **H1** | `Fp::mul` 的 Montgomery 归约在默认 `target-cpu=generic` 下未使用 BMI2/ADX，存在**纯编译配置**层面的提升空间 | self 33.08%，热点行 `fp.rs:368-369` | 默认 x86-64 无 `mulx`/`adcx`/`adox`，16+16 次 `mulq` 与串行 `adc` 链；启用后可用双进位链缩短依赖 | 微基准延迟或吞吐改善 **< 5%** ⇒ 否决（编译配置路线无价值） | **已否决**（+3.1%/+0.5%，见 12 号文档 §4、§7） |
+| **H2** | 约束表达式求值存在**可复用的求值计划**：同一电路结构在 coset 上逐行重复遍历同一棵树，递归与临时对象有压缩空间 | `evaluate::recurse` self 16.24%，cov 48.72% | 当前每行每表达式重新匹配节点类型；若把表达式编译成扁平指令序列/线性组合，可减少分支与重复域乘 | 唯一节点访问数 vs 总访问数（重复率）**< 2×** ⇒ 无空间；或扁平化后微基准 < 10% ⇒ 否决 | 待 F2 |
+| **H3** | prover 侧点运算的常量时间屏障成本可用**保持常量时间语义**的方式降低（不是删除屏障） | `subtle::black_box` self 14.59%，单行 13.72% | 每次曲线加法 2×`is_identity` × 4 limb = ~8 次 `black_box`；可合并为一次或运算 + 单次选择 | 任何"直接删屏障"的方案 **一律否决**；替代实现必须给出常量时间论证 + 微基准 | 待 F3（暂缓） |
+| **H4** | `pasta_curves` 的 `deferred` feature（`mul_unreduced` 累加 + 批量归约）在 halo2 中未启用，可能存在批量归约空间 | `deferred` 不在 feature 图内；`halo2` 只用 `Field::mul` 逐次归约 | 累积 512 位乘积再统一归约，摊薄归约成本 | 需要改 halo2 的 `Field` 抽象 ⇒ 先评估代码侵入面；若需改公开 trait ⇒ 降级为"记录，不实施" | 记录 |
+| **H5** | MSM/IPA 桶归约仍有实现空间 | MSM 子树 cov 28.72%，opening 墙钟 14.4% | 桶数/窗口/并行粒度 | 属于 halo2 既有 best-effort；除非能定位具体低效点，否则不动 | 记录 |
+
+**H1 优先的理由**：它是唯一一个**只改编译参数、不改一行逻辑**就能验证的假设，验证成本最低、结论最干净；
+且 `Fp::mul` 是跨阶段（quotient 55%、opening、advice、lookup 全部）的公共原语。
+
+---
+
+## 4. Stage F 执行路线与验收门槛
+
+| 步 | 内容 | 产出 | 通过条件（gate） |
+|---|---|---|---|
+| **F0** | 冻结 E3 证据（本文） | `11_stage_f_scope.md` + `f0_freeze/` | 指纹、配置、扰动口径唯一化 |
+| **F1** | `Fp::mul` 微基准 + 汇编审计 | `12_fp_mul_microbench.md` + `f1_fp_mul/` | ① 汇编指令构成（默认 vs `+bmi2,+adx`）✅；② 延迟/吞吐（5 轮，CV<2%）✅；③ 与 Python 独立向量 100% 一致（592 + 12 000）✅；④ 上限估算：asm 4.0%、消除调用开销 10.6% ✅ —— **H1 否决，新增 H1b/H1c** |
+| **F2** | 表达式求值器分析 | `13_expression_eval.md` | 节点统计（唯一 vs 总访问）、分配计数、独立基准 |
+| **F3** | 选**一个**方向做原型 | 独立分支 + 补丁 | 单元测试 + Orchard 完整证明正确性 + 与冻结基线对比；**一次只改一个因素** |
+
+**F1 的边界（用户明确要求）**：
+
+- ✅ 读 pasta_curves 0.6.0 源码、算汇编、测延迟/吞吐、写独立微基准、生成测试向量；
+- ❌ 不写新的 Montgomery reduction、不改依赖版本、不碰电路约束、不改 Orchard 生产代码；
+- ⚠️ 允许**只改编译参数**（`-C target-feature=+bmi2,+adx`）做对照，因为这不改变代码语义，且必须
+  在报告中单列为"编译配置假设"，与"代码改动"严格区分。
+
+---
+
+## 5. 复现
+
+```bash
+cd experiments/f1_fp_mul
+cargo run --release -- correctness   # 与 Python 向量比对
+cargo run --release -- bench         # 延迟 / 吞吐（绑定 P-core 0）
+cargo run --release -- bench --adx?  # 见 12 号文档
+```
+
+产物：`results/transaction_e2e/f1_fp_mul/`。
