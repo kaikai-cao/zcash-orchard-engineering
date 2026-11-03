@@ -1,0 +1,7 @@
+# The vendored instrumentation patch must stay byte-exact so `patch -p1` applies;
+# with core.autocrlf=true a text diff would get CRLF-rewritten on checkout.
+*.patch -text
+
+# Raw measurement records: keep exactly what the tools wrote.
+results/**/*.txt -text
+results/**/*.csv text eol=lf
