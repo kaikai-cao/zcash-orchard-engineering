@@ -118,7 +118,11 @@
 
 另需注意第二条对比的可比性有限：阶段 A 的官方 bench 是 coinbase 输出工作负载（无 Spend），fixture 与调用路径都与本 harness 不同，它只能作为量级参照，不构成严格的同条件对照。
 
-还有一点不能反推：**K=11 不变只能说明证明域没有扩大，不能证明新增的那几行约束没有计算成本。**「固定域容量吸收了新增行的影响」是一个解释假设，要验证得靠阶段 E 的源码级计时，不是靠这里的总量。第 4 节会说明这个假设在源码里的位置。
+还有一点不能反推：**K=11 不变只能说明证明域没有扩大，不能证明新增的那几行约束没有计算成本。** 但这条现在有了比"填充吸收"更硬的解释，见 [`docs/orchard/02_configure.md`](../../../docs/orchard/02_configure.md) §5：
+
+`Config::configure` 的签名里没有 `circuit_version`，三个电路版本共享**完全相同**的列、门、选择器与次数（实测 10 advice / 14 fixed / 1 instance / 56 selector / degree 9）。上游把这个事实写成了断言——`circuit.rs:1809-1813` 注释"We … adds no columns or commitments, leaving the proof shape unchanged"，并对 `proof_size(1)=4992` / `proof_size(2)=7264` 做 `assert_eq!`。
+
+证明成本的主项（IPA 的 MSM 规模、承诺数量、域大小）由 (advice 列数, 置换列数, k) 决定，三者都与版本无关；版本差异只落在 `synthesize` 多铺的 4 行上，占 2048 行的 0.2%。这解释了「未检出差异」，但仍不等于"零成本"——只是增量低于本实验的可检出阈值。
 
 ---
 
@@ -209,7 +213,13 @@ Orchard 端到端实验到此收束。不再扩展 Action / 线程矩阵。
 3. 各 Gadget Config 如何复用列、Selector 与 Lookup；
 4. `PostNu6_3` 新增的跨地址限制加了哪些约束、如何改变电路布局。
 
-第 4 项现在有了实验对照，但要小心它的强度：实验显示 `PostNu6_3` **未检出**单 Action 证明成本的显著增长（Welch t 检验 p≈0.14，不是「相等」），而**确实**改变了 Action 的计数规则（`spends + outputs` 而非 `max`）。这两件事在源码里应该是分开的两处：前者属于「多加了几行约束但证明域没扩大」，后者属于「`BundleType::num_actions` 与跨地址标志的联动」。K=11 不变只说明证明域没有扩张，**不能**据此推出新增约束零成本——「2¹¹ 的填充吸收了新增行」是待验证的解释假设，要交给阶段 E 的源码级计时。
+第 4 项现在有了实验对照与源码对照，两者指向同一结论但要分开表述：
+
+- **实验**：`PostNu6_3` **未检出**单 Action 证明成本的显著增长（Welch t 检验 p≈0.14，不是「相等」）。
+- **源码**：`Config::configure` 无版本参数（`circuit.rs:1060`），三个版本共享同一套列/门/选择器；上游对 `proof_size` 做 `assert_eq!(…, 4992)` / `(…, 7264)`（`circuit.rs:1809-1817`），注释明写"adds no columns or commitments, leaving the proof shape unchanged"。新增的只有 `synthesize_cross_address_checks` 铺的 4 行，复用已有 `q_orchard` 门的 `v_old·(root−anchor)` 那条约束。
+- **协议层**：Action 计数从 `max(spends, outputs)` 变成 `spends + outputs` 是在 `BundleType::num_actions`，与电路无关。
+
+所以"计数规则变了、单 Action 成本没变"不是矛盾，而是两个不同层次：一个在 bundle 层，一个在 circuit 层。详细拆解见 [`docs/orchard/02_configure.md`](../../../docs/orchard/02_configure.md) §5–§6。
 
 ---
 

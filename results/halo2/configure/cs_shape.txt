@@ -1,0 +1,33 @@
+# Constraint-system shape of the Orchard Action circuit, read off halo2
+# after Circuit::configure returns. Version-independent (see docs/orchard/02_configure.md §5).
+#
+# produced by: cargo run --release --bin cs_dump -- <out_dir>
+# upstream:    zcash/orchard @ 616a669d, halo2_proofs 0.4.0, halo2_gadgets 0.6.0
+# raw dump:    cs_pinned.txt (ConstraintSystem::pinned(), 548001 bytes)
+
+advice_columns      10
+fixed_columns       14
+instance_columns    1
+selectors           56
+gate_polynomials    193
+degree              9
+blinding_factors    5
+minimum_rows        8
+permutation_columns 15      # 10 advice + 4 fixed + 1 instance
+permutation_products 3      # ceil(15 / (degree - 2)) = ceil(15/7)
+lookups             3       # 1 range-check (table col 0) + 2 sinsemilla generator tables (cols 0,1,2)
+constants_columns   1       # fixed 3 == lagrange_coeffs[0]
+
+# advice query pairs (column, rotation) that gates actually use
+advice_queries      25
+fixed_queries       14
+
+# fixed column roles (evidence: 'constants' dump + permutation dump + source)
+fixed 0,1,2         sinsemilla generator lookup table (table_idx, table_x, table_y)
+fixed 3..10         lagrange_coeffs[0..8]; shared by ECC mul_fixed AND poseidon rc_a(5,6,7)/rc_b(8,9,10)
+fixed 11,12         q_sinsemilla2 of the two sinsemilla instances (created inside SinsemillaChip::configure)
+fixed 13            UNIDENTIFIED - allocated inside some chip's configure; not load-bearing
+
+# proof shape asserted upstream (circuit.rs:1809-1817), identical for all circuit versions
+proof_size(1)       4992    # = BASE 2720 + PER_ACTION 2272 * 1
+proof_size(2)       7264    # = BASE 2720 + PER_ACTION 2272 * 2

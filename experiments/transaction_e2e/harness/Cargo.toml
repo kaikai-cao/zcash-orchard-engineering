@@ -12,6 +12,13 @@ orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multi
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
 incrementalmerkletree = "0.9"
 pasta_curves = "0.6"
+# Same feature set orchard itself enables, so adding this direct dependency does
+# not perturb the dependency graph the perf numbers were taken on.
+halo2_proofs = { version = "0.4", default-features = false, features = [
+    "batch",
+    "floor-planner-v1-legacy-pdqsort",
+    "multicore",
+] }
 
 [profile.release]
 debug = false
