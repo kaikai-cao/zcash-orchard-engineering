@@ -1,0 +1,19 @@
+# Orchard Merkle path bit-order check
+# crate: orchard @ 616a669d, halo2_gadgets 0.6.0
+# depth = 32
+
+pos          host MerklePath::root                                              LSB    MSB   
+----------------------------------------------------------------------------------------------
+0x00000000   5ec1978c8a892acff36497aa4026a14c99de04c0eca81db30903dd961ce6c11f   match  match 
+0x00000001   d8985126f528a9a3ead233f1b433ccfe055e650d09a1c9050613876817a6e809   match  DIFF  
+0x00000002   d09c878d3e80023c0548e4c8a01801198a3aa9540d982edc7c8d6097fdf35f0d   match  DIFF  
+0x00000003   4761af26b78b0728b0934c1fe172da275a8a225631cb2bae8f290c55d73a662e   match  DIFF  
+0x80000000   37df96aeb6316af0bba289cd2150903d9b4e606479e41e843572545d33c6e31d   match  DIFF  
+0xffffffff   3823b6ac495da5e42848dffda4069a05df93e01cae0af19c9acaffd4f2fb8207   match  match 
+0x12345678   0eeb8a1717647478e94c8c23995cc1639fd9ca5aba1c77a455e48c0f7564ff1b   match  DIFF  
+
+# Reading: the gadget's i2lebsp(pos) + leaf-to-root path order is
+# bit l of pos  <->  path index l  <->  tree level l (leaves at 32, root at 0),
+# i.e. pos bit 0 selects orientation at the leaf level, bit 31 at the root level.
+# The MSB-first reading produces a different anchor for every pos != 0 and
+# pos != all-ones, so the convention is numerically observable, not cosmetic.
