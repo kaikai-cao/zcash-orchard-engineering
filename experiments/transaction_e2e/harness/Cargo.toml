@@ -41,6 +41,22 @@ debug = false
 inherits = "release"
 debug = true
 
+# Stage H1c: the release profile with exactly one setting changed -- `lto`.
+# Single-factor by construction: opt-level (3), debug (false), codegen-units
+# (16), panic (unwind) and the (absent) target-cpu flag all inherit from
+# release, so anything measured here is attributable to LTO alone.
+# Output lands in target/lto/, never overwriting target/release/.
+[profile.lto]
+inherits = "release"
+lto = "fat"
+
+# Same LTO, but with PDB debug info, so the E3 sampler can resolve symbols and
+# so the disassembly check has a symbolised counterpart on both sides
+# (target/sampling/ vs target/lto-sampling/).
+[profile.lto-sampling]
+inherits = "lto"
+debug = true
+
 # Stage E2 source-level timing: point halo2_proofs at the local, instrumented
 # vendored copy. The patch is a no-op for correctness — same version (0.4.0),
 # same sources except the optional ORCHARD_E2_TIMING phase timers. Disabled by
