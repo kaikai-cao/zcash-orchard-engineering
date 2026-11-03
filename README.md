@@ -6,8 +6,8 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 
 ## 当前状态
 
-阶段 A–E 已完成，Stage F 进行中（F0/F1 已收口）。研究问题从「哪个阶段最慢」推进到
-「哪些底层操作消耗了 CPU」，并已用微基准否定掉第一个假设。
+阶段 A–E 已完成，Stage F 进行中（F0/F1/F2 已收口）。研究问题从「哪个阶段最慢」推进到
+「哪些底层操作消耗了 CPU」，再推进到「这些操作是按什么形态被执行的」。
 
 | 阶段 | 内容 | 结论 | 文档 |
 | --- | --- | --- | --- |
@@ -17,7 +17,8 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 | E2 | `create_proof` 九阶段计时 | quotient 54.9%、opening 14.4%；**占行最多 ≠ 最耗时**（synthesis 仅 4.6%） | `docs/orchard/09` |
 | E3 | 进程内 CPU 采样 + 阶段标签 | quotient 内不是 FFT（3.0%）；`Fp::mul` self 33.1%、`subtle::black_box` 14.6% | `docs/orchard/10` |
 | F0 | 证据冻结 | 扰动口径统一为 1P +5.6% / 8P +10.3% | `docs/orchard/11` |
-| F1 | `Fp::mul` 微基准 + 汇编审计 | **H1 否决**：`+bmi2,+adx` 无收益；真问题是未内联（调用开销 32.5%） | `docs/orchard/12` |
+| F1 | `Fp::mul` 微基准 + 汇编审计 | **H1 否决**：`+bmi2,+adx` 无收益；差异在调用形态（上限 10.6%，F2 修正为 ≈1.8%） | `docs/orchard/12` |
+| F2 | 表达式求值器成本归因 | quotient 的 **89.1%** 是求值器；6570 次整块乘 × 16384 = **1.076 亿次域乘**；**38.4% 是乘 −1** | `docs/orchard/13` |
 
 | 冻结项 | 值 |
 | --- | --- |
@@ -45,7 +46,7 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 ```
 docs/environment/    环境与版本记录
 docs/halo2/          Halo2 学习笔记（阶段 B）
-docs/orchard/        Orchard 源码分析（阶段 C）+ 证明性能剖析（E2–F1），索引进 INDEX.md
+docs/orchard/        Orchard 源码分析（阶段 C）+ 证明性能剖析（E2–F2），索引进 INDEX.md
 docs/experiments/    实验协议
 experiments/         实验设计
   transaction_e2e/   端到端证明 harness（E1/E2/E3）
@@ -56,7 +57,7 @@ scripts/benchmark/   基准运行脚本（未绑定 / 单核绑定）
 scripts/analysis/    结果汇总（E1/E2/E3/F1 各自的 CSV 生成脚本）
 results/raw/         每次运行的原始日志 + Criterion 产物
 results/analysis/    汇总表与报告
-results/transaction_e2e/  E1 基线 / E2 计时 / E3 采样 / F0 冻结 / F1 微基准
+results/transaction_e2e/  E1 基线 / E2 计时 / E3 采样 / F0 冻结 / F1 微基准 / F2 表达式计数
 ```
 
 ## 常用命令
