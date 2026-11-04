@@ -1,0 +1,68 @@
+Stage F3 / H7 -- Borrowed / Owned
+=================================
+
+Built 2026-11-04 on the same host as F0-F3 (i7-14700, P-core logical 0-7 = 0xFF,
+1P pinned to 0x1). Registry cache offline; the vendor tree is NOT committed.
+
+Sides
+-----
+A  = vendor at the frozen baseline + halo2_proofs-0.4.0-h6-neg.patch
+     (no cargo features)
+B  = A + halo2_proofs-0.4.0-h7-borrowed.patch
+     built with --features f3h7 (the counter module and the `--mode h7` entry)
+
+Commands (from experiments/transaction_e2e/harness)
+---------------------------------------------------
+  git checkout -- ../vendor/halo2_proofs-0.4.0 && rm -f ../vendor/halo2_proofs-0.4.0/src/f3h7.rs
+  git apply ../vendor/halo2_proofs-0.4.0-h6-neg.patch
+  CARGO_TARGET_DIR=target/h7-a cargo build --release --offline --bin orchard-e2e
+
+  git apply ../vendor/halo2_proofs-0.4.0-h7-borrowed.patch
+  CARGO_TARGET_DIR=target/h7-b cargo build --release --offline --features f3h7 \
+      --bin orchard-e2e
+
+Toolchain
+---------
+  rustc 1.88.0 (6b00bc388 2025-06-23)
+  cargo 1.88.0 (873a06493 2025-05-10)
+  profile: release, lto as in the stage F1 baseline (no change in this round)
+
+Binaries
+--------
+                       bytes     sha256 (first 24)
+  A  orchard-e2e.exe   4264960   17199b78879b4ff999521a12
+  B  orchard-e2e.exe   4315648   00aaf03357bf295a72f0e2d0
+
+PE .text section (VirtualSize, the same measure as f3_h6/build.txt)
+-------------------------------------------------------------------
+                       .text      sha256 (first 16)
+  A                    3365704    403bf01eda1f5226
+  B                    3406568    1192e2687fb8d442      +40864 B (+1.21%)
+
+The +41 kB is the counter module (f3h7.rs, 428 lines) and the `--mode h7`
+entry point.  Neither is reachable from the quotient path: the counters are
+behind `Option<&Counters>`, which is `None` in every timed run, and the mode
+is an unused match arm.  Recorded because it is a real difference between the
+two binaries, not because it is expected to matter -- and because the one
+stage that moved in the wrong direction (`synthesis`, +3.0%) does not touch
+the evaluator, which is what a layout effect looks like.
+
+Patches
+-------
+  halo2_proofs-0.4.0-h6-neg.patch        (unchanged, frozen)
+  halo2_proofs-0.4.0-h7-borrowed.patch   +979 / -52, 10 hunks, sha256 9de0891971f76dad...
+    src/f3h7.rs                +428  (new: counters + formulation bench)
+    src/lib.rs                   +3
+    src/poly/evaluator.rs      +548/-52
+      of which tests             +349
+      behaviour                  ~199  (EvalValue, recurse rewrite, 2 trait impls)
+
+Replay check
+------------
+Re-applying both patches from a clean vendor reproduces the three files
+byte for byte after line-ending normalisation (`core.autocrlf=true` stores
+CRLF in the work tree):
+
+  evaluator.rs  ecf183483af52d17fdb88aef0831db0b
+  f3h7.rs       7a2a1bb6f8dd6a3f02d60d6ffff966c2
+  lib.rs        3c1edc4a4772569ddc756fd935cb463b

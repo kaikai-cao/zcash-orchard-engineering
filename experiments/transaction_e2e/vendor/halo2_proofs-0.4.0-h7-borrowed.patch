@@ -1,0 +1,1199 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3h7.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3h7.rs
+new file mode 100644
+index 0000000..7b6b794
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3h7.rs
+@@ -0,0 +1,428 @@
++//! Stage F3 / H7 diagnostics: who allocates, and how much gets written.
++//!
++//! Inert unless `ORCHARD_H7` is set. The counters here are the *mechanism* data
++//! for the `Borrowed`/`Owned` rewrite: how many leaf visits end up as a borrow
++//! versus a copy, how many fresh buffers `recurse` creates, and how many bytes
++//! those buffers amount to. They are incremented from inside the new evaluator,
++//! at the four places that can allocate, so the totals close against the tree
++//! shape rather than being estimated from it:
++//!
++//! ```text
++//! leaf_borrowed + leaf_copied            == leaf_visits
++//! allocations                            == leaf_copied + constant + linear
++//!                                           + distribute + both_borrowed
++//! ```
++//!
++//! `ORCHARD_H7_BENCH=n` additionally prices the two formulations of a two-input
++//! node (`copy both, then multiply in place` against `collect over a zip`) on
++//! real field elements, single threaded, *after* the evaluation it is attached
++//! to. That number is an independent check on the end-to-end result: it says
++//! whether the rewrite can be cheaper per element at all, without any of the
++//! prover's other work in the way.
++//!
++//! This is measurement scaffolding in a vendored copy, not an upstream patch.
++
++// Measurement scaffolding: doc comments on counters and Debug impls would be noise
++// on a module that only ever prints JSON.
++#![allow(missing_docs, missing_debug_implementations)]
++
++use std::{
++    mem::size_of,
++    sync::{
++        atomic::{AtomicU64, Ordering},
++        Mutex, OnceLock,
++    },
++    time::Instant,
++};
++
++use group::ff::Field;
++
++/// True when `ORCHARD_H7` is present. Cached: consulted once per `evaluate`.
++pub fn enabled() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    // `ORCHARD_H7=0` must switch the counters off: the run mode sets the variable
++    // for itself when it is absent, so presence alone cannot mean "on".
++    *ON.get_or_init(|| {
++        std::env::var_os("ORCHARD_H7").is_some_and(|v| v != std::ffi::OsStr::new("0"))
++    })
++}
++
++/// How many times to re-run the formulation bench (0 = don't).
++pub fn bench_reps() -> usize {
++    static N: OnceLock<usize> = OnceLock::new();
++    *N.get_or_init(|| {
++        std::env::var("ORCHARD_H7_BENCH")
++            .ok()
++            .and_then(|v| v.parse().ok())
++            .unwrap_or(0)
++    })
++}
++
++/// The five allocation sites of the rewritten `recurse`, plus the two leaf
++/// outcomes and the two in-place outcomes. Relaxed ordering throughout: these
++/// are counters, and the report is read after the proving run has joined its
++/// threads.
++pub struct Counters {
++    /// Every `Ast::Poly` visited, across all chunks.
++    leaf_visits: AtomicU64,
++    /// …of those, returned as a borrow into the registered polynomial.
++    leaf_borrowed: AtomicU64,
++    /// …of those, materialised (non-zero rotation).
++    leaf_copied: AtomicU64,
++    /// Bytes written by those materialisations.
++    copy_bytes: AtomicU64,
++    /// Fresh `Vec`s created, over the whole tree.
++    allocs: AtomicU64,
++    /// Bytes of those fresh `Vec`s (`len * size_of::<F>()`).
++    alloc_bytes: AtomicU64,
++    /// Nodes that folded into an existing owned buffer (left operand owned).
++    reuse_left: AtomicU64,
++    /// Nodes that folded into the right operand instead (left was borrowed).
++    reuse_right: AtomicU64,
++    /// Two-input nodes where both operands were borrowed, so a buffer was made.
++    both_borrowed: AtomicU64,
++    /// Unary nodes (`Scale` / `Neg`) over a borrowed operand.
++    unary_alloc: AtomicU64,
++    /// `constant_term` / `linear_term` buffers (unchanged by H7, counted so the
++    /// "did the cost move somewhere else" question has a number on both sides).
++    fills: AtomicU64,
++    fill_bytes: AtomicU64,
++}
++
++static COUNTERS: Counters = Counters {
++    leaf_visits: AtomicU64::new(0),
++    leaf_borrowed: AtomicU64::new(0),
++    leaf_copied: AtomicU64::new(0),
++    copy_bytes: AtomicU64::new(0),
++    allocs: AtomicU64::new(0),
++    alloc_bytes: AtomicU64::new(0),
++    reuse_left: AtomicU64::new(0),
++    reuse_right: AtomicU64::new(0),
++    both_borrowed: AtomicU64::new(0),
++    unary_alloc: AtomicU64::new(0),
++    fills: AtomicU64::new(0),
++    fill_bytes: AtomicU64::new(0),
++};
++
++impl Counters {
++    #[inline]
++    pub fn leaf_borrowed(&self) {
++        self.leaf_visits.fetch_add(1, Ordering::Relaxed);
++        self.leaf_borrowed.fetch_add(1, Ordering::Relaxed);
++    }
++
++    #[inline]
++    pub fn leaf_copied(&self, elems: usize, elem_size: usize) {
++        self.leaf_visits.fetch_add(1, Ordering::Relaxed);
++        self.leaf_copied.fetch_add(1, Ordering::Relaxed);
++        self.copy_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++        self.allocs.fetch_add(1, Ordering::Relaxed);
++        self.alloc_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++    }
++
++    /// A `Scale` / `Neg` over borrowed input.
++    #[inline]
++    pub fn unary_alloc(&self, elems: usize, elem_size: usize) {
++        self.unary_alloc.fetch_add(1, Ordering::Relaxed);
++        self.allocs.fetch_add(1, Ordering::Relaxed);
++        self.alloc_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++    }
++
++    /// A `constant_term` / `linear_term` buffer.
++    #[inline]
++    pub fn filled(&self, elems: usize, elem_size: usize) {
++        self.fills.fetch_add(1, Ordering::Relaxed);
++        self.fill_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++        self.allocs.fetch_add(1, Ordering::Relaxed);
++        self.alloc_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++    }
++
++    #[inline]
++    pub fn reuse_left(&self) {
++        self.reuse_left.fetch_add(1, Ordering::Relaxed);
++    }
++
++    #[inline]
++    pub fn reuse_right(&self) {
++        self.reuse_right.fetch_add(1, Ordering::Relaxed);
++    }
++
++    #[inline]
++    pub fn both_borrowed(&self, elems: usize, elem_size: usize) {
++        self.both_borrowed.fetch_add(1, Ordering::Relaxed);
++        self.allocs.fetch_add(1, Ordering::Relaxed);
++        self.alloc_bytes
++            .fetch_add((elems * elem_size) as u64, Ordering::Relaxed);
++    }
++}
++
++/// Hand out the global counters for one `evaluate` call, reset to zero.
++pub fn begin() -> &'static Counters {
++    for c in [
++        &COUNTERS.leaf_visits,
++        &COUNTERS.leaf_borrowed,
++        &COUNTERS.leaf_copied,
++        &COUNTERS.copy_bytes,
++        &COUNTERS.allocs,
++        &COUNTERS.alloc_bytes,
++        &COUNTERS.reuse_left,
++        &COUNTERS.reuse_right,
++        &COUNTERS.both_borrowed,
++        &COUNTERS.unary_alloc,
++        &COUNTERS.fills,
++        &COUNTERS.fill_bytes,
++    ] {
++        c.store(0, Ordering::Relaxed);
++    }
++    &COUNTERS
++}
++
++/// Field order of the snapshot array. `alloc` closure:
++/// `allocs == leaf_copied + both_borrowed + unary_alloc + fills`.
++#[derive(Clone, Copy)]
++struct Entry {
++    poly_len: usize,
++    chunk_size: usize,
++    num_chunks: usize,
++    v: [u64; 12],
++}
++
++fn entries() -> &'static Mutex<Vec<Entry>> {
++    static E: OnceLock<Mutex<Vec<Entry>>> = OnceLock::new();
++    E.get_or_init(|| Mutex::new(Vec::new()))
++}
++
++fn reports() -> &'static Mutex<Vec<String>> {
++    static R: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
++    R.get_or_init(|| Mutex::new(Vec::new()))
++}
++
++/// Snapshot the counters of the call just finished.
++pub fn end(poly_len: usize, chunk_size: usize, num_chunks: usize) {
++    if !enabled() {
++        return;
++    }
++    let c = &COUNTERS;
++    let v = [
++        c.leaf_visits.load(Ordering::Relaxed),
++        c.leaf_borrowed.load(Ordering::Relaxed),
++        c.leaf_copied.load(Ordering::Relaxed),
++        c.copy_bytes.load(Ordering::Relaxed),
++        c.allocs.load(Ordering::Relaxed),
++        c.alloc_bytes.load(Ordering::Relaxed),
++        c.reuse_left.load(Ordering::Relaxed),
++        c.reuse_right.load(Ordering::Relaxed),
++        c.both_borrowed.load(Ordering::Relaxed),
++        c.fills.load(Ordering::Relaxed),
++        c.fill_bytes.load(Ordering::Relaxed),
++        c.unary_alloc.load(Ordering::Relaxed),
++    ];
++    entries().lock().unwrap().push(Entry {
++        poly_len,
++        chunk_size,
++        num_chunks,
++        v,
++    });
++}
++
++/// Push one report part as `key=json`; called by the harness.
++pub fn record_part(key: &str, json: String) {
++    reports().lock().unwrap().push(format!("\"{key}\":{json}"));
++}
++
++pub fn take_report() -> String {
++    let mut parts = std::mem::take(&mut *reports().lock().unwrap());
++    if let Some((_, json)) = &*formulation().lock().unwrap() {
++        parts.push(format!("\"formulation\":{json}"));
++    }
++    format!("{{{}}}", parts.join(","))
++}
++
++/// Fold the recorded calls into `evals` + a total part.
++pub fn flush_evals() {
++    let drained: Vec<Entry> = std::mem::take(&mut *entries().lock().unwrap());
++    if drained.is_empty() {
++        record_part("evals", "{\"calls\":0,\"items\":[]}".to_string());
++        return;
++    }
++    let mut items = Vec::new();
++    let mut total = [0u64; 12];
++    for e in &drained {
++        for (i, x) in e.v.iter().enumerate() {
++            total[i] += *x;
++        }
++        items.push(format!(
++            "{{\"poly_len\":{},\"chunk_size\":{},\"num_chunks\":{},\
++\"leaf_visits\":{},\"leaf_borrowed\":{},\"leaf_copied\":{},\"copy_bytes\":{},\
++\"allocs\":{},\"alloc_bytes\":{},\"reuse_left\":{},\"reuse_right\":{},\
++\"both_borrowed\":{},\"fills\":{},\"fill_bytes\":{},\"unary_alloc\":{}}}",
++            e.poly_len,
++            e.chunk_size,
++            e.num_chunks,
++            e.v[0],
++            e.v[1],
++            e.v[2],
++            e.v[3],
++            e.v[4],
++            e.v[5],
++            e.v[6],
++            e.v[7],
++            e.v[8],
++            e.v[9],
++            e.v[10],
++            e.v[11]
++        ));
++    }
++    record_part(
++        "evals",
++        format!(
++            "{{\"calls\":{},\"leaf_visits\":{},\"leaf_borrowed\":{},\"leaf_copied\":{},\
++\"copy_bytes\":{},\"allocs\":{},\"alloc_bytes\":{},\"reuse_left\":{},\"reuse_right\":{},\
++\"both_borrowed\":{},\"fills\":{},\"fill_bytes\":{},\"unary_alloc\":{},\
++\"closed_leaf\":{},\"closed_alloc\":{},\"items\":[{}]}}",
++            drained.len(),
++            total[0],
++            total[1],
++            total[2],
++            total[3],
++            total[4],
++            total[5],
++            total[6],
++            total[7],
++            total[8],
++            total[9],
++            total[10],
++            total[11],
++            total[1] + total[2] == total[0],
++            total[4] == total[2] + total[8] + total[11] + total[9],
++            items.join(",")
++        ),
++    );
++}
++
++// ---------------------------------------------------------------------------
++// Formulation bench (D4): price `copy + in-place` against `collect(zip)`
++// ---------------------------------------------------------------------------
++
++/// Time the two ways to compute `a * b` into a fresh buffer, on real field
++/// elements, one thread, `reps` rounds each.
++///
++/// `copy_*` is what the H6 evaluator does for a two-leaf product: copy each
++/// operand into its own `Vec`, then multiply one by the other in place.
++/// `collect_*` is what H7 does: read both borrowed operands and write the
++/// product straight out. The difference per element is the atom of the whole
++/// optimisation, so it is priced independently of the prover.
++pub fn bench_formulation<F: Field>(chunk_len: usize, reps: usize) -> String {
++    if reps == 0 || chunk_len == 0 {
++        return "null".to_string();
++    }
++    // `Field` has no `From<u64>`; build distinct non-zero values by accumulation.
++    let a: Vec<F> = {
++        let mut x = F::ONE;
++        (0..chunk_len)
++            .map(|_| {
++                let r = x;
++                x += F::ONE;
++                r
++            })
++            .collect()
++    };
++    let b: Vec<F> = {
++        let mut x = F::ONE + F::ONE;
++        (0..chunk_len)
++            .map(|_| {
++                let r = x;
++                x += F::ONE + F::ONE;
++                r
++            })
++            .collect()
++    };
++
++    let mut sink = F::ZERO;
++
++    let t = Instant::now();
++    for _ in 0..reps {
++        let mut lhs = a.to_vec();
++        let rhs = b.to_vec();
++        for (l, r) in lhs.iter_mut().zip(rhs.iter()) {
++            *l *= *r;
++        }
++        sink += lhs[0];
++        std::hint::black_box(&lhs);
++    }
++    let copy_ms = t.elapsed().as_secs_f64() * 1e3 / reps as f64;
++
++    let t = Instant::now();
++    for _ in 0..reps {
++        let lhs: Vec<F> = a.iter().zip(b.iter()).map(|(l, r)| *l * *r).collect();
++        sink += lhs[0];
++        std::hint::black_box(&lhs);
++    }
++    let collect_ms = t.elapsed().as_secs_f64() * 1e3 / reps as f64;
++
++    // The copy on its own, so the number can be compared with the 1.4814 ns /
++    // element that the LC replication bench measured for a leaf materialisation.
++    let t = Instant::now();
++    for _ in 0..reps {
++        let v = a.to_vec();
++        sink += v[0];
++        std::hint::black_box(&v);
++    }
++    let copy_only_ms = t.elapsed().as_secs_f64() * 1e3 / reps as f64;
++
++    let n = chunk_len as f64;
++    format!(
++        "{{\"chunk_len\":{},\"reps\":{},\"copy_mul_ms\":{:.4},\"copy_mul_ns_per_elem\":{:.4},\
++\"collect_ms\":{:.4},\"collect_ns_per_elem\":{:.4},\"copy_only_ms\":{:.4},\
++\"copy_only_ns_per_elem\":{:.4},\"ratio\":{:.4},\"sink_is_nonzero\":{}}}",
++        chunk_len,
++        reps,
++        copy_ms,
++        copy_ms * 1e6 / n,
++        collect_ms,
++        collect_ms * 1e6 / n,
++        copy_only_ms,
++        copy_only_ms * 1e6 / n,
++        copy_ms / collect_ms,
++        !bool::from(sink.is_zero())
++    )
++}
++
++fn formulation() -> &'static Mutex<Option<(usize, String)>> {
++    static F: OnceLock<Mutex<Option<(usize, String)>>> = OnceLock::new();
++    F.get_or_init(|| Mutex::new(None))
++}
++
++/// Run after an `evaluate` (never inside a timed window) and re-run whenever a
++/// larger chunk shows up, because the price per element depends on whether the
++/// buffer still fits in L2. The prover's first evaluations are small (the
++/// permutation and lookup arguments use `n`, not `extended_len`), so keying off
++/// the first call alone would price a 16 KiB copy and call it the real thing.
++///
++/// Two geometries are priced: the chunk (`chunk_len` elements, the unit
++/// `recurse` actually works in) and the whole polynomial (`poly_len`, which is
++/// what the LC replication bench measured, so the two numbers are comparable).
++pub fn maybe_bench<F: Field>(chunk_len: usize, poly_len: usize) {
++    if bench_reps() == 0 {
++        return;
++    }
++    let mut slot = formulation().lock().unwrap();
++    if let Some((best, _)) = &*slot {
++        if *best >= chunk_len {
++            return;
++        }
++    }
++    let chunk = bench_formulation::<F>(chunk_len, bench_reps());
++    let poly = bench_formulation::<F>(poly_len, bench_reps());
++    *slot = Some((chunk_len, format!("{{\"chunk\":{chunk},\"poly\":{poly}}}")));
++}
++
++#[inline]
++pub fn elem_size<F>() -> usize {
++    size_of::<F>()
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 5c71546..3ce9498 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -12,6 +12,9 @@ pub mod arithmetic;
+ pub mod circuit;
+ /// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+ pub mod f2;
++
++/// Stage F3 / H7 diagnostics (inert unless `ORCHARD_H7` is set). See the module docs.
++pub mod f3h7;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+index 9fdac6e..3c43090 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+@@ -181,7 +181,7 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+     {
+         // We're working in a single basis, so all polynomials are the same length.
+         let poly_len = self.polys.first().unwrap().len();
+-        let (chunk_size, _num_chunks) = get_chunk_params(poly_len);
++        let (chunk_size, num_chunks) = get_chunk_params(poly_len);
+ 
+         struct AstContext<'a, F: Field, B: Basis> {
+             domain: &'a EvaluationDomain<F>,
+@@ -189,77 +189,192 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+             chunk_size: usize,
+             chunk_index: usize,
+             polys: &'a [Polynomial<F, B>],
++            stats: Option<&'a crate::f3h7::Counters>,
+         }
+ 
+-        fn recurse<E, F: WithSmallOrderMulGroup<3>, B: BasisOps>(
++        fn recurse<'a, E, F: WithSmallOrderMulGroup<3>, B: BasisOps>(
+             ast: &Ast<E, F, B>,
+-            ctx: &AstContext<'_, F, B>,
+-        ) -> Vec<F> {
++            ctx: &AstContext<'a, F, B>,
++        ) -> EvalValue<'a, F> {
++            let esz = crate::f3h7::elem_size::<F>();
+             match ast {
+-                Ast::Poly(leaf) => B::get_chunk_of_rotated(
+-                    ctx.domain,
+-                    ctx.chunk_size,
+-                    ctx.chunk_index,
+-                    &ctx.polys[leaf.index],
+-                    leaf.rotation,
+-                ),
+-                Ast::Add(a, b) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    let rhs = recurse(b, ctx);
+-                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
+-                        *lhs += *rhs;
++                Ast::Poly(leaf) => {
++                    let poly = &ctx.polys[leaf.index];
++                    match B::get_chunk_ref(
++                        ctx.domain,
++                        ctx.chunk_size,
++                        ctx.chunk_index,
++                        poly,
++                        leaf.rotation,
++                    ) {
++                        // Stage F3 / H7: zero-rotation chunks are a window into
++                        // the registered polynomial, so there is nothing to copy.
++                        Some(chunk) => {
++                            if let Some(stats) = ctx.stats {
++                                stats.leaf_borrowed();
++                            }
++                            EvalValue::Borrowed(chunk)
++                        }
++                        None => {
++                            let chunk = B::get_chunk_of_rotated(
++                                ctx.domain,
++                                ctx.chunk_size,
++                                ctx.chunk_index,
++                                poly,
++                                leaf.rotation,
++                            );
++                            if let Some(stats) = ctx.stats {
++                                stats.leaf_copied(chunk.len(), esz);
++                            }
++                            EvalValue::Owned(chunk)
++                        }
+                     }
+-                    lhs
+                 }
+-                Ast::Mul(AstMul(a, b)) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    let rhs = recurse(b, ctx);
+-                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
+-                        *lhs *= *rhs;
++                Ast::Add(a, b) => match (recurse(a, ctx), recurse(b, ctx)) {
++                    (EvalValue::Owned(mut lhs), rhs) => {
++                        for (lhs, rhs) in lhs.iter_mut().zip(rhs.as_slice()) {
++                            *lhs += *rhs;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_left();
++                        }
++                        EvalValue::Owned(lhs)
+                     }
+-                    lhs
+-                }
+-                Ast::Scale(a, scalar) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    for lhs in lhs.iter_mut() {
+-                        *lhs *= scalar;
++                    // `+` is commutative, so the borrowed side can be added into
++                    // the buffer we already own instead of being materialised.
++                    (EvalValue::Borrowed(lhs), EvalValue::Owned(mut rhs)) => {
++                        for (rhs, lhs) in rhs.iter_mut().zip(lhs) {
++                            *rhs += *lhs;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_right();
++                        }
++                        EvalValue::Owned(rhs)
+                     }
+-                    lhs
+-                }
++                    (EvalValue::Borrowed(lhs), EvalValue::Borrowed(rhs)) => {
++                        if let Some(stats) = ctx.stats {
++                            stats.both_borrowed(rhs.len(), esz);
++                        }
++                        EvalValue::Owned(lhs.iter().zip(rhs).map(|(l, r)| *l + *r).collect())
++                    }
++                },
++                Ast::Mul(AstMul(a, b)) => match (recurse(a, ctx), recurse(b, ctx)) {
++                    (EvalValue::Owned(mut lhs), rhs) => {
++                        for (lhs, rhs) in lhs.iter_mut().zip(rhs.as_slice()) {
++                            *lhs *= *rhs;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_left();
++                        }
++                        EvalValue::Owned(lhs)
++                    }
++                    // `*` is commutative in a field, so the same swap applies.
++                    (EvalValue::Borrowed(lhs), EvalValue::Owned(mut rhs)) => {
++                        for (rhs, lhs) in rhs.iter_mut().zip(lhs) {
++                            *rhs *= *lhs;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_right();
++                        }
++                        EvalValue::Owned(rhs)
++                    }
++                    (EvalValue::Borrowed(lhs), EvalValue::Borrowed(rhs)) => {
++                        if let Some(stats) = ctx.stats {
++                            stats.both_borrowed(rhs.len(), esz);
++                        }
++                        EvalValue::Owned(lhs.iter().zip(rhs).map(|(l, r)| *l * *r).collect())
++                    }
++                },
++                Ast::Scale(a, scalar) => match recurse(a, ctx) {
++                    EvalValue::Owned(mut lhs) => {
++                        for lhs in lhs.iter_mut() {
++                            *lhs *= scalar;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_left();
++                        }
++                        EvalValue::Owned(lhs)
++                    }
++                    EvalValue::Borrowed(lhs) => {
++                        if let Some(stats) = ctx.stats {
++                            stats.unary_alloc(lhs.len(), esz);
++                        }
++                        EvalValue::Owned(lhs.iter().map(|lhs| *lhs * scalar).collect())
++                    }
++                },
+                 // Stage F3 / H6: negation is its own operation. `Scale(a, -1)`
+                 // would run a Montgomery multiplication per element; `Fp::neg`
+                 // is four `sbb` and no reduction.
+-                Ast::Neg(a) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    for lhs in lhs.iter_mut() {
+-                        *lhs = -*lhs;
++                Ast::Neg(a) => match recurse(a, ctx) {
++                    EvalValue::Owned(mut lhs) => {
++                        for lhs in lhs.iter_mut() {
++                            *lhs = -*lhs;
++                        }
++                        if let Some(stats) = ctx.stats {
++                            stats.reuse_left();
++                        }
++                        EvalValue::Owned(lhs)
+                     }
+-                    lhs
+-                }
+-                Ast::DistributePowers(terms, base) => terms.iter().fold(
+-                    B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, F::ZERO),
+-                    |mut acc, term| {
++                    EvalValue::Borrowed(lhs) => {
++                        if let Some(stats) = ctx.stats {
++                            stats.unary_alloc(lhs.len(), esz);
++                        }
++                        EvalValue::Owned(lhs.iter().map(|lhs| -*lhs).collect())
++                    }
++                },
++                Ast::DistributePowers(terms, base) => {
++                    let mut acc = B::constant_term(
++                        ctx.poly_len,
++                        ctx.chunk_size,
++                        ctx.chunk_index,
++                        F::ZERO,
++                    );
++                    if let Some(stats) = ctx.stats {
++                        stats.filled(acc.len(), esz);
++                    }
++                    for term in terms.iter() {
+                         let term = recurse(term, ctx);
+-                        for (acc, term) in acc.iter_mut().zip(term) {
++                        for (acc, term) in acc.iter_mut().zip(term.as_slice()) {
+                             *acc *= base;
+                             *acc += term;
+                         }
+-                        acc
+-                    },
+-                ),
+-                Ast::LinearTerm(scalar) => B::linear_term(
+-                    ctx.domain,
+-                    ctx.poly_len,
+-                    ctx.chunk_size,
+-                    ctx.chunk_index,
+-                    *scalar,
+-                ),
++                    }
++                    EvalValue::Owned(acc)
++                }
++                Ast::LinearTerm(scalar) => {
++                    let chunk = B::linear_term(
++                        ctx.domain,
++                        ctx.poly_len,
++                        ctx.chunk_size,
++                        ctx.chunk_index,
++                        *scalar,
++                    );
++                    if let Some(stats) = ctx.stats {
++                        stats.filled(chunk.len(), esz);
++                    }
++                    EvalValue::Owned(chunk)
++                }
+                 Ast::ConstantTerm(scalar) => {
+-                    B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, *scalar)
++                    let chunk = B::constant_term(
++                        ctx.poly_len,
++                        ctx.chunk_size,
++                        ctx.chunk_index,
++                        *scalar,
++                    );
++                    if let Some(stats) = ctx.stats {
++                        stats.filled(chunk.len(), esz);
++                    }
++                    EvalValue::Owned(chunk)
+                 }
+             }
+         }
+ 
++        let stats = if crate::f3h7::enabled() {
++            Some(crate::f3h7::begin())
++        } else {
++            None
++        };
++
+         // Apply `ast` to each chunk in parallel, writing the result into an output
+         // polynomial.
+         let mut result = B::empty_poly(domain);
+@@ -272,15 +387,46 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+                         chunk_size,
+                         chunk_index,
+                         polys: &self.polys,
++                        stats,
+                     };
+-                    out.copy_from_slice(&recurse(ast, &ctx));
++                    out.copy_from_slice(recurse(ast, &ctx).as_slice());
+                 });
+             }
+         });
++        if stats.is_some() {
++            crate::f3h7::end(poly_len, chunk_size, num_chunks);
++            crate::f3h7::maybe_bench::<F>(chunk_size.min(poly_len), poly_len);
++        }
+         result
+     }
+ }
+ 
++/// One chunk's worth of a node's value.
++///
++/// Stage F3 / H7. `Borrowed` is a window into a registered polynomial: for the
++/// identity rotation the requested chunk *is* a contiguous range of that
++/// polynomial, so materialising it is pure overhead. `Owned` is a buffer the
++/// parent may consume and mutate.
++///
++/// The evaluator's rule is: a node writes into an owned operand when it has one
++/// (in place, exactly as before), allocates only when both operands are
++/// borrowed, and never mutates a borrowed window. Addition and multiplication
++/// are commutative in a field, so the owned operand can be the right one.
++enum EvalValue<'a, F> {
++    Borrowed(&'a [F]),
++    Owned(Vec<F>),
++}
++
++impl<F> EvalValue<'_, F> {
++    #[inline]
++    fn as_slice(&self) -> &[F] {
++        match self {
++            Self::Borrowed(chunk) => chunk,
++            Self::Owned(chunk) => chunk,
++        }
++    }
++}
++
+ /// Struct representing the [`Ast::Mul`] case.
+ ///
+ /// This struct exists to make the internals of this case private so that we don't
+@@ -288,7 +434,6 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+ /// [`ExtendedLagrangeCoeff`] basis.
+ #[derive(Clone)]
+ pub(crate) struct AstMul<E, F: Field, B: Basis>(Arc<Ast<E, F, B>>, Arc<Ast<E, F, B>>);
+-
+ impl<E, F: Field, B: Basis> fmt::Debug for AstMul<E, F, B> {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.debug_tuple("AstMul")
+@@ -529,6 +674,43 @@ pub(crate) trait BasisOps: Basis {
+         poly: &Polynomial<F, Self>,
+         rotation: Rotation,
+     ) -> Vec<F>;
++    /// A zero-copy window onto the requested chunk, when one exists.
++    ///
++    /// Only the identity rotation maps a chunk onto a contiguous range of the
++    /// polynomial, so that is the only case answered here; everything else
++    /// returns `None` and the caller falls back to [`Self::get_chunk_of_rotated`]
++    /// and pays for a copy. Stage F3 / H7: on the fused Orchard tree the
++    /// identity rotation covers 86.7% of `Ast::Poly` visits.
++    fn get_chunk_ref<'a, F: WithSmallOrderMulGroup<3>>(
++        _domain: &EvaluationDomain<F>,
++        _chunk_size: usize,
++        _chunk_index: usize,
++        _poly: &'a Polynomial<F, Self>,
++        _rotation: Rotation,
++    ) -> Option<&'a [F]> {
++        None
++    }
++}
++
++/// The identity rotation maps a chunk onto a contiguous range of `poly`.
++///
++/// Stage F3 / H7: this is the only rotation for which a chunk can be handed out
++/// as a borrow. Any other rotation wraps around the end of the polynomial, so the
++/// chunk is either two pieces or a copy; both are left to
++/// [`BasisOps::get_chunk_of_rotated`] for now.
++#[inline]
++fn identity_chunk_ref<'a, F, B>(
++    poly: &'a Polynomial<F, B>,
++    chunk_size: usize,
++    chunk_index: usize,
++    rotation: Rotation,
++) -> Option<&'a [F]> {
++    if rotation.0 != 0 {
++        return None;
++    }
++    let start = chunk_size * chunk_index;
++    let end = poly.values.len().min(start + chunk_size);
++    poly.values.get(start..end)
+ }
+ 
+ impl BasisOps for Coeff {
+@@ -628,6 +810,16 @@ impl BasisOps for LagrangeCoeff {
+     ) -> Vec<F> {
+         poly.get_chunk_of_rotated(rotation, chunk_size, chunk_index)
+     }
++
++    fn get_chunk_ref<'a, F: WithSmallOrderMulGroup<3>>(
++        _: &EvaluationDomain<F>,
++        chunk_size: usize,
++        chunk_index: usize,
++        poly: &'a Polynomial<F, Self>,
++        rotation: Rotation,
++    ) -> Option<&'a [F]> {
++        identity_chunk_ref(poly, chunk_size, chunk_index, rotation)
++    }
+ }
+ 
+ impl BasisOps for ExtendedLagrangeCoeff {
+@@ -677,6 +869,19 @@ impl BasisOps for ExtendedLagrangeCoeff {
+     ) -> Vec<F> {
+         domain.get_chunk_of_rotated_extended(poly, rotation, chunk_size, chunk_index)
+     }
++
++    fn get_chunk_ref<'a, F: WithSmallOrderMulGroup<3>>(
++        _: &EvaluationDomain<F>,
++        chunk_size: usize,
++        chunk_index: usize,
++        poly: &'a Polynomial<F, Self>,
++        rotation: Rotation,
++    ) -> Option<&'a [F]> {
++        // A zero rotation stays zero under the `2^(extended_k - k)` scaling that
++        // `get_chunk_of_rotated_extended` applies, so the identity chunk is the
++        // same range in the extended domain.
++        identity_chunk_ref(poly, chunk_size, chunk_index, rotation)
++    }
+ }
+ 
+ #[cfg(test)]
+@@ -925,6 +1130,357 @@ mod tests {
+             assert_eq!(s.nodes(), 2); // one Neg, one Poly
+         }
+     }
++
++    // -----------------------------------------------------------------------
++    // Stage F3 / H7: `Borrowed` / `Owned` must be indistinguishable from
++    // "materialise everything".
++    //
++    // The reference implementation below *is* the pre-H7 `recurse`, transcribed:
++    // a leaf is always copied, every node mutates the buffer it recursed into.
++    // Each case compares the whole evaluated vector element by element, and each
++    // case is picked to land on a different arm of the new ownership match
++    // (borrow/borrow, own/borrow, borrow/own), so a swapped-operand bug cannot
++    // hide behind an agreed result.
++    // -----------------------------------------------------------------------
++    mod h7 {
++        use std::sync::Arc;
++
++        use group::ff::Field;
++        use pasta_curves::pallas;
++
++        use super::super::{
++            get_chunk_params, new_evaluator, Ast, AstMul, BasisOps, Evaluator, Rotation,
++        };
++        use crate::poly::{EvaluationDomain, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial};
++
++        type Base = pallas::Base;
++        type Ext = Evaluator<fn(), Base, ExtendedLagrangeCoeff>;
++
++        fn ctx() {}
++
++        fn filled<B: crate::poly::Basis>(
++            _domain: &EvaluationDomain<Base>,
++            empty: Polynomial<Base, B>,
++            seed: u64,
++        ) -> Polynomial<Base, B> {
++            let mut poly = empty;
++            let mut x = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
++            for v in poly.iter_mut() {
++                x = x
++                    .wrapping_mul(6364136223846793005)
++                    .wrapping_add(1442695040888963407);
++                *v = Base::from(x >> 11);
++            }
++            poly
++        }
++
++        struct Fixture<B: BasisOps> {
++            domain: EvaluationDomain<Base>,
++            ev: Evaluator<fn(), Base, B>,
++            leaves: Vec<Ast<fn(), Base, B>>,
++        }
++
++        /// One evaluator with `rotations.len()` registered polynomials, each
++        /// returned as a leaf at the given rotation.
++        fn fixture<B: BasisOps>(k: u32, rotations: &[i32]) -> Fixture<B> {
++            let domain = EvaluationDomain::new(1, k);
++            let mut ev: Evaluator<fn(), Base, B> = new_evaluator(ctx);
++            let mut leaves = Vec::new();
++            for (i, rot) in rotations.iter().enumerate() {
++                let poly = filled(&domain, B::empty_poly(&domain), 101 + i as u64);
++                let leaf = ev.register_poly(poly);
++                leaves.push(Ast::from(leaf.with_rotation(Rotation(*rot))));
++            }
++            Fixture { domain, ev, leaves }
++        }
++
++        /// The pre-H7 evaluator, verbatim in behaviour: leaves are copied and
++        /// every node accumulates into its left child's buffer.
++        fn reference<B: BasisOps>(
++            ast: &Ast<fn(), Base, B>,
++            domain: &EvaluationDomain<Base>,
++            polys: &[Polynomial<Base, B>],
++            poly_len: usize,
++            chunk_size: usize,
++            chunk_index: usize,
++        ) -> Vec<Base> {
++            match ast {
++                Ast::Poly(leaf) => B::get_chunk_of_rotated(
++                    domain,
++                    chunk_size,
++                    chunk_index,
++                    &polys[leaf.index],
++                    leaf.rotation,
++                ),
++                Ast::Add(a, b) => {
++                    let mut lhs = reference(a, domain, polys, poly_len, chunk_size, chunk_index);
++                    let rhs = reference(b, domain, polys, poly_len, chunk_size, chunk_index);
++                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
++                        *lhs += *rhs;
++                    }
++                    lhs
++                }
++                Ast::Mul(AstMul(a, b)) => {
++                    let mut lhs = reference(a, domain, polys, poly_len, chunk_size, chunk_index);
++                    let rhs = reference(b, domain, polys, poly_len, chunk_size, chunk_index);
++                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
++                        *lhs *= *rhs;
++                    }
++                    lhs
++                }
++                Ast::Scale(a, scalar) => {
++                    let mut lhs = reference(a, domain, polys, poly_len, chunk_size, chunk_index);
++                    for lhs in lhs.iter_mut() {
++                        *lhs *= scalar;
++                    }
++                    lhs
++                }
++                Ast::Neg(a) => {
++                    let mut lhs = reference(a, domain, polys, poly_len, chunk_size, chunk_index);
++                    for lhs in lhs.iter_mut() {
++                        *lhs = -*lhs;
++                    }
++                    lhs
++                }
++                Ast::DistributePowers(terms, base) => {
++                    let mut acc =
++                        B::constant_term(poly_len, chunk_size, chunk_index, Base::ZERO);
++                    for term in terms.iter() {
++                        let term =
++                            reference(term, domain, polys, poly_len, chunk_size, chunk_index);
++                        for (acc, term) in acc.iter_mut().zip(term) {
++                            *acc *= base;
++                            *acc += term;
++                        }
++                    }
++                    acc
++                }
++                Ast::LinearTerm(scalar) => {
++                    B::linear_term(domain, poly_len, chunk_size, chunk_index, *scalar)
++                }
++                Ast::ConstantTerm(scalar) => {
++                    B::constant_term(poly_len, chunk_size, chunk_index, *scalar)
++                }
++            }
++        }
++
++        fn assert_matches_reference<B: BasisOps>(
++            label: &str,
++            k: u32,
++            rotations: &[i32],
++            build: impl Fn(&[Ast<fn(), Base, B>]) -> Ast<fn(), Base, B>,
++        ) {
++            let f = fixture::<B>(k, rotations);
++            let ast = build(&f.leaves);
++            let got = f.ev.evaluate(&ast, &f.domain);
++
++            let poly_len = f.ev.polys[0].len();
++            let (chunk_size, num_chunks) = get_chunk_params(poly_len);
++            assert!(
++                num_chunks > 1,
++                "{label}: the case must span more than one chunk"
++            );
++
++            let mut want = B::empty_poly(&f.domain);
++            for (chunk_index, chunk) in want.chunks_mut(chunk_size).enumerate() {
++                let v = reference(
++                    &ast,
++                    &f.domain,
++                    &f.ev.polys,
++                    poly_len,
++                    chunk_size,
++                    chunk_index,
++                );
++                chunk.copy_from_slice(&v);
++            }
++
++            assert_eq!(got.num_coeffs(), want.num_coeffs(), "{label}: length");
++            for (i, (got, want)) in got.iter().zip(want.iter()).enumerate() {
++                assert_eq!(got, want, "{label}: element {i} of {poly_len}");
++            }
++        }
++
++        /// The borrow is the whole point of H7, so it gets its own test: for the
++        /// identity rotation the window must be bit-identical to what
++        /// `get_chunk_of_rotated` returns, in every chunk including a short final
++        /// one. A non-identity rotation must refuse to borrow rather than return
++        /// a wrong window.
++        #[test]
++        fn borrow_equals_copy_for_the_identity_rotation() {
++            for k in [5, 6, 7] {
++                let domain = EvaluationDomain::<Base>::new(1, k);
++                let mut ev: Ext = new_evaluator(ctx);
++                let poly = filled(&domain, domain.empty_extended(), 11);
++                let leaf = ev.register_poly(poly);
++                let poly_len = ev.polys[0].len();
++                let (chunk_size, num_chunks) = get_chunk_params(poly_len);
++                assert!(num_chunks > 1, "k={k}");
++
++                for chunk_index in 0..num_chunks {
++                    let borrowed = ExtendedLagrangeCoeff::get_chunk_ref(
++                        &domain,
++                        chunk_size,
++                        chunk_index,
++                        &ev.polys[leaf.index],
++                        Rotation::cur(),
++                    )
++                    .expect("identity rotation must borrow");
++                    let copied = ExtendedLagrangeCoeff::get_chunk_of_rotated(
++                        &domain,
++                        chunk_size,
++                        chunk_index,
++                        &ev.polys[leaf.index],
++                        Rotation::cur(),
++                    );
++                    assert_eq!(borrowed.len(), copied.len(), "k={k} chunk={chunk_index}");
++                    assert_eq!(
++                        borrowed,
++                        copied.as_slice(),
++                        "k={k} chunk={chunk_index} differs from the copy"
++                    );
++                }
++
++                for rot in [1, -1, 6] {
++                    assert!(
++                        ExtendedLagrangeCoeff::get_chunk_ref(
++                            &domain,
++                            chunk_size,
++                            0,
++                            &ev.polys[leaf.index],
++                            Rotation(rot),
++                        )
++                        .is_none(),
++                        "rotation {rot} must not borrow"
++                    );
++                }
++            }
++        }
++
++        /// The swap in the `Add`/`Mul` arms is only legal because both are
++        /// commutative, so it is tested separately: `leaf + subtree` and
++        /// `subtree + leaf` must be bit-identical, and likewise for `*`.
++        #[test]
++        fn operand_order_is_bit_identical() {
++            let f: Fixture<ExtendedLagrangeCoeff> = fixture(6, &[0, 0, 0]);
++            let (a, b, c) = (&f.leaves[0], &f.leaves[1], &f.leaves[2]);
++            let sub = b.clone() * c.clone();
++
++            let left_borrowed = f.ev.evaluate(&(a.clone() + sub.clone()), &f.domain);
++            let left_owned = f.ev.evaluate(&(sub.clone() + a.clone()), &f.domain);
++            let mul_borrowed = f.ev.evaluate(&(a.clone() * sub.clone()), &f.domain);
++            let mul_owned = f.ev.evaluate(&(sub * a.clone()), &f.domain);
++
++            for i in 0..left_borrowed.num_coeffs() {
++                assert_eq!(left_borrowed[i], left_owned[i], "add: element {i}");
++                assert_eq!(mul_borrowed[i], mul_owned[i], "mul: element {i}");
++            }
++        }
++
++        #[test]
++        fn extended_basis_matches_the_materialising_reference() {
++            let four = [0, 0, 0, 0];
++            let one = [0];
++
++            assert_matches_reference::<ExtendedLagrangeCoeff>("leaf", 6, &one, |l| {
++                l[0].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("leaf/rot+1", 6, &[1], |l| {
++                l[0].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("leaf/rot-1", 6, &[-1], |l| {
++                l[0].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("add/leaves", 6, &four, |l| {
++                l[0].clone() + l[1].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("add/borrow+own", 6, &four, |l| {
++                l[0].clone() + (l[1].clone() * l[2].clone())
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("add/own+borrow", 6, &four, |l| {
++                (l[1].clone() * l[2].clone()) + l[0].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("mul/leaves", 6, &four, |l| {
++                l[0].clone() * l[1].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("mul/left-chain", 6, &four, |l| {
++                (l[0].clone() * l[1].clone()) * l[2].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("mul/right-chain", 6, &four, |l| {
++                l[0].clone() * (l[1].clone() * l[2].clone())
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("scale/leaf", 6, &four, |l| {
++                l[0].clone() * Base::from(7)
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("scale/subtree", 6, &four, |l| {
++                (l[0].clone() * l[1].clone()) * Base::from(7)
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("neg/leaf", 6, &four, |l| {
++                -l[0].clone()
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("neg/subtree", 6, &four, |l| {
++                -(l[0].clone() * l[1].clone())
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("neg/scaled", 6, &four, |l| {
++                -(l[0].clone() * Base::from(3))
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("linear", 6, &four, |_| {
++                Ast::LinearTerm(Base::from(5))
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("constant", 6, &four, |_| {
++                Ast::ConstantTerm(Base::from(9))
++            });
++            assert_matches_reference::<ExtendedLagrangeCoeff>("distribute", 6, &four, |l| {
++                Ast::distribute_powers(
++                    vec![
++                        (l[0].clone() * l[1].clone()) * Base::from(2),
++                        -(l[2].clone()),
++                        Ast::ConstantTerm(Base::from(11)),
++                        l[0].clone(),
++                    ],
++                    Base::from(6),
++                )
++            });
++            // Mixed rotations in one tree: the borrowed and copied leaves have to
++            // interleave without the buffers getting confused.
++            assert_matches_reference::<ExtendedLagrangeCoeff>(
++                "mixed-rotations",
++                6,
++                &[0, 1, 0, -1],
++                |l| (l[0].clone() + l[1].clone()) * (l[2].clone() + l[3].clone()),
++            );
++            // A deep tree over every rotation, which is the shape the quotient
++            // expression actually has.
++            assert_matches_reference::<ExtendedLagrangeCoeff>("deep", 6, &[0, 1, -1, 0], |l| {
++                let a = (l[0].clone() * l[1].clone()) + l[2].clone();
++                let b = a.clone() * a.clone();
++                let c = -(b.clone() * l[3].clone());
++                Ast::distribute_powers(
++                    vec![c, b * Base::from(4), a, l[0].clone()],
++                    Base::from(9),
++                )
++            });
++        }
++
++        /// The Lagrange basis shares the borrow logic, so it gets the same
++        /// treatment. Errors cannot appear here: `LagrangeCoeff` refuses every
++        /// rotation but the identity, so only rotation 0 is exercised.
++        #[test]
++        fn lagrange_basis_matches_the_materialising_reference() {
++            let three = [0, 0, 0];
++            assert_matches_reference::<LagrangeCoeff>("lagrange/leaf", 6, &three, |l| {
++                l[0].clone()
++            });
++            assert_matches_reference::<LagrangeCoeff>("lagrange/sum", 6, &three, |l| {
++                (l[0].clone() * l[1].clone()) + l[2].clone()
++            });
++            assert_matches_reference::<LagrangeCoeff>("lagrange/distribute", 6, &three, |l| {
++                Ast::distribute_powers(
++                    vec![l[0].clone(), -l[1].clone(), Ast::LinearTerm(Base::from(2))],
++                    Base::from(3),
++                )
++            });
++        }
++    }
+ }
+ 
+ // ---------------------------------------------------------------------------

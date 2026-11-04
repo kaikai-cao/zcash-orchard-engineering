@@ -15,6 +15,11 @@ description = "End-to-end Orchard bundle build/prove/sign/verify measurement har
 # compiled at all, so the baseline binary stays byte-identical.
 f3lc = []
 
+# Stage F3 / H7 probe. Off by default: `halo2_proofs::f3h7` only exists after
+# `vendor/halo2_proofs-0.4.0-h7-borrowed.patch` is applied, and the baseline side
+# of the A/B must keep compiling against H6 alone.
+f3h7 = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
