@@ -1,0 +1,56 @@
+gate_index,gate,constraints,nodes,depth,degree,sum,product,negated,scaled,constant,fixed,advice,selectors,module
+0,Orchard circuit checks,4,35,4,3,5,8,5,0,2,0,11,0,orchard/src/circuit.rs:335
+1,Field element addition: c = a + b,1,8,3,2,2,1,1,0,0,0,3,1,orchard/src/circuit/gadget.rs
+2,Short lookup bitshift,1,9,4,3,1,2,1,1,0,0,3,4,halo2_gadgets/utilities/lookup
+3,witness point,2,34,6,5,4,10,4,0,2,0,12,5,halo2_gadgets/ecc/chip
+4,witness non-identity point,1,15,6,4,2,4,2,0,1,0,5,6,halo2_gadgets/ecc/chip
+5,incomplete addition,2,49,6,4,12,7,9,0,0,0,19,7,halo2_gadgets/ecc/chip/add_incomplete
+6,complete addition,12,225,8,6,39,50,35,0,9,0,80,8,halo2_gadgets/ecc/chip/add
+7,q_mul_1 == 1 checks,1,22,10,4,5,3,4,1,0,0,8,9,halo2_gadgets/ecc/chip/mul
+8,q_mul_2 == 1 checks,6,135,11,4,30,18,26,7,2,0,46,10,halo2_gadgets/ecc/chip/mul
+9,q_mul_3 == 1 checks,4,107,11,4,24,14,21,6,2,0,36,11,halo2_gadgets/ecc/chip/mul
+10,q_mul_1 == 1 checks,1,22,10,4,5,3,4,1,0,0,8,12,halo2_gadgets/ecc/chip/mul
+11,q_mul_2 == 1 checks,6,135,11,4,30,18,26,7,2,0,46,13,halo2_gadgets/ecc/chip/mul
+12,q_mul_3 == 1 checks,4,107,11,4,24,14,21,6,2,0,36,14,halo2_gadgets/ecc/chip/mul
+13,Decompose scalar for complete bits of variable-base mul,2,45,8,3,9,9,7,0,6,0,12,15,halo2_gadgets/ecc/chip/mul
+14,overflow checks,5,49,6,5,7,12,6,0,6,0,13,16,halo2_gadgets/ecc/chip/mul
+15,LSB check,3,61,8,3,13,8,10,6,3,0,18,17,halo2_gadgets/ecc/chip/mul
+16,range check,1,70,13,9,15,8,15,8,7,0,16,18,halo2_gadgets/ecc/chip/mul_fixed
+17,Running sum coordinates check,3,232,14,9,41,43,33,28,10,9,65,18,halo2_gadgets/ecc/chip/mul_fixed
+18,Full-width fixed-base scalar mul,4,158,11,9,20,51,12,0,17,9,45,19,halo2_gadgets/ecc/chip/mul_fixed
+19,Short fixed-base mul gate,4,34,4,3,5,8,4,0,2,0,11,20,halo2_gadgets/ecc/chip/mul_fixed/short
+20,Canonicity checks,8,88,8,5,14,18,12,4,8,0,24,21,halo2_gadgets/sinsemilla
+21,full round,3,201,9,6,54,39,3,9,0,45,48,22,halo2_gadgets/poseidon
+22,partial rounds,4,162,10,6,50,12,4,30,0,26,36,23,halo2_gadgets/poseidon
+23,pad-and-add,3,22,3,2,5,3,3,0,0,0,8,24,halo2_gadgets/sinsemilla
+24,Initial y_Q,1,22,9,4,5,3,4,1,0,1,7,26,halo2_gadgets/sinsemilla
+25,Sinsemilla gate,2,85,12,6,20,13,14,3,3,4,26,25,halo2_gadgets/sinsemilla
+26,a' = b ⋅ swap + a ⋅ (1-swap),3,38,7,3,7,8,5,0,3,0,12,27,halo2_gadgets/sinsemilla
+27,Decomposition check,4,44,8,2,10,4,6,6,0,0,14,28,halo2_gadgets/sinsemilla
+28,Initial y_Q,1,22,9,4,5,3,4,1,0,1,7,30,halo2_gadgets/sinsemilla
+29,Sinsemilla gate,2,85,12,6,20,13,14,3,3,4,26,29,halo2_gadgets/sinsemilla
+30,a' = b ⋅ swap + a ⋅ (1-swap),3,38,7,3,7,8,5,0,3,0,12,31,halo2_gadgets/sinsemilla
+31,Decomposition check,4,44,8,2,10,4,6,6,0,0,14,32,halo2_gadgets/sinsemilla
+32,CommitIvk canonicity check,14,119,6,3,21,22,10,9,6,0,37,33,orchard/src/circuit/commit_ivk.rs
+33,NoteCommit MessagePiece b,3,31,7,3,6,5,3,3,2,0,9,34,orchard/src/circuit/note_commit.rs
+34,NoteCommit MessagePiece d,3,31,7,3,6,5,3,3,2,0,9,35,orchard/src/circuit/note_commit.rs
+35,NoteCommit MessagePiece e,1,9,5,2,2,1,1,1,0,0,3,36,orchard/src/circuit/note_commit.rs
+36,NoteCommit MessagePiece g,2,20,6,3,4,3,2,2,1,0,6,37,orchard/src/circuit/note_commit.rs
+37,NoteCommit MessagePiece h,2,17,5,3,3,3,2,1,1,0,5,38,orchard/src/circuit/note_commit.rs
+38,NoteCommit input g_d,5,38,5,3,6,8,3,2,2,0,12,39,orchard/src/circuit/note_commit.rs
+39,NoteCommit input pk_d,4,36,6,3,7,6,3,3,2,0,11,40,orchard/src/circuit/note_commit.rs
+40,NoteCommit input value,1,12,5,2,3,1,1,2,0,0,4,41,orchard/src/circuit/note_commit.rs
+41,NoteCommit input rho,4,36,6,3,7,6,3,3,2,0,11,42,orchard/src/circuit/note_commit.rs
+42,NoteCommit input psi,5,44,6,3,8,8,3,4,2,0,14,43,orchard/src/circuit/note_commit.rs
+43,y coordinate checks,7,58,6,3,10,11,5,4,3,0,18,44,orchard/src/circuit/note_commit.rs
+44,NoteCommit MessagePiece b,3,31,7,3,6,5,3,3,2,0,9,45,orchard/src/circuit/note_commit.rs
+45,NoteCommit MessagePiece d,3,31,7,3,6,5,3,3,2,0,9,46,orchard/src/circuit/note_commit.rs
+46,NoteCommit MessagePiece e,1,9,5,2,2,1,1,1,0,0,3,47,orchard/src/circuit/note_commit.rs
+47,NoteCommit MessagePiece g,2,20,6,3,4,3,2,2,1,0,6,48,orchard/src/circuit/note_commit.rs
+48,NoteCommit MessagePiece h,2,17,5,3,3,3,2,1,1,0,5,49,orchard/src/circuit/note_commit.rs
+49,NoteCommit input g_d,5,38,5,3,6,8,3,2,2,0,12,50,orchard/src/circuit/note_commit.rs
+50,NoteCommit input pk_d,4,36,6,3,7,6,3,3,2,0,11,51,orchard/src/circuit/note_commit.rs
+51,NoteCommit input value,1,12,5,2,3,1,1,2,0,0,4,52,orchard/src/circuit/note_commit.rs
+52,NoteCommit input rho,4,36,6,3,7,6,3,3,2,0,11,53,orchard/src/circuit/note_commit.rs
+53,NoteCommit input psi,5,44,6,3,8,8,3,4,2,0,14,54,orchard/src/circuit/note_commit.rs
+54,y coordinate checks,7,58,6,3,10,11,5,4,3,0,18,55,orchard/src/circuit/note_commit.rs

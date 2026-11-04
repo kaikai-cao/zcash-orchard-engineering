@@ -20,6 +20,11 @@ f3lc = []
 # of the A/B must keep compiling against H6 alone.
 f3h7 = []
 
+# Stage F4 constraint-system census. Off by default: `halo2_proofs::f4` only
+# exists after `vendor/halo2_proofs-0.4.0-f4-recon.patch` is applied. The census
+# is read-only, but it still lives in the vendored crate, so it is a patch.
+f4 = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }

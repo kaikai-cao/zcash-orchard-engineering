@@ -1,0 +1,516 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4.rs
+new file mode 100644
+index 0000000..f6fc5a6
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4.rs
+@@ -0,0 +1,469 @@
++//! Stage F4 diagnostics: a read-only census of the finalised constraint system.
++//!
++//! Inert unless `ORCHARD_F4` is set (and not `"0"`). Nothing here changes a
++//! value: it only walks structures that keygen has already built.
++//!
++//! Two recording points, both in `keygen`:
++//!
++//! * [`dump_pre`] — after synthesis, **before** `compress_selectors`. This is
++//!   the only moment where the 56 virtual selectors and their real activation
++//!   rows still exist, so the row sets are captured here. Gate expressions are
++//!   captured here too, i.e. still in their virtual-selector form.
++//! * [`dump_post`] — after `compress_selectors`, so the virtual → physical
++//!   mapping (`selector_map`) and the final fixed-column count are visible.
++//!
++//! Why this exists: F2 counted the *fused* quotient tree as one number, which
++//! says nothing about which gate or which selector produced the work. Stage F4
++//! asks a circuit-level question ("is the configuration itself reducible?"), and
++//! that question needs gate names, per-constraint expression sizes, and the
++//! actual selector activation sets.
++//!
++//! Measurement scaffolding in a vendored copy, not an upstream patch.
++
++#![allow(missing_docs, missing_debug_implementations)]
++
++use std::collections::BTreeSet;
++use std::sync::{Once, OnceLock};
++
++use ff::PrimeField;
++
++use crate::plonk::{ConstraintSystem, Expression};
++
++/// True when `ORCHARD_F4` is present and not `"0"`.
++pub fn enabled() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| {
++        std::env::var_os("ORCHARD_F4").is_some_and(|v| v != std::ffi::OsStr::new("0"))
++    })
++}
++
++/// How many times to re-run the single-poly evaluation microbench (0 = don't).
++pub fn bench_reps() -> usize {
++    static N: OnceLock<usize> = OnceLock::new();
++    *N.get_or_init(|| {
++        std::env::var("ORCHARD_F4_BENCH")
++            .ok()
++            .and_then(|v| v.parse().ok())
++            .unwrap_or(0)
++    })
++}
++
++// ---------------------------------------------------------------------------
++// Expression walk
++// ---------------------------------------------------------------------------
++
++/// Node counts of one constraint polynomial. Depth convention matches F2:
++/// a leaf is depth 0, every operator adds 1.
++#[derive(Default, Clone)]
++struct Stats {
++    nodes: u64,
++    constant: u64,
++    selector: u64,
++    fixed: u64,
++    advice: u64,
++    instance: u64,
++    negated: u64,
++    sum: u64,
++    product: u64,
++    scaled: u64,
++    depth: u32,
++    degree: usize,
++    selectors: BTreeSet<usize>,
++    fixed_cells: BTreeSet<(usize, i32)>,
++    advice_cells: BTreeSet<(usize, i32)>,
++    instance_cells: BTreeSet<(usize, i32)>,
++}
++
++fn walk<F: PrimeField>(expr: &Expression<F>, s: &mut Stats) -> u32 {
++    s.nodes += 1;
++    s.degree = s.degree.max(expr.degree());
++    match expr {
++        Expression::Constant(_) => {
++            s.constant += 1;
++            0
++        }
++        Expression::Selector(q) => {
++            s.selector += 1;
++            s.selectors.insert(q.0);
++            0
++        }
++        Expression::Fixed(q) => {
++            s.fixed += 1;
++            s.fixed_cells.insert((q.column_index, q.rotation.0));
++            0
++        }
++        Expression::Advice(q) => {
++            s.advice += 1;
++            s.advice_cells.insert((q.column_index, q.rotation.0));
++            0
++        }
++        Expression::Instance(q) => {
++            s.instance += 1;
++            s.instance_cells.insert((q.column_index, q.rotation.0));
++            0
++        }
++        Expression::Negated(a) => {
++            s.negated += 1;
++            walk(a, s) + 1
++        }
++        Expression::Sum(a, b) => {
++            s.sum += 1;
++            walk(a, s).max(walk(b, s)) + 1
++        }
++        Expression::Product(a, b) => {
++            s.product += 1;
++            walk(a, s).max(walk(b, s)) + 1
++        }
++        Expression::Scaled(a, _) => {
++            s.scaled += 1;
++            walk(a, s) + 1
++        }
++    }
++}
++
++fn idset(v: &BTreeSet<usize>) -> String {
++    let body = v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",");
++    format!("[{body}]")
++}
++
++fn cellset(v: &BTreeSet<(usize, i32)>) -> String {
++    let body = v
++        .iter()
++        .map(|(c, r)| format!("[{c},{r}]"))
++        .collect::<Vec<_>>()
++        .join(",");
++    format!("[{body}]")
++}
++
++impl Stats {
++    fn to_json(&self) -> String {
++        format!(
++            "{{\"nodes\":{},\"depth\":{},\"degree\":{},\"constant\":{},\"selector\":{},\
++\"fixed\":{},\"advice\":{},\"instance\":{},\"negated\":{},\"sum\":{},\"product\":{},\
++\"scaled\":{},\"selectors\":{},\"fixed_cells\":{},\"advice_cells\":{},\
++\"instance_cells\":{}}}",
++            self.nodes,
++            self.depth,
++            self.degree,
++            self.constant,
++            self.selector,
++            self.fixed,
++            self.advice,
++            self.instance,
++            self.negated,
++            self.sum,
++            self.product,
++            self.scaled,
++            idset(&self.selectors),
++            cellset(&self.fixed_cells),
++            cellset(&self.advice_cells),
++            cellset(&self.instance_cells),
++        )
++    }
++}
++
++// ---------------------------------------------------------------------------
++// Selector activation sets
++// ---------------------------------------------------------------------------
++
++/// One `bool` per row, packed into hex (row 0 = bit 0 of byte 0).
++fn rows_hex(rows: &[bool]) -> String {
++    let mut bytes = vec![0u8; rows.len().div_ceil(8)];
++    for (i, on) in rows.iter().enumerate() {
++        if *on {
++            bytes[i / 8] |= 1 << (i % 8);
++        }
++    }
++    let mut out = String::with_capacity(bytes.len() * 2);
++    for b in bytes {
++        out.push_str(&format!("{b:02x}"));
++    }
++    out
++}
++
++// ---------------------------------------------------------------------------
++// Recording points
++// ---------------------------------------------------------------------------
++
++/// Keygen calls this twice (vk and pk); the census is identical, so emit once.
++static PRE_DONE: Once = Once::new();
++static POST_DONE: Once = Once::new();
++
++/// Before `compress_selectors`: virtual selectors and their true activation rows.
++pub fn dump_pre<F: PrimeField>(
++    cs: &ConstraintSystem<F>,
++    selectors: &[Vec<bool>],
++    k: u32,
++) {
++    if !enabled() {
++        return;
++    }
++    let mut first = false;
++    PRE_DONE.call_once(|| first = true);
++    if !first {
++        return;
++    }
++
++    let gates = cs
++        .gates
++        .iter()
++        .map(|gate| {
++            let polys = gate
++                .polynomials()
++                .iter()
++                .enumerate()
++                .map(|(i, p)| {
++                    let mut s = Stats::default();
++                    s.depth = walk(p, &mut s);
++                    format!(
++                        "{{\"name\":{},\"stats\":{}}}",
++                        json_str(gate.constraint_name(i)),
++                        s.to_json()
++                    )
++                })
++                .collect::<Vec<_>>()
++                .join(",");
++            let sels = gate
++                .queried_selectors()
++                .iter()
++                .map(|s| s.0.to_string())
++                .collect::<Vec<_>>()
++                .join(",");
++            format!(
++                "{{\"name\":{},\"constraints\":{},\"queried_selectors\":[{}],\"polys\":[{}]}}",
++                json_str(gate.name()),
++                gate.polynomials().len(),
++                sels,
++                polys
++            )
++        })
++        .collect::<Vec<_>>()
++        .join(",");
++
++    // `Selector::is_simple` is a property of the handle, not of the CS, so it is
++    // recovered by scanning every expression that can reference a selector:
++    // gate polynomials and lookup inputs. A selector that is complex keeps its
++    // own column by rule (boolean mask), which is why this matters.
++    let mut simple = vec![true; cs.num_selectors];
++    fn mark<F: PrimeField>(e: &Expression<F>, simple: &mut [bool]) {
++        match e {
++            Expression::Selector(s) => simple[s.0] &= s.is_simple(),
++            Expression::Negated(a) | Expression::Scaled(a, _) => mark(a, simple),
++            Expression::Sum(a, b) | Expression::Product(a, b) => {
++                mark(a, simple);
++                mark(b, simple);
++            }
++            _ => {}
++        }
++    }
++    for gate in cs.gates.iter() {
++        for p in gate.polynomials().iter() {
++            mark(p, &mut simple);
++        }
++    }
++    for l in cs.lookups.iter() {
++        for e in l.input_expressions.iter().chain(l.table_expressions.iter()) {
++            mark(e, &mut simple);
++        }
++    }
++
++    let sel_rows = selectors
++        .iter()
++        .enumerate()
++        .map(|(i, rows)| {
++            let n = rows.iter().filter(|b| **b).count();
++            format!(
++                "{{\"selector\":{},\"simple\":{},\"enabled_rows\":{},\"rows_hex\":{}}}",
++                i,
++                simple[i],
++                n,
++                json_str(&rows_hex(rows))
++            )
++        })
++        .collect::<Vec<_>>()
++        .join(",");
++
++    let lookups = cs
++        .lookups
++        .iter()
++        .map(|l| {
++            let side = |exprs: &[Expression<F>]| {
++                exprs
++                    .iter()
++                    .map(|e| {
++                        let mut s = Stats::default();
++                        s.depth = walk(e, &mut s);
++                        s.to_json()
++                    })
++                    .collect::<Vec<_>>()
++                    .join(",")
++            };
++            format!(
++                "{{\"inputs\":[{}],\"tables\":[{}]}}",
++                side(&l.input_expressions),
++                side(&l.table_expressions)
++            )
++        })
++        .collect::<Vec<_>>()
++        .join(",");
++
++    println!(
++        "F4_CS {{\"k\":{},\"advice_columns\":{},\"instance_columns\":{},\
++\"fixed_columns\":{},\"selectors\":{},\"advice_queries\":{},\"fixed_queries\":{},\
++\"instance_queries\":{},\"permutation_columns\":{},\"lookups\":{},\"constants\":{},\
++\"maximum_degree\":{},\"minimum_degree\":{},\"gates\":[{}],\"lookups_detail\":[{}],\"selector_rows\":[{}]}}",
++        k,
++        cs.num_advice_columns,
++        cs.num_instance_columns,
++        cs.num_fixed_columns,
++        cs.num_selectors,
++        cs.advice_queries.len(),
++        cs.fixed_queries.len(),
++        cs.instance_queries.len(),
++        cs.permutation.get_columns().len(),
++        cs.lookups.len(),
++        cs.constants.len(),
++        cs.degree(),
++        cs.minimum_degree.unwrap_or(0),
++        gates,
++        lookups,
++        sel_rows,
++    );
++}
++
++/// After `compress_selectors`: how many fixed columns the selectors became.
++pub fn dump_post<F: PrimeField>(cs: &ConstraintSystem<F>) {
++    if !enabled() {
++        return;
++    }
++    let mut first = false;
++    POST_DONE.call_once(|| first = true);
++    if !first {
++        return;
++    }
++
++    let map = cs
++        .selector_map
++        .iter()
++        .map(|c| c.index().to_string())
++        .collect::<Vec<_>>()
++        .join(",");
++    // Virtual selectors that share a physical column, in column order.
++    let mut by_col: std::collections::BTreeMap<usize, Vec<usize>> = std::collections::BTreeMap::new();
++    for (sel, col) in cs.selector_map.iter().enumerate() {
++        by_col.entry(col.index()).or_default().push(sel);
++    }
++    let packed = by_col
++        .iter()
++        .map(|(col, sels)| {
++            format!(
++                "{{\"fixed_column\":{},\"selectors\":[{}]}}",
++                col,
++                sels.iter()
++                    .map(|s| s.to_string())
++                    .collect::<Vec<_>>()
++                    .join(",")
++            )
++        })
++        .collect::<Vec<_>>()
++        .join(",");
++
++    let fq = cs
++        .fixed_queries
++        .iter()
++        .map(|(c, r)| format!("[{},{}]", c.index(), r.0))
++        .collect::<Vec<_>>()
++        .join(",");
++    let aq = cs
++        .advice_queries
++        .iter()
++        .map(|(c, r)| format!("[{},{}]", c.index(), r.0))
++        .collect::<Vec<_>>()
++        .join(",");
++    let iq = cs
++        .instance_queries
++        .iter()
++        .map(|(c, r)| format!("[{},{}]", c.index(), r.0))
++        .collect::<Vec<_>>()
++        .join(",");
++
++    println!(
++        "F4_COMPRESS {{\"fixed_columns\":{},\"selector_map\":[{}],\"packed\":[{}],\
++\"fixed_queries\":[{}],\"advice_queries\":[{}],\"instance_queries\":[{}],\
++\"maximum_degree\":{}}}",
++        cs.num_fixed_columns,
++        map,
++        packed,
++        fq,
++        aq,
++        iq,
++        cs.degree(),
++    );
++}
++
++fn json_str(s: &str) -> String {
++    let mut out = String::with_capacity(s.len() + 2);
++    out.push('"');
++    for ch in s.chars() {
++        match ch {
++            '"' => out.push_str("\\\""),
++            '\\' => out.push_str("\\\\"),
++            '\n' => out.push_str("\\n"),
++            c => out.push(c),
++        }
++    }
++    out.push('"');
++    out
++}
++
++// ---------------------------------------------------------------------------
++// Single-polynomial evaluation price
++// ---------------------------------------------------------------------------
++
++/// Price one `eval_polynomial` call (what the prover pays per fixed-column
++/// query in the opening argument) at the circuit's own domain size.
++///
++/// Run after the timed window, like every other price in this repo: a microbench
++/// inside the measured region would be measuring something else.
++pub fn bench_eval_poly<F: PrimeField>(n: usize) {
++    let reps = bench_reps();
++    if !enabled() || reps == 0 {
++        return;
++    }
++    let mut poly = Vec::with_capacity(n);
++    let mut acc = F::ONE;
++    for _ in 0..n {
++        poly.push(acc);
++        acc = acc + F::ONE;
++    }
++    let x = F::from(3u64);
++
++    // Warm up so the first call's cache misses do not land in the sample.
++    let mut sink = F::ZERO;
++    for _ in 0..2 {
++        sink += crate::arithmetic::eval_polynomial(&poly, x);
++    }
++
++    let mut samples = Vec::with_capacity(reps);
++    for _ in 0..reps {
++        let t = std::time::Instant::now();
++        sink += crate::arithmetic::eval_polynomial(&poly, x);
++        samples.push(t.elapsed().as_secs_f64() * 1e9);
++    }
++    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let med = samples[samples.len() / 2];
++    // Keep the accumulated evaluations observable so the loop cannot be folded
++    // away; the byte itself is meaningless.
++    let sink_low_byte = sink.to_repr().as_ref()[0];
++    println!(
++        "F4_EVAL {{\"n\":{},\"reps\":{},\"median_ns\":{:.1},\"min_ns\":{:.1},\
++\"max_ns\":{:.1},\"ns_per_coeff\":{:.4},\"sink_low_byte\":{}}}",
++        n,
++        reps,
++        med,
++        samples[0],
++        samples[samples.len() - 1],
++        med / n as f64,
++        sink_low_byte,
++    );
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 5c71546..f590288 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -12,6 +12,8 @@ pub mod arithmetic;
+ pub mod circuit;
+ /// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+ pub mod f2;
++/// Stage F4 constraint-system census (inert unless `ORCHARD_F4` is set).
++pub mod f4;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/keygen.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/keygen.rs
+index b6c32f1..4919947 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/keygen.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/keygen.rs
+@@ -219,7 +219,12 @@ where
+     )?;
+ 
+     let mut fixed = batch_invert_assigned(assembly.fixed);
++    // Stage F4: census before compression -- the only point where virtual
++    // selectors and their real activation rows still exist (no-op unless
++    // ORCHARD_F4).
++    crate::f4::dump_pre(&cs, &assembly.selectors, params.k);
+     let (cs, selector_polys) = cs.compress_selectors(assembly.selectors);
++    crate::f4::dump_post(&cs);
+     fixed.extend(
+         selector_polys
+             .into_iter()
+@@ -282,7 +287,10 @@ where
+     )?;
+ 
+     let mut fixed = batch_invert_assigned(assembly.fixed);
++    // Stage F4: same census; the module emits it once (vk and pk agree).
++    crate::f4::dump_pre(&cs, &assembly.selectors, params.k);
+     let (cs, selector_polys) = cs.compress_selectors(assembly.selectors);
++    crate::f4::dump_post(&cs);
+     fixed.extend(
+         selector_polys
+             .into_iter()

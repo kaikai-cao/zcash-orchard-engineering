@@ -1,0 +1,74 @@
+Stage F4 -- Constraint-system reconnaissance
+===========================================
+
+Built 2026-11-04 on the same host as F0-F3 (i7-14700, P-core logical 0-7 = 0xFF).
+This round has no A/B: it is one binary that prints a census. Nothing is timed
+against anything, so no pinning was used (the `--mode recon` proof below ran on
+the default rayon pool; the one microbench it reports, `eval_polynomial`, is a
+single-threaded serial loop).
+
+Tree
+----
+Vendor = frozen baseline (as restored by `git checkout --`) + f4 patch only.
+H6 (`Neg`) and H7 (`Borrowed`/`Owned`) are evaluator-only patches and are NOT
+applied here. That is legitimate for this round because the census reads the
+`ConstraintSystem`, and the proof bytes prove the CS is the same either way:
+`--mode recon` produces proof fingerprint 0xa6bcd171d69e969a and 7264 bytes,
+which is the same pair recorded in f3_h6/ and f3_h7/. Same transcript bytes
+implies the same constraint system and the same witness.
+
+Commands (from experiments/transaction_e2e/harness)
+---------------------------------------------------
+  git checkout -- ../vendor/halo2_proofs-0.4.0
+  git apply ../vendor/halo2_proofs-0.4.0-f4-recon.patch
+  cargo build --release --offline --features f4 --bin orchard-e2e
+  ./target/release/orchard-e2e --mode recon --reps 200   > recon_on.log
+  ORCHARD_F4=0 ./target/release/orchard-e2e --mode recon --reps 0 > recon_off.log
+  # then restore: git checkout -- ../vendor/... && rm -f ../vendor/.../src/f4.rs
+
+Toolchain
+---------
+  rustc 1.88.0 (6b00bc388 2025-06-23)
+  cargo 1.88.0 (873a06493 2025-05-10)
+  profile: release (unchanged from F1)
+
+Binary
+------
+                       bytes     sha256 (first 24)
+  orchard-e2e.exe     4349952   017293a2b934e17a7e4b2b68
+
+PE .text section (VirtualSize, the same measure as f3_h6 / f3_h7)
+----------------------------------------------------------------
+  .text  3429560   sha256 0c16f3537046e8db
+  (compare f3_h7 A 3365704 / B 3406568: the f4 module is +~23 kB over the
+   frozen tree, none of it reachable from the proving path)
+
+Patch
+-----
+  halo2_proofs-0.4.0-f4-recon.patch   +479 / -0, 3 files
+    src/f4.rs                  +469  (new: census, all read-only)
+    src/lib.rs                   +2  (module declaration + doc line)
+    src/plonk/keygen.rs          +8  (two hooks, one before and one after
+                                      `compress_selectors`, in keygen_vk and
+                                      keygen_pk; the module emits each dump once)
+
+  The hooks live in keygen because that is the only place where the virtual
+  selectors and their activation matrix still exist: `compress_selectors`
+  consumes them. Nothing in `ConstraintSystem`, `Gate`, `Selector` or the
+  circuit layout is modified -- this is a dump, not a change.
+
+Replay check
+------------
+Re-applying the patch from a clean vendor reproduces the three files byte for
+byte after line-ending normalisation (`core.autocrlf=true` stores CRLF):
+
+  src/f4.rs               87143b9f634c3481cc4fd52137dfc628
+  src/lib.rs              d150144724068b212e39293b0f302196
+  src/plonk/keygen.rs     d2172d8fa37789477db3d0a9f01394b3
+
+Read-only check
+---------------
+  probe on   0xa6bcd171d69e969a   7264 B
+  probe off  0xa6bcd171d69e969a   7264 B
+  and the same pair as f3_h6/ and f3_h7/, i.e. three independent patches now
+  agree on the proof bytes.

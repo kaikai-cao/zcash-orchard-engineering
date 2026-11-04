@@ -17,6 +17,11 @@
 //!              the position forced a writable buffer or only a read. Also
 //!              fingerprints the proof so the probe-on and probe-off runs (same
 //!              seed) can be compared bit for bit.
+//!   --mode recon  Stage F4: constraint-system census. One proof with the
+//!              read-only keygen dump on (gate expressions, selector activation
+//!              rows, pre/post-compression fixed columns), plus the price of one
+//!              `eval_polynomial` at the real domain size. Same proof fingerprint
+//!              as H6/H7, which is how "read-only" is checked.
 //!
 //! Deliberately lives OUTSIDE the upstream checkout so `D:\Research\orchard-upstream`
 //! stays byte-identical to `616a669d`. Consumed via a Cargo path dependency.
@@ -323,7 +328,9 @@ fn main() {
         "lc" => run_lc(&args, pinned),
         #[cfg(feature = "f3h7")]
         "h7" => run_h7(&args, pinned),
-        other => panic!("unknown --mode {other} (expected v2, v3, profile or f2)"),
+        #[cfg(feature = "f4")]
+        "recon" => run_recon(&args, pinned),
+        other => panic!("unknown --mode {other} (expected v2, v3, profile, f2, lc, h7 or recon)"),
     }
 }
 
@@ -859,7 +866,7 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
 
 /// FNV-1a, 64 bit. Used only to fingerprint the proof bytes so a run with the
 /// probe on and a run with it off can be compared without storing the proofs.
-#[cfg(any(feature = "f3lc", feature = "f3h7"))]
+#[cfg(any(feature = "f3lc", feature = "f3h7", feature = "f4"))]
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in bytes {
@@ -1037,6 +1044,95 @@ fn run_h7(args: &Args, pinned: Option<usize>) {
         proof_bytes,
         proof_fnv,
         halo2_proofs::f3h7::enabled(),
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+/// Stage F4: one real Orchard V3 proof with the constraint-system census on.
+///
+/// The census is read-only — it walks the `ConstraintSystem` and the selector
+/// activation matrix that keygen has already built — so the proof fingerprint
+/// must equal the H6/H7 record. `ORCHARD_F4=0` runs the same binary with the
+/// census off, which checks "read-only" against bytes instead of against a
+/// verification that would also pass with a bug.
+///
+/// F2 is armed as well: its fused-tree totals are the cross-check for the
+/// arithmetic counted here gate by gate.
+#[cfg(feature = "f4")]
+fn run_recon(args: &Args, pinned: Option<usize>) {
+    if std::env::var_os("ORCHARD_F4").is_none() {
+        std::env::set_var("ORCHARD_F4", "1");
+    }
+    std::env::set_var("ORCHARD_F4_BENCH", args.reps.to_string());
+    std::env::set_var("ORCHARD_F2", "1");
+    std::env::set_var("ORCHARD_F2_BENCH", "0");
+
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+    let actions = bundle.actions().len();
+
+    let t_proof = Instant::now();
+    let proven = bundle.create_proof(&pk, &mut rng).expect("f4 proof");
+    let proof_ms = t_proof.elapsed().as_secs_f64() * 1e3;
+
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let authorized = proven
+        .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+        .expect("f4 signatures");
+    let proof = authorized.authorization().proof();
+    let proof_bytes = proof.as_ref().len();
+    let proof_fnv = fnv1a(proof.as_ref());
+
+    let t_verify = Instant::now();
+    authorized.verify_proof(&vk).expect("f4 verify");
+    let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
+
+    // Price one `eval_polynomial` on the real domain (k = 11 -> 2048 points),
+    // i.e. what one more fixed-column query would add to the opening argument.
+    halo2_proofs::f4::bench_eval_poly::<halo2_proofs::pasta::pallas::Base>(1 << 11);
+
+    halo2_proofs::f2::flush_evals();
+    println!("F2_REPORT {}", halo2_proofs::f2::take_report());
+    println!(
+        "F4_META {{\"mode\":\"recon\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"proof_ms\":{:.6},\"verify_ms\":{:.6},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\
+\"probe\":{},\"bench_reps\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        proof_ms,
+        verify_ms,
+        proof_bytes,
+        proof_fnv,
+        halo2_proofs::f4::enabled(),
         args.reps,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
