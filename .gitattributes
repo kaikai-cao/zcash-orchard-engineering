@@ -13,5 +13,10 @@ results/transaction_e2e/f0_freeze/Cargo.lock.frozen text eol=lf
 **/Cargo.lock text eol=lf
 experiments/transaction_e2e/vendor/** text eol=lf
 
+# Scripts must land as LF, or `bash script.sh` on a fresh clone breaks on the
+# CRLF that core.autocrlf=true would otherwise write.
+*.sh text eol=lf
+*.py text eol=lf
+
 # Must stay last: the vendor rule above would otherwise re-enable EOL conversion.
 *.patch -text
