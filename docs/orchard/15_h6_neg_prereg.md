@@ -179,7 +179,20 @@ round r:  A1 → B1 → B2 → A2
 
 ## 8. 结果（测量后填写）
 
-*待填。*
+完整结果见 [`16_ast_neg_optimization.md`](16_ast_neg_optimization.md)。四条一句话：
+
+| 门 | 结果 |
+|---|---|
+| H6-A | 通过：9 条单测 + 41/41 库测试；80 次运行每次 `verify_proof` 全部成功 |
+| H6-B | 不变量通过（`scale + neg` 守恒、节点总数不变）；**绝对值预测差 112**（漏了 `Sub`） |
+| H6-C | 通过：1P `1598.2 → 1094.6 ms`（−31.5%），8P −31.1% |
+| H6-D | 通过：1P `−14.57%`，95% CI [−15.07, −13.91] |
+| H6-E | 按字面 FAIL（3/9 阶段 +0.7%～+1.3%），按量级通过（合计 +7.5 ms / +0.32%） |
+| H6-F | 未触发 |
+
+三层答案：**40.2% 的整块乘法消失 → 求值器 −31.5% → 证明 −14.57%**，
+按 `evaluate/quotient` 与 `quotient/prove` 两个份额推算是 −15.40%，
+即层 2 的收益有 95% 走到了端到端。
 
 ## 9. 复现
 
@@ -192,8 +205,9 @@ CARGO_TARGET_DIR=target/f3-a cargo build --release --offline --bin orchard-e2e
 git apply experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-h6-neg.patch
 CARGO_TARGET_DIR=target/f3-b cargo build --release --offline --bin orchard-e2e
 
-# 单测
-cargo test --manifest-path ../vendor/halo2_proofs-0.4.0/Cargo.toml --lib --offline
+# 单测（注意：不能加 --offline，dev-deps assert_matches/criterion/gumdrop 不在本地 registry）
+git apply experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-h6-neg.patch
+cargo test --manifest-path ../vendor/halo2_proofs-0.4.0/Cargo.toml --lib
 
 # D1/D2/D3
 bash scripts/benchmark/run_f3_ab.sh <A.exe> <B.exe> results/transaction_e2e/f3_h6 5 5
