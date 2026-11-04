@@ -1,0 +1,552 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3lc.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3lc.rs
+new file mode 100644
+index 0000000..bf5c85a
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f3lc.rs
+@@ -0,0 +1,222 @@
++//! Stage F3 · LC: a census of `Ast::Poly` leaf uses.
++//!
++//! Inert unless `ORCHARD_F3_LC` is set. The census is taken by walking the
++//! already-built `Ast` once, *before* the real evaluation runs; `recurse` is not
++//! touched, so every value the prover computes is bit-identical with the probe
++//! on or off. This module only turns the resulting counts into JSON.
++//!
++//! Why a census and not a profiler: "how much would a leaf cache save" is not a
++//! question about samples. It is a question about how many times one leaf's
++//! chunk is materialised, and whether the materialisation was avoidable in the
++//! first place. Both are properties of the tree, not of the clock.
++//!
++//! The distinction that matters (see `docs/orchard/17_leaf_cache_prereg.md` §1):
++//!
++//! * In an **accumulator** position (`Add`/`Mul` left operand, the child of
++//!   `Scale`/`Neg`, the tree root) the value is mutated in place, so a cache hit
++//!   still needs one writable buffer. Bytes moved are unchanged.
++//! * In a **read-only** position (`Add`/`Mul` right operand, every
++//!   `DistributePowers` term) the value is only read, so a cache hit can hand
++//!   out a `&[F]` and the materialisation disappears entirely.
++//!
++//! Only the second kind is genuinely avoidable, which is why the earlier
++//! "2.3 GB of copies" figure needed re-deriving rather than inheriting.
++
++// Measurement scaffolding: same rationale as `f2` -- this module only ever
++// prints JSON, so per-field doc comments and Debug impls would be noise.
++#![allow(missing_docs, missing_debug_implementations)]
++
++use std::sync::{Mutex, OnceLock};
++
++/// True when `ORCHARD_F3_LC` is present and not `0`. Cached: called once per
++/// `evaluate`.
++///
++/// The literal `0` counts as off so that the *same binary* that carries the
++/// probe can also run the control arm -- same seed, same blinders, so the proof
++/// bytes must match bit for bit.
++pub fn enabled() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| match std::env::var_os("ORCHARD_F3_LC") {
++        Some(v) => v != "0",
++        None => false,
++    })
++}
++
++/// How many times to replay the leaf materialisations for a per-chunk cost
++/// (`ORCHARD_F3_LC_BENCH`, 0 = don't). Runs after the real evaluation, on the
++/// calling thread only, and is never included in a timing figure.
++pub fn bench_reps() -> usize {
++    static N: OnceLock<usize> = OnceLock::new();
++    *N.get_or_init(|| {
++        std::env::var("ORCHARD_F3_LC_BENCH")
++            .ok()
++            .and_then(|v| v.parse().ok())
++            .unwrap_or(0)
++    })
++}
++
++/// Cost of materialising one leaf chunk, measured by replaying the real
++/// `get_chunk_of_rotated` on the real polynomials.
++pub struct Bench {
++    pub reps: usize,
++    pub chunks: u64,
++    pub ns_per_chunk: f64,
++    pub ns_per_elem: f64,
++    /// Effective read throughput of the materialisation (`chunk_size * 4 B * 8`
++    /// per element is not assumed; the element size is passed in).
++    pub gbps: f64,
++}
++
++/// One `Evaluator::evaluate` invocation, as far as its leaves are concerned.
++pub struct LeafRecord {
++    pub poly_len: usize,
++    pub chunk_size: usize,
++    pub num_chunks: usize,
++    /// `self.polys.len()` at evaluation time: the namespace the `index` field of
++    /// every leaf is scoped to.
++    pub registered: usize,
++    pub visits: u64,
++    pub distinct: u64,
++    pub own: u64,
++    pub borrow: u64,
++    /// Leaves that appear at least once in a read-only position.
++    pub distinct_with_borrow: u64,
++    /// `(index, rotation, own, borrow)` for every distinct leaf.
++    pub leaves: Vec<(usize, i32, u64, u64)>,
++    pub bench: Option<Bench>,
++    pub elem_bytes: usize,
++}
++
++impl LeafRecord {
++    /// Chunk-equivalents a cache can skip: every read-only hit except each
++    /// leaf's compulsory first materialisation. Deliberately conservative --
++    /// when a leaf's first use is in an accumulator position the real saving is
++    /// one chunk larger, and the census does not claim it.
++    pub fn saved_chunks(&self) -> u64 {
++        self.borrow.saturating_sub(self.distinct_with_borrow)
++    }
++
++    /// Bytes the evaluator moves today just to materialise leaves.
++    pub fn leaf_bytes(&self) -> u64 {
++        self.visits * self.poly_len as u64 * self.elem_bytes as u64
++    }
++
++    /// Bytes that stop moving if every read-only hit is served from a cache.
++    pub fn saved_bytes(&self) -> u64 {
++        self.saved_chunks() * self.poly_len as u64 * self.elem_bytes as u64
++    }
++
++    /// Residence for the whole-vector model: one materialisation per distinct
++    /// leaf, shared by every chunk.
++    pub fn cache_bytes(&self) -> u64 {
++        self.distinct * self.poly_len as u64 * self.elem_bytes as u64
++    }
++
++    /// Residence for the per-chunk model: each concurrent chunk caches its own
++    /// slice, so one thread's working set is this much.
++    pub fn per_thread_bytes(&self) -> u64 {
++        self.distinct * self.chunk_size as u64 * self.elem_bytes as u64
++    }
++
++    /// Accumulator hits still pay one copy. Reported so the "saved" figure can
++    /// be checked against "not saved" rather than standing alone.
++    pub fn own_bytes(&self) -> u64 {
++        self.own * self.poly_len as u64 * self.elem_bytes as u64
++    }
++
++    fn to_json(&self) -> String {
++        let mut leaves: Vec<&(usize, i32, u64, u64)> = self.leaves.iter().collect();
++        leaves.sort_by(|a, b| (b.2 + b.3).cmp(&(a.2 + a.3)));
++        let leaf_json = leaves
++            .iter()
++            .map(|(i, r, o, b)| format!("[{i},{r},{o},{b}]"))
++            .collect::<Vec<_>>()
++            .join(",");
++        let bench = match &self.bench {
++            Some(b) => format!(
++                "{{\"reps\":{},\"chunks\":{},\"ns_per_chunk\":{:.3},\"ns_per_elem\":{:.4},\
++\"gbps\":{:.3}}}",
++                b.reps, b.chunks, b.ns_per_chunk, b.ns_per_elem, b.gbps
++            ),
++            None => "null".to_string(),
++        };
++        format!(
++            "{{\"poly_len\":{},\"chunk_size\":{},\"num_chunks\":{},\"registered\":{},\
++\"visits\":{},\"distinct\":{},\"own\":{},\"borrow\":{},\"distinct_with_borrow\":{},\
++\"saved_chunks\":{},\"leaf_bytes\":{},\"saved_bytes\":{},\"own_bytes\":{},\
++\"cache_bytes\":{},\"per_thread_bytes\":{},\"elem_bytes\":{},\
++\"bench\":{},\"leaves\":[{}]}}",
++            self.poly_len,
++            self.chunk_size,
++            self.num_chunks,
++            self.registered,
++            self.visits,
++            self.distinct,
++            self.own,
++            self.borrow,
++            self.distinct_with_borrow,
++            self.saved_chunks(),
++            self.leaf_bytes(),
++            self.saved_bytes(),
++            self.own_bytes(),
++            self.cache_bytes(),
++            self.per_thread_bytes(),
++            self.elem_bytes,
++            bench,
++            leaf_json
++        )
++    }
++}
++
++static RECORDS: OnceLock<Mutex<Vec<LeafRecord>>> = OnceLock::new();
++
++fn records() -> &'static Mutex<Vec<LeafRecord>> {
++    RECORDS.get_or_init(|| Mutex::new(Vec::new()))
++}
++
++/// Record one evaluation's leaf census.
++pub fn record(rec: LeafRecord) {
++    if !enabled() {
++        return;
++    }
++    records().lock().unwrap().push(rec);
++}
++
++/// Drain every recorded call into one JSON object.
++///
++/// Totals sum the quantities that are additive across calls (visits, bytes).
++/// `distinct` and the residence figures are not: two calls share a leaf
++/// namespace only if they come from the same `Evaluator`, so the report keeps
++/// the per-call values and a `max` rather than a meaningless sum.
++pub fn take_report() -> String {
++    let drained: Vec<LeafRecord> = std::mem::take(&mut *records().lock().unwrap());
++    if drained.is_empty() {
++        return "{\"calls\":[]}".to_string();
++    }
++    let visits: u64 = drained.iter().map(|r| r.visits).sum();
++    let saved_bytes: u64 = drained.iter().map(|r| r.saved_bytes()).sum();
++    let leaf_bytes: u64 = drained.iter().map(|r| r.leaf_bytes()).sum();
++    let own_bytes: u64 = drained.iter().map(|r| r.own_bytes()).sum();
++    let max_distinct = drained.iter().map(|r| r.distinct).max().unwrap_or(0);
++    let max_cache = drained.iter().map(|r| r.cache_bytes()).max().unwrap_or(0);
++    let saved_chunks: u64 = drained.iter().map(|r| r.saved_chunks()).sum();
++    let items = drained
++        .iter()
++        .map(|r| r.to_json())
++        .collect::<Vec<_>>()
++        .join(",");
++    format!(
++        "{{\"calls\":[{}],\"totals\":{{\"calls\":{},\"visits\":{},\"saved_chunks\":{},\
++\"leaf_bytes\":{},\"saved_bytes\":{},\"own_bytes\":{},\"max_distinct\":{},\
++\"max_cache_bytes\":{}}}}}",
++        items,
++        drained.len(),
++        visits,
++        saved_chunks,
++        leaf_bytes,
++        saved_bytes,
++        own_bytes,
++        max_distinct,
++        max_cache
++    )
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 5c71546..7898988 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -12,6 +12,8 @@ pub mod arithmetic;
+ pub mod circuit;
+ /// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+ pub mod f2;
++/// Stage F3 leaf-cache census (inert unless `ORCHARD_F3_LC` is set).
++pub mod f3lc;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+index 9fdac6e..49fb940 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+@@ -144,6 +144,12 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+         F: WithSmallOrderMulGroup<3>,
+         B: BasisOps,
+     {
++        // Stage F3 · LC: census of leaf uses, taken by a separate walk of the
++        // same tree. `recurse` is untouched, so this cannot change a value.
++        if crate::f3lc::enabled() {
++            self.f3lc_probe(ast, domain);
++        }
++
+         if !crate::f2::enabled() {
+             return self.evaluate_inner(ast, domain);
+         }
+@@ -279,6 +285,160 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+         });
+         result
+     }
++
++    // -----------------------------------------------------------------------
++    // Stage F3 · LC: leaf-use census
++    // -----------------------------------------------------------------------
++
++    /// Walk the tree once and report how often each leaf is materialised, split
++    /// by whether the position forces a writable buffer or only a read.
++    ///
++    /// Called from [`Self::evaluate`] *before* the real evaluation, so the
++    /// numbers describe the exact tree and the exact chunk geometry that the
++    /// prover is about to use. No value is read or written here.
++    fn f3lc_probe(&self, ast: &Ast<E, F, B>, domain: &EvaluationDomain<F>)
++    where
++        E: Copy + Send + Sync,
++        F: WithSmallOrderMulGroup<3>,
++        B: BasisOps,
++    {
++        let poly_len = self.polys.first().unwrap().len();
++        let (chunk_size, num_chunks) = get_chunk_params(poly_len);
++
++        let mut uses: std::collections::HashMap<(usize, i32), (u64, u64)> =
++            std::collections::HashMap::new();
++        let mut visits = 0u64;
++        // The root leaves `recurse` straight into `out.copy_from_slice`, so it
++        // is an accumulator: it must exist as a buffer either way.
++        f3lc_walk(ast, true, &mut uses, &mut visits);
++
++        let own: u64 = uses.values().map(|(o, _)| *o).sum();
++        let borrow: u64 = uses.values().map(|(_, b)| *b).sum();
++        let distinct_with_borrow = uses.values().filter(|(_, b)| *b > 0).count() as u64;
++
++        let reps = crate::f3lc::bench_reps();
++        let bench = if reps > 0 {
++            Some(self.f3lc_bench(domain, &uses, chunk_size, num_chunks, reps))
++        } else {
++            None
++        };
++
++        let mut leaves: Vec<(usize, i32, u64, u64)> = uses
++            .into_iter()
++            .map(|((index, rotation), (o, b))| (index, rotation, o, b))
++            .collect();
++        leaves.sort_unstable();
++
++        crate::f3lc::record(crate::f3lc::LeafRecord {
++            poly_len,
++            chunk_size,
++            num_chunks,
++            registered: self.polys.len(),
++            visits,
++            distinct: leaves.len() as u64,
++            own,
++            borrow,
++            distinct_with_borrow,
++            leaves,
++            bench,
++            elem_bytes: std::mem::size_of::<F>(),
++        });
++    }
++
++    /// Replay every distinct leaf's materialisation `reps` times and time it.
++    ///
++    /// Runs after the real evaluation and outside any timed region. Single
++    /// threaded on purpose: the point is the marginal cost of one
++    /// `get_chunk_of_rotated` call, not the prover's throughput.
++    fn f3lc_bench(
++        &self,
++        domain: &EvaluationDomain<F>,
++        uses: &std::collections::HashMap<(usize, i32), (u64, u64)>,
++        chunk_size: usize,
++        num_chunks: usize,
++        reps: usize,
++    ) -> crate::f3lc::Bench
++    where
++        F: WithSmallOrderMulGroup<3>,
++        B: BasisOps,
++    {
++        let keys: Vec<(usize, i32)> = uses.keys().copied().collect();
++        let mut acc = F::ZERO;
++        let t = std::time::Instant::now();
++        for _ in 0..reps {
++            for &(index, rotation) in keys.iter() {
++                for chunk_index in 0..num_chunks {
++                    let v = B::get_chunk_of_rotated(
++                        domain,
++                        chunk_size,
++                        chunk_index,
++                        &self.polys[index],
++                        Rotation(rotation),
++                    );
++                    acc += v[0];
++                    std::hint::black_box(&v);
++                }
++            }
++        }
++        let ns = t.elapsed().as_nanos() as f64;
++        std::hint::black_box(acc);
++
++        let chunks = (reps * keys.len() * num_chunks) as u64;
++        let elems = chunks * chunk_size as u64;
++        let ns_per_chunk = ns / chunks as f64;
++        let ns_per_elem = ns / elems as f64;
++        crate::f3lc::Bench {
++            reps,
++            chunks,
++            ns_per_chunk,
++            ns_per_elem,
++            gbps: (std::mem::size_of::<F>() as f64) / ns_per_elem,
++        }
++    }
++}
++
++/// Position-aware leaf walk for the Stage F3 · LC census.
++///
++/// `accumulator = true` means the caller will mutate the value in place
++/// (`Add`/`Mul` left operand, the single child of `Scale`/`Neg`, the root);
++/// `false` means it is only read (`Add`/`Mul` right operand, a
++/// `DistributePowers` term). The distinction is the whole point: a cache hit in
++/// the second position moves zero bytes, in the first it still moves one chunk.
++fn f3lc_walk<E, F: Field, B: Basis>(
++    ast: &Ast<E, F, B>,
++    accumulator: bool,
++    uses: &mut std::collections::HashMap<(usize, i32), (u64, u64)>,
++    visits: &mut u64,
++) {
++    match ast {
++        Ast::Poly(leaf) => {
++            *visits += 1;
++            let entry = uses
++                .entry((leaf.index, leaf.rotation.0))
++                .or_insert((0, 0));
++            if accumulator {
++                entry.0 += 1;
++            } else {
++                entry.1 += 1;
++            }
++        }
++        Ast::Add(a, b) => {
++            f3lc_walk(a, true, uses, visits);
++            f3lc_walk(b, false, uses, visits);
++        }
++        Ast::Mul(AstMul(a, b)) => {
++            f3lc_walk(a, true, uses, visits);
++            f3lc_walk(b, false, uses, visits);
++        }
++        Ast::Scale(a, _) | Ast::Neg(a) => f3lc_walk(a, true, uses, visits),
++        // The fold writes into its own accumulator and only reads each term.
++        Ast::DistributePowers(terms, _) => {
++            for term in terms.iter() {
++                f3lc_walk(term, false, uses, visits);
++            }
++        }
++        Ast::LinearTerm(_) | Ast::ConstantTerm(_) => {}
++    }
+ }
+ 
+ /// Struct representing the [`Ast::Mul`] case.
+@@ -925,6 +1085,132 @@ mod tests {
+             assert_eq!(s.nodes(), 2); // one Neg, one Poly
+         }
+     }
++
++    // -----------------------------------------------------------------------
++    // Stage F3 / LC: is a leaf cache keyed on `(index, rotation)` safe?
++    //
++    // Two claims have to hold for the census to mean anything, and both are
++    // checked here rather than asserted in prose:
++    //   1. within one context the materialisation is a pure function, so a
++    //      second materialisation of the same leaf is bit-identical;
++    //   2. across contexts it is *not*, so the key must carry the domain shape.
++    // The second one is the trap: `get_chunk_of_rotated_extended` multiplies
++    // the rotation by `2^(extended_k - k)`, which is a property of the eval
++    // domain, not of the leaf.
++    // -----------------------------------------------------------------------
++    mod lc {
++        use std::collections::HashMap;
++        use std::marker::PhantomData;
++        use std::sync::Arc;
++
++        use group::ff::Field as _;
++        use pasta_curves::pallas::Base;
++
++        use super::super::{
++            f3lc_walk, Ast, AstLeaf, AstMul, BasisOps, EvaluationDomain, Polynomial,
++        };
++        use crate::poly::{ExtendedLagrangeCoeff, Rotation};
++
++        type Ev = fn();
++        type ExtAst = Ast<Ev, Base, ExtendedLagrangeCoeff>;
++
++        fn leaf(index: usize, rotation: i32) -> Ast<Ev, Base, ExtendedLagrangeCoeff> {
++            Ast::Poly(AstLeaf {
++                index,
++                rotation: Rotation(rotation),
++                _evaluator: PhantomData,
++            })
++        }
++
++        fn ramp(len: usize) -> Polynomial<Base, ExtendedLagrangeCoeff> {
++            Polynomial {
++                values: (0..len as u64).map(Base::from).collect(),
++                _marker: PhantomData,
++            }
++        }
++
++        #[test]
++        fn leaf_materialisation_is_repeatable_in_one_context() {
++            // Premise of any cache: same poly, same domain, same chunk => same
++            // bytes. If this failed, a cache would need to be invalidated by
++            // something the census does not model.
++            let domain = EvaluationDomain::new(2, 5);
++            let poly = ramp(domain.extended_len());
++            for rotation in [0i32, 1, -1, 3] {
++                for chunk_index in 0..4usize {
++                    let a = ExtendedLagrangeCoeff::get_chunk_of_rotated(
++                        &domain, 8, chunk_index, &poly, Rotation(rotation),
++                    );
++                    let b = ExtendedLagrangeCoeff::get_chunk_of_rotated(
++                        &domain, 8, chunk_index, &poly, Rotation(rotation),
++                    );
++                    assert_eq!(a, b, "rotation {rotation}, chunk {chunk_index}");
++                }
++            }
++        }
++
++        #[test]
++        fn leaf_materialisation_depends_on_domain_shape() {
++            // Same polynomial length (32), same rotation, same chunk -- but the
++            // domains disagree on `(k, extended_k)`: 2^5 with qpd 1 versus 2^3
++            // with qpd 3. The extended rotation is scaled by 2^(ext_k - k), i.e.
++            // 1 versus 4, so the two chunks are different slices. This is why a
++            // cache key of `(index, rotation)` alone would be wrong the moment
++            // one evaluator is used with two domains.
++            let a = EvaluationDomain::new(2, 5);
++            let b = EvaluationDomain::new(4, 3);
++            assert_eq!(a.extended_len(), b.extended_len());
++
++            let poly = ramp(a.extended_len());
++            let ra =
++                ExtendedLagrangeCoeff::get_chunk_of_rotated(&a, 8, 0, &poly, Rotation(1));
++            let rb =
++                ExtendedLagrangeCoeff::get_chunk_of_rotated(&b, 8, 0, &poly, Rotation(1));
++            assert_ne!(
++                ra, rb,
++                "the same (index, rotation, chunk) must not be assumed domain-free"
++            );
++        }
++
++        #[test]
++        fn census_splits_accumulator_from_readonly() {
++            // (a + b) * a : the inner `Add` accumulates into `a`, the outer
++            // `Mul` only reads its right operand, so `a` is one accumulator use
++            // and one read-only use, while `b` is read-only.
++            let ast: ExtAst = Ast::Mul(AstMul(
++                Arc::new(Ast::Add(
++                    Arc::new(leaf(0, 0)),
++                    Arc::new(leaf(1, 0)),
++                )),
++                Arc::new(leaf(0, 0)),
++            ));
++            let mut uses: HashMap<(usize, i32), (u64, u64)> = HashMap::new();
++            let mut visits = 0u64;
++            f3lc_walk(&ast, true, &mut uses, &mut visits);
++
++            assert_eq!(visits, 3);
++            assert_eq!(uses.len(), 2);
++            assert_eq!(uses[&(0, 0)], (1, 1));
++            assert_eq!(uses[&(1, 0)], (0, 1));
++        }
++
++        #[test]
++        fn distribute_powers_terms_are_readonly() {
++            // The fold writes into its own accumulator, so no term is in a
++            // writable position even when the term *is* a leaf.
++            let ast: ExtAst = Ast::distribute_powers(
++                vec![leaf(0, 0), leaf(1, -1)],
++                Base::from(7u64),
++            );
++            let mut uses: HashMap<(usize, i32), (u64, u64)> = HashMap::new();
++            let mut visits = 0u64;
++            f3lc_walk(&ast, true, &mut uses, &mut visits);
++
++            assert_eq!(visits, 2);
++            assert_eq!(uses[&(0, 0)], (0, 1));
++            assert_eq!(uses[&(1, -1)], (0, 1));
++        }
++    }
+ }
+ 
+ // ---------------------------------------------------------------------------

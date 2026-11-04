@@ -73,10 +73,21 @@ Windows 上 ETW/WPR 需要管理员权限（本机被拒绝，`0xc5585011`），
 F2 更进一步：采样只能给出**占比**，回答不了「一共调用了多少次域乘法」，
 所以需要在表达式层做解析式计数，两条证据再互相交叉验证（33.1% vs 33.08%）。
 
+## 三个补丁文件（按应用顺序）
+
+| 补丁 | 相对谁 | 用途 | 是否常驻 |
+| --- | --- | --- | --- |
+| `halo2_proofs-0.4.0-instrumentation.patch` | 原版 0.4.0 | E2 阶段计时 + E3 阶段标签 + F2 计数 | **是**（本目录就是它的产物） |
+| `halo2_proofs-0.4.0-h6-neg.patch` | 本目录 | H6：`Ast::Neg` 取代 `Scale(-1)`（+255 / −13） | 否，只在测 B 侧时应用，测完 `git checkout` 还原 |
+| `halo2_proofs-0.4.0-f3-lc-probe.patch` | **应用了 H6 之后** | LC 叶子普查探针（新增 `src/f3lc.rs` + `evaluate` 前的一次只读遍历） | 否，只在测 LC 时应用 |
+
+后两个补丁都是"基线 + 补丁"的单因子形式：vendor 目录本身始终保持**未打补丁**的冻结状态，
+`f0_verify_frozen.py` 因此永远能对上 `src/**/*.rs` 的 58 个文件指纹。
+`f3-lc-probe` 依赖 `h6-neg`（普查要处理 `Ast::Neg` 分支），必须按上表顺序应用。
+
 ## 注意
 
-- 这份副本仅服务测量，**不是**要提交给上游的补丁，也不应用于生产构建。
-- 冻结指纹（git commit、`Cargo.lock` sha256、依赖指纹、编译参数）见
+- 这份副本仅服务测量，**不是**要提交给上游的补丁，也不应用于生产构建。- 冻结指纹（git commit、`Cargo.lock` sha256、依赖指纹、编译参数）见
   `results/transaction_e2e/f0_freeze/manifest.json` 与 `docs/orchard/11_stage_f_scope.md`。
   vendor 源码指纹覆盖 `src/**/*.rs` 全部 **58 个文件**（57 个上游文件 + `f2.rs`），
   用 `python scripts/analysis/f0_verify_frozen.py` 校验（exit 0 = 全部匹配）。

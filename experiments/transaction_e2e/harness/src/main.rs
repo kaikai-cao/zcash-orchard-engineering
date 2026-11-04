@@ -12,6 +12,11 @@
 //!              `create_proof` only (no keygen/build/sign/verify in the window).
 //!              Prints PROFILE_WINDOW_START/END markers so an ETW session can be
 //!              scoped to the prove loop.
+//!   --mode lc  Stage F3 · LC: leaf-cache census. One proof, no evaluator
+//!              re-runs; counts every `Ast::Poly` materialisation and whether
+//!              the position forced a writable buffer or only a read. Also
+//!              fingerprints the proof so the probe-on and probe-off runs (same
+//!              seed) can be compared bit for bit.
 //!
 //! Deliberately lives OUTSIDE the upstream checkout so `D:\Research\orchard-upstream`
 //! stays byte-identical to `616a669d`. Consumed via a Cargo path dependency.
@@ -314,6 +319,8 @@ fn main() {
         "v3" => run_v3(&args, pinned),
         "profile" => run_profile(&args, pinned),
         "f2" => run_f2(&args, pinned),
+        #[cfg(feature = "f3lc")]
+        "lc" => run_lc(&args, pinned),
         other => panic!("unknown --mode {other} (expected v2, v3, profile or f2)"),
     }
 }
@@ -838,6 +845,111 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
         actions,
         keygen_s,
         proof_s,
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode lc: Stage F3 leaf-cache census
+// ---------------------------------------------------------------------------
+
+/// FNV-1a, 64 bit. Used only to fingerprint the proof bytes so a run with the
+/// probe on and a run with it off can be compared without storing the proofs.
+#[cfg(feature = "f3lc")]
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in bytes {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
+/// Stage F3 · LC. Counts leaf materialisations, not time: the census must
+/// describe the tree exactly as the prover walks it, so unlike `--mode f2` this
+/// never re-runs the evaluator (`ORCHARD_F2_BENCH=0`).
+///
+/// The proof is computed with the probe on and off from the same seed; the two
+/// `proof_fnv` values must match, which is a stronger statement than "the proof
+/// verifies" -- it says the probe changed no field element anywhere.
+#[cfg(feature = "f3lc")]
+fn run_lc(args: &Args, pinned: Option<usize>) {
+    // `ORCHARD_F3_LC=0` runs the same binary with the probe off, for the
+    // byte-identity control. Absent -> on.
+    if std::env::var_os("ORCHARD_F3_LC").is_none() {
+        std::env::set_var("ORCHARD_F3_LC", "1");
+    }
+    std::env::set_var("ORCHARD_F3_LC_BENCH", args.reps.to_string());
+    // F2 accounting rides along with its re-runs disabled: its `ast` counts are
+    // an independent second walk of the same tree, so `visits == ast.poly` is a
+    // real cross-check rather than the same counter printed twice.
+    std::env::set_var("ORCHARD_F2", "1");
+    std::env::set_var("ORCHARD_F2_BENCH", "0");
+
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+    let actions = bundle.actions().len();
+
+    let t_proof = Instant::now();
+    let proven = bundle.create_proof(&pk, &mut rng).expect("lc proof");
+    let proof_ms = t_proof.elapsed().as_secs_f64() * 1e3;
+
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let authorized = proven
+        .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+        .expect("lc signatures");
+    let proof = authorized.authorization().proof();
+    let proof_bytes = proof.as_ref().len();
+    let proof_fnv = fnv1a(proof.as_ref());
+
+    let t_verify = Instant::now();
+    authorized.verify_proof(&vk).expect("lc verify");
+    let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
+
+    halo2_proofs::f2::flush_evals();
+    let f2 = halo2_proofs::f2::take_report();
+    println!("F2_REPORT {f2}");
+    println!("LC_REPORT {}", halo2_proofs::f3lc::take_report());
+    println!(
+        "LC_META {{\"mode\":\"lc\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"proof_ms\":{:.6},\"verify_ms\":{:.6},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\
+\"probe\":{},\"bench_reps\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        proof_ms,
+        verify_ms,
+        proof_bytes,
+        proof_fnv,
+        halo2_proofs::f3lc::enabled(),
         args.reps,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),

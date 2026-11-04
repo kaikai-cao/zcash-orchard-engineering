@@ -1,0 +1,60 @@
+Stage F3 / LC -- build and run provenance
+==========================================
+
+The probe changes no value: the same binary produces the same proof with
+ORCHARD_F3_LC=1 and ORCHARD_F3_LC=0 (proof FNV-1a 0xa6bcd171d69e969a in both),
+so none of the census work sits on the numerical path. There is therefore no
+"A/B build" here -- there is one binary and one environment switch.
+
+Toolchain (pinned by experiments/transaction_e2e/harness/rust-toolchain.toml)
+  rustc 1.88.0 (6b00bc388 2025-06-23), host x86_64-pc-windows-msvc
+  cargo 1.88.0 (873a06493 2025-05-10)
+
+Profile
+  opt-level 3, codegen-units 16, debug false, panic unwind,
+  lto off, no RUSTFLAGS, no target-cpu override
+
+Source = frozen vendor + two patches, applied in this order
+  halo2_proofs-0.4.0-h6-neg.patch        sha256 f71a7bc8b79c9958...   (+255 / -13)
+  halo2_proofs-0.4.0-f3-lc-probe.patch   sha256 90b7244b0a9ef131...   (+469 / -0, 5 hunks, new src/f3lc.rs)
+
+  Both were replayed with `git apply` and the three touched files compared by
+  md5 with the ones the measurements ran on -- identical. vendor was then
+  restored with `git checkout` and `f0_verify_frozen.py` reports PASS (58 files).
+
+Binary
+  CARGO_TARGET_DIR=target/f3-lc cargo build --release --offline --features f3lc --bin orchard-e2e
+  target/f3-lc/release/orchard-e2e.exe
+  size 4333056 bytes, sha256 63f57ed754bf5fec125c20756423a280...
+
+  `--mode lc` is behind the `f3lc` cargo feature because it references
+  `halo2_proofs::f3lc`, which only exists when the probe patch is applied. With
+  the feature off the whole mode is compiled out, so the baseline binary is
+  untouched: rebuilding the harness from the FROZEN vendor (no patches, no
+  features) yields .text 3360328 bytes, sha256 8d5ca96d456065a0... -- bit for
+  bit the hash recorded in f3_h6/build.txt. Verified across three separate
+  CARGO_TARGET_DIRs (the executable as a whole is NOT byte-reproducible across
+  target dirs; .text is).
+
+Runs (all --mode lc --version v3 --spends 1 --outputs 2 --seed 7, one proof each)
+  lc_1p_r1.log          1P mask 0x1  reps 5  probe on
+  lc_1p_r2.log          1P mask 0x1  reps 5  probe on
+  lc_1p_r3.log          1P mask 0x1  reps 5  probe on
+  lc_1p_probeoff.log    1P mask 0x1  reps 0  ORCHARD_F3_LC=0   <- inertness control
+  lc_8p_r1.log          8P mask 0xFF reps 5  probe on
+  lc_8p_r2.log          8P mask 0xFF reps 5  probe on
+
+  All six ran on the binary above. Counts are deterministic: the three 1P
+  probe-on runs produce identical LC_REPORT bodies once the bench timings are
+  stripped (md5 5ccce9a2...).
+
+  The bench reproduces every distinct leaf's materialisation (single threaded)
+  and is only used to convert bytes into time:
+    1P  three runs   1.4814 / 1.4865 / 1.4891 ns per element   21.6 / 21.5 / 21.5 GB/s
+    8P  two runs     1.4640 / 1.5285 ns                        21.9 / 20.9 GB/s
+
+Derived tables
+  summary.csv            one row per probe-on run (see scripts/analysis/f3_lc_report.py)
+  summary.md             the same table in markdown
+  leaves_fused_1p.csv    the 145 distinct leaves of the fused tree, with own/borrow
+                         use counts, sorted by total uses

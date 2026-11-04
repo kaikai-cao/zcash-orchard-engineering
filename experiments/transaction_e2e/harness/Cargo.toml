@@ -7,6 +7,14 @@ description = "End-to-end Orchard bundle build/prove/sign/verify measurement har
 
 # The upstream checkout is kept pristine; we consume it as a path dependency.
 # Path is relative to this crate: harness -> transaction_e2e -> experiments -> repo -> D:\Research
+[features]
+# Stage F3 · LC probe. Off by default so the harness keeps compiling against the
+# FROZEN vendor: `halo2_proofs::f3lc` only exists after
+# `vendor/halo2_proofs-0.4.0-f3-lc-probe.patch` is applied, and that patch is
+# deliberately not part of the frozen tree. With the feature off, no LC code is
+# compiled at all, so the baseline binary stays byte-identical.
+f3lc = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
