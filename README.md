@@ -6,8 +6,9 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 
 ## 当前状态
 
-阶段 A–E 已完成，Stage F 进行中（F0/F1/F2 与 H1c 验证已收口）。研究问题从「哪个阶段最慢」
-推进到「哪些底层操作消耗了 CPU」，再推进到「这些操作是按什么形态被执行的」。
+阶段 A–E 已完成，Stage F 进行中（F0/F1/F2、H1c 验证与 F3 首个优化原型已收口）。
+研究问题从「哪个阶段最慢」推进到「哪些底层操作消耗了 CPU」，再推进到「这些操作是按什么
+形态被执行的」，最后落到「这棵表达式树的语义有没有被多余地翻译成算术」。
 
 | 阶段 | 内容 | 结论 | 文档 |
 | --- | --- | --- | --- |
@@ -20,6 +21,7 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 | F1 | `Fp::mul` 微基准 + 汇编审计 | **H1 否决**：`+bmi2,+adx` 无收益；差异在调用形态（上限 10.6%，F2 修正为 ≈1.8%） | `docs/orchard/12` |
 | F2 | 表达式求值器成本归因 | quotient 的 **89.1%** 是求值器；6570 次整块乘 × 16384 = **1.076 亿次域乘**；**38.4% 是乘 −1** | `docs/orchard/13` |
 | H1c | LTO 单因子验证（只改 `lto=fat`） | **LTO 不内联 `Fp::mul`**（调用点 9→9）；端到端 **+0.00%** [−1.57, +1.14]，**10.6% 被排除 → 关档** | `docs/orchard/14` |
+| F3 · H6 | `Ast::Neg`：取负不再编译成 `Scale(−1)` | **2638/6570 = 40.2% 的整块乘法消失**；求值器 −31.5%、quotient −28.0%、证明 **−14.57%**（95% CI [−15.07, −13.91]） | `docs/orchard/15–16` |
 
 | 冻结项 | 值 |
 | --- | --- |
@@ -47,7 +49,7 @@ Engineering experiments and performance analysis for Zcash Orchard and Halo2.
 ```
 docs/environment/    环境与版本记录
 docs/halo2/          Halo2 学习笔记（阶段 B）
-docs/orchard/        Orchard 源码分析（阶段 C）+ 证明性能剖析（E2–F2），索引进 INDEX.md
+docs/orchard/        Orchard 源码分析（阶段 C）+ 证明性能剖析（E2–F3），索引进 INDEX.md
 docs/experiments/    实验协议
 experiments/         实验设计
   transaction_e2e/   端到端证明 harness（E1/E2/E3）
