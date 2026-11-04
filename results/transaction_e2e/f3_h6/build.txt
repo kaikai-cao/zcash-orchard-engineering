@@ -1,0 +1,44 @@
+Stage F3 / H6 -- build and run provenance
+==========================================
+
+Everything below was produced in one session on this machine. Absolute times
+are only comparable inside a dataset, never across sessions (this session ran
+~2.4% faster than the F0 freeze).
+
+Toolchain (pinned by experiments/transaction_e2e/harness/rust-toolchain.toml)
+  rustc 1.88.0 (6b00bc388 2025-06-23), host x86_64-pc-windows-msvc
+  cargo 1.88.0 (873a06493 2025-05-10)
+
+Profile (both sides identical)
+  opt-level 3, codegen-units 16, debug false, panic unwind,
+  lto off, no RUSTFLAGS, no target-cpu override
+
+Side A = HEAD cea9c69 (vendor halo2_proofs with F0-F2 instrumentation, no Ast::Neg)
+  file sha256   b6b16f4c016de3cba54340a15b8d7cfb08facc5ad7dfb7cea31583c7ca053e58
+  size          4259328 bytes
+  .text         3360328 bytes, sha256 8d5ca96d456065a0...
+  built with    CARGO_TARGET_DIR=target/f3-a cargo build --release --offline --bin orchard-e2e
+
+Side B = A + halo2_proofs-0.4.0-h6-neg.patch (370 lines, +255/-13)
+  file sha256   428175a751754b62...  (see target/f3-b.bin.exe)
+  size          4264960 bytes
+  .text         3365704 bytes, sha256 403bf01eda1f5226...
+  built with    CARGO_TARGET_DIR=target/f3-b cargo build --release --offline --bin orchard-e2e
+
+The A .text hash matches the one recorded in the F2 / H1c runs (8d5ca96d...),
+so the baseline reproduces byte for byte.
+
+Datasets (all ABBA: A1 B1 B2 A2 per round, mask 0x1 for 1P and 0xFF for 8P)
+  D1  baseline/ treatment/                     5 rounds x 5 reps, no env      -> verdict
+  D2  stage/{baseline,treatment}/              3 rounds x 4 reps, ORCHARD_E2_TIMING=1
+  D3  mechanism/{baseline,treatment}/          2 rounds x 1 rep,  ORCHARD_F2=1 ORCHARD_F2_BENCH=0, --mode f2
+
+Correctness
+  correctness/v3_1p.log        B side, --mode v3 --reps 3: 3 proofs, 3 verifications, exit 0
+  correctness/v3_1p_side_a.log A side, same command, for reference
+
+Microbenchmark (re-run this session, empty machine)
+  scale_cost.csv: negate 1.0829 ns/element, *x *= -1 11.1656, *x *= 2 10.7103
+
+Regenerate the tables
+  python scripts/analysis/f3_report.py
