@@ -1,0 +1,370 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
+index 25184b6..97bccc0 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
+@@ -444,6 +444,8 @@ pub struct AstStats {
+     pub add: u64,
+     pub mul: u64,
+     pub scale: u64,
++    /// Negation nodes. Stage F3 / H6; zero for any build without `Ast::Neg`.
++    pub neg: u64,
+     pub distribute: u64,
+     pub distribute_terms: u64,
+     pub linear: u64,
+@@ -460,15 +462,30 @@ impl AstStats {
+     /// Multiplications of a whole `Vec<F>` (i.e. `len` field muls each):
+     /// `Mul`, `Scale`, and the `acc *= base` step of every `distribute_powers`
+     /// term. This is the number Stage E3's `Fp::mul` samples should account for.
++    /// Deliberately excludes `neg`: the point of H6 is that a negation is not
++    /// a multiplication any more, so `vector_muls` must drop when it is used.
+     pub fn vector_muls(&self) -> u64 {
+         self.mul + self.scale + self.distribute_terms
+     }
+ 
++    /// Total node count of the fused tree.
++    pub fn nodes(&self) -> u64 {
++        self.poly
++            + self.add
++            + self.mul
++            + self.scale
++            + self.neg
++            + self.distribute
++            + self.linear
++            + self.constant
++    }
++
+     fn add(&mut self, o: &AstStats) {
+         self.poly += o.poly;
+         self.add += o.add;
+         self.mul += o.mul;
+         self.scale += o.scale;
++        self.neg += o.neg;
+         self.distribute += o.distribute;
+         self.distribute_terms += o.distribute_terms;
+         self.linear += o.linear;
+@@ -484,24 +501,19 @@ impl AstStats {
+             .collect::<Vec<_>>()
+             .join(",");
+         format!(
+-            "{{\"poly\":{},\"add\":{},\"mul\":{},\"scale\":{},\"distribute\":{},\
++            "{{\"poly\":{},\"add\":{},\"mul\":{},\"scale\":{},\"neg\":{},\"distribute\":{},\
+ \"distribute_terms\":{},\"linear\":{},\"constant\":{},\"nodes\":{},\
+ \"max_depth\":{},\"vector_muls\":{},\"terms\":[{}]}}",
+             self.poly,
+             self.add,
+             self.mul,
+             self.scale,
++            self.neg,
+             self.distribute,
+             self.distribute_terms,
+             self.linear,
+             self.constant,
+-            self.poly
+-                + self.add
+-                + self.mul
+-                + self.scale
+-                + self.distribute
+-                + self.linear
+-                + self.constant,
++            self.nodes(),
+             self.max_depth,
+             self.vector_muls(),
+             terms
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+index 3e563b6..9fdac6e 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+@@ -226,6 +226,16 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+                     }
+                     lhs
+                 }
++                // Stage F3 / H6: negation is its own operation. `Scale(a, -1)`
++                // would run a Montgomery multiplication per element; `Fp::neg`
++                // is four `sbb` and no reduction.
++                Ast::Neg(a) => {
++                    let mut lhs = recurse(a, ctx);
++                    for lhs in lhs.iter_mut() {
++                        *lhs = -*lhs;
++                    }
++                    lhs
++                }
+                 Ast::DistributePowers(terms, base) => terms.iter().fold(
+                     B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, F::ZERO),
+                     |mut acc, term| {
+@@ -295,6 +305,12 @@ pub(crate) enum Ast<E, F: Field, B: Basis> {
+     Add(Arc<Ast<E, F, B>>, Arc<Ast<E, F, B>>),
+     Mul(AstMul<E, F, B>),
+     Scale(Arc<Ast<E, F, B>>, F),
++    /// Arithmetic negation of a node.
++    ///
++    /// Stage F3 / H6: this used to be lowered to `Scale(node, -1)`, which costs
++    /// one `Fp::mul` per element. Negation is exact in any field and needs no
++    /// reduction, so it gets a node of its own.
++    Neg(Arc<Ast<E, F, B>>),
+     /// Represents a linear combination of a vector of nodes and the powers of a
+     /// field element, where the nodes are ordered from highest to lowest degree
+     /// terms.
+@@ -323,6 +339,7 @@ impl<E, F: Field, B: Basis> fmt::Debug for Ast<E, F, B> {
+             Self::Add(lhs, rhs) => f.debug_tuple("Add").field(lhs).field(rhs).finish(),
+             Self::Mul(x) => f.debug_tuple("Mul").field(x).finish(),
+             Self::Scale(base, scalar) => f.debug_tuple("Scale").field(base).field(scalar).finish(),
++            Self::Neg(x) => f.debug_tuple("Neg").field(x).finish(),
+             Self::DistributePowers(terms, base) => f
+                 .debug_tuple("DistributePowers")
+                 .field(terms)
+@@ -349,8 +366,13 @@ impl<E, F: Field, B: Basis> Ast<E, F, B> {
+ impl<E, F: Field, B: Basis> Neg for Ast<E, F, B> {
+     type Output = Ast<E, F, B>;
+ 
++    /// Stage F3 / H6: this is the single place negation becomes a node, so it
++    /// is also the only place that had to change. `Expression::Negated` reaches
++    /// it through `Expression::evaluate(..., negated = &|a| -a, ...)`, and
++    /// `Sub` reaches it through `self + (-other)` -- both mean the same thing
++    /// and both now get an `Ast::Neg` instead of a `Scale(-1)`.
+     fn neg(self) -> Self::Output {
+-        Ast::Scale(Arc::new(self), -F::ONE)
++        Ast::Neg(Arc::new(self))
+     }
+ }
+ 
+@@ -703,6 +725,206 @@ mod tests {
+         test_case(k, new_evaluator::<_, _, LagrangeCoeff>(|| {}));
+         test_case(k, new_evaluator::<_, _, ExtendedLagrangeCoeff>(|| {}));
+     }
++
++    // -----------------------------------------------------------------------
++    // Stage F3 / H6: `Ast::Neg` must be indistinguishable from `Scale(-1)`.
++    //
++    // Every case compares the whole evaluated vector, not a sample: the chunked
++    // evaluator has already had one bug that only appeared in a final chunk
++    // shorter than the others, which a spot check would have missed.
++    // -----------------------------------------------------------------------
++    mod h6 {
++        use std::sync::Arc;
++
++        use group::ff::Field;
++        use pasta_curves::pallas;
++
++        use super::super::{get_chunk_params, new_evaluator, Ast, AstMul, BasisOps, Evaluator};
++        use crate::poly::{EvaluationDomain, ExtendedLagrangeCoeff, Polynomial};
++
++        type Base = pallas::Base;
++        type Ext = Evaluator<fn(), Base, ExtendedLagrangeCoeff>;
++        type ExtAst = Ast<fn(), Base, ExtendedLagrangeCoeff>;
++
++        fn ctx() {}
++
++        /// A deterministic, non-degenerate polynomial of the domain's extended
++        /// length. Deliberately not constant: an all-equal polynomial would let
++        /// a broken negation look correct at every index but the first.
++        fn filled<B: crate::poly::Basis>(
++            domain: &EvaluationDomain<Base>,
++            empty: Polynomial<Base, B>,
++            seed: u64,
++        ) -> Polynomial<Base, B> {
++            let mut poly = empty;
++            let mut x = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
++            for v in poly.iter_mut() {
++                x = x
++                    .wrapping_mul(6364136223846793005)
++                    .wrapping_add(1442695040888963407);
++                *v = Base::from(x >> 11);
++            }
++            poly
++        }
++
++        fn fixture(k: u32, seed: u64) -> (EvaluationDomain<Base>, Ext, ExtAst) {
++            let domain = EvaluationDomain::new(1, k);
++            let mut ev: Ext = new_evaluator(ctx);
++            let poly = filled(&domain, domain.empty_extended(), seed);
++            let leaf = ev.register_poly(poly);
++            (domain, ev, Ast::from(leaf))
++        }
++
++        /// Assert `Neg(inner) == Scale(-1, inner) == -inner`, element by element
++        /// over the whole domain, for a caller-supplied `inner`.
++        fn assert_equivalent(label: &str, k: u32, seed: u64, mk: impl Fn(&ExtAst) -> ExtAst) {
++            let (domain, ev, leaf) = fixture(k, seed);
++            let inner = mk(&leaf);
++
++            let neg = ev.evaluate(&Ast::Neg(Arc::new(inner.clone())), &domain);
++            let scaled = ev.evaluate(&Ast::Scale(Arc::new(inner.clone()), -Base::ONE), &domain);
++            let plain = ev.evaluate(&inner, &domain);
++
++            assert_eq!(neg.num_coeffs(), domain.extended_len(), "{label}: length");
++            assert_eq!(neg.num_coeffs(), scaled.num_coeffs(), "{label}: length");
++
++            // The chunking is the part with a history; make sure this case
++            // actually exercised more than one chunk.
++            let (chunk_size, num_chunks) = get_chunk_params(domain.extended_len());
++            assert!(
++                num_chunks > 1,
++                "{label}: only one chunk of {chunk_size}, coverage is not meaningful"
++            );
++
++            for (i, ((n, s), p)) in neg.iter().zip(scaled.iter()).zip(plain.iter()).enumerate() {
++                assert_eq!(n, s, "{label}: Neg != Scale(-1) at index {i}");
++                assert_eq!(*n, -*p, "{label}: Neg(x) != -x at index {i}");
++            }
++        }
++
++        #[test]
++        fn neg_of_constant_zero() {
++            // 0 negated must be 0, not the modulus: this is the case a naive
++            // "p - x" implementation gets wrong.
++            let (domain, ev, _) = fixture(5, 1);
++            let out = ev.evaluate(&Ast::Neg(Arc::new(Ast::ConstantTerm(Base::ZERO))), &domain);
++            assert!(out.iter().all(|v| *v == Base::ZERO));
++            assert_equivalent("constant zero", 5, 1, |_| Ast::ConstantTerm(Base::ZERO));
++        }
++
++        #[test]
++        fn neg_of_constant_one() {
++            let (domain, ev, _) = fixture(5, 2);
++            let out = ev.evaluate(&Ast::Neg(Arc::new(Ast::ConstantTerm(Base::ONE))), &domain);
++            assert!(out.iter().all(|v| *v == -Base::ONE));
++            assert_equivalent("constant one", 5, 2, |_| Ast::ConstantTerm(Base::ONE));
++        }
++
++        #[test]
++        fn neg_of_neg_is_identity() {
++            let (domain, ev, leaf) = fixture(5, 3);
++            let twice = Ast::Neg(Arc::new(Ast::Neg(Arc::new(leaf.clone()))));
++            let out = ev.evaluate(&twice, &domain);
++            let direct = ev.evaluate(&leaf, &domain);
++            assert!(out.iter().zip(direct.iter()).all(|(a, b)| a == b));
++            assert_equivalent("double neg", 5, 3, |l| {
++                Ast::Neg(Arc::new(Ast::Neg(Arc::new(l.clone()))))
++            });
++        }
++
++        #[test]
++        fn neg_of_product() {
++            assert_equivalent("product", 5, 4, |leaf| {
++                Ast::Neg(Arc::new(Ast::Mul(AstMul(
++                    Arc::new(leaf.clone()),
++                    Arc::new(Ast::ConstantTerm(Base::from(3u64))),
++                ))))
++            });
++        }
++
++        #[test]
++        fn neg_of_sum() {
++            assert_equivalent("sum", 5, 5, |leaf| {
++                Ast::Neg(Arc::new(Ast::Add(
++                    Arc::new(leaf.clone()),
++                    Arc::new(Ast::ConstantTerm(Base::from(7u64))),
++                )))
++            });
++        }
++
++        #[test]
++        fn neg_of_scaled() {
++            let c = Base::from(11u64);
++            assert_equivalent("scaled", 5, 6, |leaf| {
++                Ast::Neg(Arc::new(Ast::Scale(Arc::new(leaf.clone()), c)))
++            });
++
++            // ... and the same node is what `Scale(-c, x)` short-circuits to.
++            let (domain, ev, leaf) = fixture(5, 6);
++            let a = ev.evaluate(
++                &Ast::Neg(Arc::new(Ast::Scale(Arc::new(leaf.clone()), c))),
++                &domain,
++            );
++            let b = ev.evaluate(&Ast::Scale(Arc::new(leaf), -c), &domain);
++            assert!(a.iter().zip(b.iter()).all(|(x, y)| x == y));
++        }
++
++        #[test]
++        fn neg_of_leaf_over_every_chunk() {
++            // k = 4 keeps the extended polynomial small, so the loop walks many
++            // chunks; the assertion inside compares every index of every chunk.
++            for k in 4..=7 {
++                assert_equivalent("leaf", k, 100 + k as u64, |l| l.clone());
++            }
++        }
++
++        #[test]
++        fn neg_matches_scale_neg_one_for_every_basis() {
++            // `recurse` is generic over the basis, and `Ast::Neg` must stay
++            // constructible for all three even though only the extended one is
++            // used by the fused quotient tree.
++            fn case<B: BasisOps>(k: u32, seed: u64) {
++                let domain = EvaluationDomain::new(1, k);
++                let mut ev: Evaluator<fn(), Base, B> = new_evaluator(ctx);
++                let poly = filled(&domain, B::empty_poly(&domain), seed);
++                let leaf: Ast<fn(), Base, B> = Ast::from(ev.register_poly(poly));
++
++                let neg = ev.evaluate(&Ast::Neg(Arc::new(leaf.clone())), &domain);
++                let scaled = ev.evaluate(&Ast::Scale(Arc::new(leaf.clone()), -Base::ONE), &domain);
++                assert_eq!(neg.num_coeffs(), scaled.num_coeffs());
++                assert!(
++                    neg.iter().zip(scaled.iter()).all(|(a, b)| a == b),
++                    "basis mismatch at k={k}"
++                );
++            }
++            case::<crate::poly::LagrangeCoeff>(5, 32);
++            case::<ExtendedLagrangeCoeff>(5, 33);
++
++            // The standard (coefficient) basis cannot even evaluate a leaf --
++            // `get_chunk_of_rotated` refuses to rotate it -- so the only thing
++            // that can be checked there is that `Neg` exists and is exact on a
++            // constant.
++            let domain = EvaluationDomain::new(1, 5);
++            let mut ev: Evaluator<fn(), Base, crate::poly::Coeff> = new_evaluator(ctx);
++            ev.register_poly(crate::poly::Coeff::empty_poly(&domain));
++            let c = Ast::<fn(), Base, crate::poly::Coeff>::ConstantTerm(Base::from(9u64));
++            let neg = ev.evaluate(&Ast::Neg(Arc::new(c.clone())), &domain);
++            let scaled = ev.evaluate(&Ast::Scale(Arc::new(c), -Base::ONE), &domain);
++            assert!(neg.iter().zip(scaled.iter()).all(|(a, b)| a == b));
++        }
++
++        #[test]
++        fn neg_is_counted_and_is_not_a_multiplication() {
++            // H6-B at the smallest possible scale: one negation node must show
++            // up as `neg = 1`, must not show up as `scale`, and must contribute
++            // nothing to `vector_muls` -- that is the whole claim of H6.
++            let (_, _, leaf) = fixture(5, 7);
++            let s = super::super::f2_ast_stats(&Ast::Neg(Arc::new(leaf)));
++            assert_eq!((s.neg, s.scale, s.mul), (1, 0, 0));
++            assert_eq!(s.vector_muls(), 0);
++            assert_eq!(s.nodes(), 2); // one Neg, one Poly
++        }
++    }
+ }
+ 
+ // ---------------------------------------------------------------------------
+@@ -734,6 +956,10 @@ fn f2_ast_stats<E, F: Field, B: Basis>(ast: &Ast<E, F, B>) -> crate::f2::AstStat
+                 s.scale += 1;
+                 go(a, s, depth + 1);
+             }
++            Ast::Neg(a) => {
++                s.neg += 1;
++                go(a, s, depth + 1);
++            }
+             Ast::DistributePowers(terms, _) => {
+                 s.distribute += 1;
+                 // The fold does one `acc *= base` per term, on the whole chunk,
+@@ -743,14 +969,18 @@ fn f2_ast_stats<E, F: Field, B: Basis>(ast: &Ast<E, F, B>) -> crate::f2::AstStat
+                     // Snapshot the counters and diff, so each top-level term gets
+                     // its own cost. Terms arrive gates-first, then permutation,
+                     // then lookup, which is what makes the split attributable.
+-                    let before = [s.mul, s.scale, s.poly, s.add];
++                    let before = [s.mul, s.scale, s.neg, s.poly, s.add];
++                    let before_nodes = s.nodes();
+                     go(term, s, depth + 1);
+                     let d_mul = s.mul - before[0];
+                     let d_scale = s.scale - before[1];
+-                    let d_poly = s.poly - before[2];
+-                    let d_add = s.add - before[3];
++                    let d_poly = s.poly - before[3];
++                    let d_add = s.add - before[4];
++                    // Nodes, not the sum of the four counters: since F3 a term
++                    // can also contain `Neg` nodes, and a total that silently
++                    // omitted them would stop matching the node census.
+                     s.terms
+-                        .push([d_mul, d_scale, d_poly, d_add, d_mul + d_scale + d_poly + d_add]);
++                        .push([d_mul, d_scale, d_poly, d_add, s.nodes() - before_nodes]);
+                 }
+             }
+             Ast::LinearTerm(_) => s.linear += 1,
