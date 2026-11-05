@@ -47,6 +47,111 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 #[cfg(windows)]
 mod e3sampler;
 
+// ---------------------------------------------------------------------------
+// Stage F4-A.2: 1 ms memory sampling over the proof window
+// ---------------------------------------------------------------------------
+//
+// `PeakWorkingSetSize` is monotone over the process lifetime, and after keygen
+// it already sits in the GB range, so a few MiB of change is invisible in it
+// (doc 24 §8.3 measured 0.0 MiB for both arms). The only way to get a per-proof
+// figure is to sample during the proof. Everything here is reported as
+// "1 ms sampled peak", never as "peak".
+#[cfg(feature = "f4a2mem")]
+mod mem2 {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    pub struct Window {
+        pub ws_start: u64,
+        pub private_start: u64,
+        pub ws_peak: u64,
+        pub private_peak: u64,
+        pub peak_ws_kernel: u64,
+        pub peak_pagefile_kernel: u64,
+        pub samples: u64,
+        pub window_ms: f64,
+    }
+
+    pub fn run<T>(f: impl FnOnce() -> T) -> (T, Window) {
+        let start = super::mem::snapshot();
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
+        let sampler = std::thread::spawn(move || {
+            let mut ws_peak = 0u64;
+            let mut priv_peak = 0u64;
+            let mut samples = 0u64;
+            // The first sample is taken before the sleep, so a short proof still
+            // gets at least one sample inside the window.
+            loop {
+                let s = super::mem::snapshot();
+                ws_peak = ws_peak.max(s.ws);
+                priv_peak = priv_peak.max(s.private);
+                samples += 1;
+                if flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            (ws_peak, priv_peak, samples)
+        });
+        let t = Instant::now();
+        let out = f();
+        let window_ms = t.elapsed().as_secs_f64() * 1e3;
+        stop.store(true, Ordering::Relaxed);
+        let (ws_peak, priv_peak, samples) = sampler.join().expect("mem sampler");
+        let end = super::mem::snapshot();
+        (
+            out,
+            Window {
+                ws_start: start.ws,
+                private_start: start.private,
+                ws_peak: ws_peak.max(start.ws),
+                private_peak: priv_peak.max(start.private),
+                peak_ws_kernel: end.peak_ws,
+                peak_pagefile_kernel: end.peak_pagefile,
+                samples,
+                window_ms,
+            },
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stage F4-A.2: counting allocator (diagnostic build only)
+// ---------------------------------------------------------------------------
+//
+// Compiled only with `--features f4a2mem`, so the performance build keeps the
+// plain `System` allocator and the 22% comparison is untouched (doc 25 §2.2).
+#[cfg(feature = "f4a2mem")]
+mod counting_alloc {
+    use std::alloc::{GlobalAlloc, Layout, System};
+
+    pub struct Counting;
+
+    // `realloc` / `alloc_zeroed` are deliberately not overridden: the default
+    // implementations route through `alloc` + `dealloc`, so they are counted
+    // exactly once each.
+    unsafe impl GlobalAlloc for Counting {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            let p = unsafe { System.alloc(layout) };
+            if !p.is_null() {
+                halo2_proofs::f4a2::on_alloc(layout.size());
+            }
+            p
+        }
+
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            halo2_proofs::f4a2::on_dealloc(layout.size());
+            unsafe { System.dealloc(ptr, layout) }
+        }
+    }
+}
+
+#[cfg(feature = "f4a2mem")]
+#[global_allocator]
+static GLOBAL: counting_alloc::Counting = counting_alloc::Counting;
+
 const MERKLE_DEPTH: usize = 32; // orchard::NOTE_COMMITMENT_TREE_DEPTH
 
 // ---------------------------------------------------------------------------
@@ -55,6 +160,8 @@ const MERKLE_DEPTH: usize = 32; // orchard::NOTE_COMMITMENT_TREE_DEPTH
 
 #[cfg(windows)]
 mod mem {
+    /// `PROCESS_MEMORY_COUNTERS_EX`: the base counters plus `PrivateUsage`.
+    /// Passing `cb = size_of::<Self>()` is what makes Windows fill the tail.
     #[repr(C)]
     #[derive(Default)]
     struct ProcessMemoryCounters {
@@ -68,6 +175,7 @@ mod mem {
         quota_non_paged_pool_usage: usize,
         pagefile_usage: usize,
         peak_pagefile_usage: usize,
+        private_usage: usize,
     }
 
     #[link(name = "kernel32")]
@@ -104,6 +212,27 @@ mod mem {
     pub fn peak_working_set_mib() -> f64 {
         counters().map_or(0.0, |c| c.peak_working_set_size as f64 / (1024.0 * 1024.0))
     }
+
+    /// One snapshot of everything `GetProcessMemoryInfo` reports, in bytes.
+    #[allow(dead_code)] // only the `f4a2mem` build reads it
+    #[derive(Clone, Copy, Default)]
+    pub struct Snapshot {
+        pub ws: u64,
+        pub private: u64,
+        /// Monotone kernel counters: only usable as an upper bound.
+        pub peak_ws: u64,
+        pub peak_pagefile: u64,
+    }
+
+    #[allow(dead_code)] // only the `f4a2mem` build reads it
+    pub fn snapshot() -> Snapshot {
+        counters().map_or(Snapshot::default(), |c| Snapshot {
+            ws: c.working_set_size as u64,
+            private: c.private_usage as u64,
+            peak_ws: c.peak_working_set_size as u64,
+            peak_pagefile: c.peak_pagefile_usage as u64,
+        })
+    }
 }
 
 #[cfg(not(windows))]
@@ -113,6 +242,19 @@ mod mem {
     }
     pub fn peak_working_set_mib() -> f64 {
         0.0
+    }
+
+    #[derive(Clone, Copy, Default)]
+    pub struct Snapshot {
+        pub ws: u64,
+        pub private: u64,
+        pub peak_ws: u64,
+        pub peak_pagefile: u64,
+    }
+
+    #[allow(dead_code)] // only the `f4a2mem` build reads it
+    pub fn snapshot() -> Snapshot {
+        Snapshot::default()
     }
 }
 
@@ -277,6 +419,12 @@ fn mean(v: &[f64]) -> f64 {
     v.iter().sum::<f64>() / v.len() as f64
 }
 
+/// Bytes → MiB, for the memory lines only.
+#[cfg(feature = "f4a2mem")]
+fn mib(bytes: u64) -> f64 {
+    bytes as f64 / (1024.0 * 1024.0)
+}
+
 fn fmt(v: &[f64]) -> String {
     v.iter()
         .map(|x| format!("{x:.6}"))
@@ -307,6 +455,12 @@ fn emit_e2(pool: &str, rep: usize) {
 // ---------------------------------------------------------------------------
 
 fn main() {
+    // Initialise the hook's flag before the allocator is instrumented: the
+    // initialiser allocates and would otherwise be re-entered from the
+    // allocator itself (doc 25 §2.2).
+    #[cfg(feature = "f4a2mem")]
+    let _ = halo2_proofs::f4a2::enabled();
+
     let args = parse_args();
 
     // Pin before any rayon pool exists, so every worker inherits the mask.
@@ -336,8 +490,13 @@ fn main() {
         "f4b" => run_f4b(&args, pinned),
         #[cfg(feature = "f4aimpl")]
         "f4aimpl" => run_f4aimpl(&args, pinned),
+        #[cfg(feature = "f4a2mem")]
+        "f4a2mem" => run_f4a2mem(&args, pinned),
+        #[cfg(feature = "f4aimpl")]
+        "f4a2stage" => run_f4a2stage(&args, pinned),
         other => panic!(
-            "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a, f4b or f4aimpl)"
+            "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a, f4b, \
+f4aimpl, f4a2mem or f4a2stage)"
         ),
     }
 }
@@ -1418,6 +1577,216 @@ fn run_f4aimpl(args: &Args, pinned: Option<usize>) {
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
         std::env::var_os("ORCHARD_F4A_STATS").is_some(),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode f4a2mem: Stage F4-A.2 memory and allocation accounting
+// ---------------------------------------------------------------------------
+//
+// Same A/B protocol as `f4aimpl` (one process, arms interleaved, switch read
+// per proof), plus three things that only exist in the diagnostic build:
+//
+//   1. a 1 ms sampler over the proof window (working set + private bytes),
+//   2. the counting allocator installed at the crate root,
+//   3. the mem module's `chunk_begin` / `chunk_end` window and `note_memo`.
+//
+// The times printed here come from an allocator-instrumented build and are NOT
+// comparable to doc 24 §5 (doc 25 §2.2). They are printed only so the ratio can
+// be sanity-checked; the audit's time evidence is block three.
+#[cfg(feature = "f4a2mem")]
+fn run_f4a2mem(args: &Args, pinned: Option<usize>) {
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+    let mut actions = 0usize;
+
+    for pair in 0..args.reps {
+        for arm in ["A", "B"] {
+            let on = arm == "B";
+            std::env::set_var("ORCHARD_F4A", if on { "1" } else { "0" });
+
+            // Identical randomness in both arms (same reason as `f4aimpl`).
+            let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+            let (note, path, anchor) =
+                note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+
+            let mut b = Builder::new(
+                BundleType::UNPADDED,
+                orchard_bv,
+                orchard_bv.default_flags(),
+                anchor,
+            )
+            .expect("orchard v3 builder");
+            b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+            b.add_change_output(
+                fvk.clone(),
+                None,
+                own_address,
+                NoteValue::from_raw(85_000_000),
+                [0u8; 512],
+            )
+            .expect("add_change_output");
+            let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+            actions = bundle.actions().len();
+
+            halo2_proofs::f4a2::reset();
+            let (proven, win) = mem2::run(|| bundle.create_proof(&pk, &mut rng).expect("proof"));
+            let alloc = halo2_proofs::f4a2::report();
+
+            let authorized = proven
+                .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+                .expect("f4a2 signatures");
+            let proof = authorized.authorization().proof();
+            let proof_bytes = proof.as_ref().len();
+            let proof_fnv = fnv1a(proof.as_ref());
+            authorized.verify_proof(&vk).expect("f4a2 verify");
+
+            println!(
+                "F4A2_MEM {{\"pair\":{},\"arm\":\"{}\",\"f4a\":{},\"window_ms\":{:.3},\
+\"ws_start_mib\":{:.2},\"ws_peak_mib\":{:.2},\"ws_delta_mib\":{:.2},\
+\"priv_start_mib\":{:.2},\"priv_peak_mib\":{:.2},\"priv_delta_mib\":{:.2},\
+\"peak_ws_kernel_mib\":{:.2},\"peak_pagefile_kernel_mib\":{:.2},\"samples\":{},\
+\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\"}}",
+                pair,
+                arm,
+                on,
+                win.window_ms,
+                mib(win.ws_start),
+                mib(win.ws_peak),
+                mib(win.ws_peak.saturating_sub(win.ws_start)),
+                mib(win.private_start),
+                mib(win.private_peak),
+                mib(win.private_peak.saturating_sub(win.private_start)),
+                mib(win.peak_ws_kernel),
+                mib(win.peak_pagefile_kernel),
+                win.samples,
+                proof_bytes,
+                proof_fnv
+            );
+            println!("F4A2_ALLOC {{\"pair\":{},\"arm\":\"{}\",\"f4a\":{},{}", pair, arm, on,
+                &alloc[1..]);
+        }
+    }
+
+    std::env::set_var("ORCHARD_F4A", "0");
+    println!(
+        "F4A2_META {{\"mode\":\"f4a2mem\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"pairs\":{},\"seed\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        args.reps,
+        args.seed,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode f4a2stage: Stage F4-A.2 per-stage attribution
+// ---------------------------------------------------------------------------
+//
+// This mode adds nothing to the crate: E2's nine contiguous, non-overlapping
+// stages are already compiled in and env-gated. The only new thing is that the
+// stages are tagged with the A/B arm, so the paired difference per stage can be
+// formed inside one process. Absolute times here are not the doc 24 numbers
+// (E2 timing is on); only the stage deltas are used (doc 25 §2.3).
+#[cfg(feature = "f4aimpl")]
+fn run_f4a2stage(args: &Args, pinned: Option<usize>) {
+    // Must be set before the first `e2_add` call, which happens inside the first
+    // `create_proof`; `e2_enabled()` caches the flag in a `OnceLock`.
+    std::env::set_var("ORCHARD_E2_TIMING", "1");
+
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+    let mut actions = 0usize;
+
+    for pair in 0..args.reps {
+        for arm in ["A", "B"] {
+            let on = arm == "B";
+            std::env::set_var("ORCHARD_F4A", if on { "1" } else { "0" });
+
+            let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+            let (note, path, anchor) =
+                note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+
+            let mut b = Builder::new(
+                BundleType::UNPADDED,
+                orchard_bv,
+                orchard_bv.default_flags(),
+                anchor,
+            )
+            .expect("orchard v3 builder");
+            b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+            b.add_change_output(
+                fvk.clone(),
+                None,
+                own_address,
+                NoteValue::from_raw(85_000_000),
+                [0u8; 512],
+            )
+            .expect("add_change_output");
+            let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+            actions = bundle.actions().len();
+
+            let t = Instant::now();
+            let proven = bundle.create_proof(&pk, &mut rng).expect("stage proof");
+            let prove_ms = t.elapsed().as_secs_f64() * 1e3;
+
+            let mut stages = halo2_proofs::plonk::take_e2_timings();
+            stages.sort_by(|a, b| a.0.cmp(&b.0));
+            let body: Vec<String> = stages
+                .iter()
+                .map(|(k, v)| format!("\"{}\":{:.6}", k, v * 1e3))
+                .collect();
+
+            let authorized = proven
+                .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+                .expect("stage signatures");
+            let proof = authorized.authorization().proof();
+            let proof_bytes = proof.as_ref().len();
+            let proof_fnv = fnv1a(proof.as_ref());
+            authorized.verify_proof(&vk).expect("stage verify");
+
+            println!(
+                "E2_PAIR {{\"pair\":{},\"arm\":\"{}\",\"f4a\":{},\"prove_ms\":{:.3},\
+\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\"stages_ms\":{{{}}}}}",
+                pair,
+                arm,
+                on,
+                prove_ms,
+                proof_bytes,
+                proof_fnv,
+                body.join(",")
+            );
+        }
+    }
+
+    std::env::set_var("ORCHARD_F4A", "0");
+    println!(
+        "F4A2_META {{\"mode\":\"f4a2stage\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"pairs\":{},\"seed\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        args.reps,
+        args.seed,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
     );
 }
 

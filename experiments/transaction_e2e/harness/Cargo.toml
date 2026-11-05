@@ -41,6 +41,13 @@ f4b = []
 # the same binary serves as both arms of the A/B.
 f4aimpl = []
 
+# Stage F4-A.2 resource audit. Off by default, and never combined with a
+# performance build: it installs a counting global allocator, so every malloc
+# and free pays two atomics. It requires BOTH the `f4a` and the `f4a2-mem`
+# patches, and only exists to answer "how much memory / how many allocations"
+# -- its timings are not evidence about speed (doc 25 §2.2).
+f4a2mem = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }

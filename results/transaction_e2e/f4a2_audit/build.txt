@@ -1,0 +1,68 @@
+Stage F4-A.2 — resource and stage audit: build and provenance
+============================================================
+
+Date        2026-11-05
+Parent      19e7d2b "F4-A: share the duplicated selector-recovery chains (1P prove -22.0%)"
+Host        Windows, Git Bash
+Pinning     1P -> --mask 0x1, 8P -> --mask 0xFF (in-process affinity)
+
+Toolchain   rustc 1.98.1 (48a229cea 2026-09-01)
+            cargo 1.98.1 (797e8a9bc 2026-08-05)
+            NOTE: doc 24's build.txt records rustc 1.88.0. The two stages were
+            built with different toolchains, so their binaries are not
+            comparable byte for byte -- another reason (besides pinning and
+            process length) that no absolute millisecond crosses that line.
+
+Patches applied on top of the frozen vendor
+-------------------------------------------
+experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-f4a.patch       +593 / -44, 6 files
+experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-f4a2-mem.patch  +215 / -0, 3 files
+    src/f4a2.rs                  +200 (new) counters, per-thread live bytes,
+                                            chunk window, memo residency
+    src/lib.rs                     +3       module declaration
+    src/poly/evaluator.rs         +12       chunk_begin/chunk_end markers,
+                                            note_memo(bytes from Vec::capacity)
+
+The second patch is measurement only: every entry point early-returns unless
+`ORCHARD_F4A2_MEM` is set, and it never writes to the `Ast`, to the memo, or to
+any value. It is reverted for the stage build (see below).
+
+Replay hashes (git apply both, then md5sum)
+-------------------------------------------
+d0603bdaa0dfd7ea3379ac1116dfbcc5  src/f4a2.rs
+580e8f84bea8d3ce85f1c254937ac5d6  src/poly/evaluator.rs
+594f0f3152be008001d1b4e135b43660  src/lib.rs
+
+Two binaries
+------------
+1) diagnostic  (counting allocator; its times are NOT evidence)
+   cargo build --release --offline --features f4aimpl,f4a2mem --bin orchard-e2e
+   target/release/orchard-e2e.exe
+       size      4514304 B
+       sha256    9e24df6fd3388ec11b52fa8e9816f3a6...
+
+2) stage       (no f4a2 patch applied at all, no counting allocator)
+   git apply -R vendor/halo2_proofs-0.4.0-f4a2-mem.patch
+   CARGO_TARGET_DIR=target/stage cargo build --release --offline --features f4aimpl --bin orchard-e2e
+   git apply    vendor/halo2_proofs-0.4.0-f4a2-mem.patch
+   target/stage/release/orchard-e2e.exe
+       size      4341760 B
+       sha256    d4b14423c1982e4f8bd7bf7a93471f74...
+
+One binary serves both arms in each case: `ORCHARD_F4A` is re-read once per
+proof, so a single process alternates A (=0) and B (=1) on the same fixture.
+
+Runs
+----
+mem_1p.log                 ORCHARD_F4A2_MEM=1 RAYON_NUM_THREADS=1 --mode f4a2mem --reps 5  --mask 0x1
+mem_8p.log                 ORCHARD_F4A2_MEM=1 RAYON_NUM_THREADS=8 --mode f4a2mem --reps 5  --mask 0xFF
+stage_1p.log               RAYON_NUM_THREADS=1 --mode f4a2stage --reps 20 --mask 0x1
+stage_8p.log               RAYON_NUM_THREADS=8 --mode f4a2stage --reps 20 --mask 0xFF
+drift_check_1p_unpinned.log RAYON_NUM_THREADS=1 --mode f4a2stage --reps 3 --mask 0
+
+Every proof in every run: 7264 B / 0xa6bcd171d69e969a (80 timed proofs total in
+the stage runs, 20 in the memory runs).
+
+Frozen-state check after reverting the vendor
+---------------------------------------------
+python scripts/analysis/f0_verify_frozen.py  ->  RESULT: PASS

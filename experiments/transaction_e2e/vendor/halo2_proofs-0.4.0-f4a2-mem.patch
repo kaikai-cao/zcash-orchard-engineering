@@ -1,0 +1,257 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a2.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a2.rs
+new file mode 100644
+index 0000000..c96effa
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a2.rs
+@@ -0,0 +1,200 @@
++//! Stage F4-A.2: read-only resource instrumentation for the F4-A memo.
++//!
++//! Everything here is gated on `ORCHARD_F4A2_MEM` being present in the
++//! environment and is a no-op otherwise. It never changes a value: the only
++//! writes are to counters, and the counters live outside the `Ast` and outside
++//! the evaluator's control flow.
++//!
++//! Three kinds of measurement, each with its own unit (doc 25 §2):
++//!
++//! * **allocator counters** -- `alloc_calls` / `alloc_bytes` / `dealloc_calls`,
++//!   fed by the harness's global allocator. Only the diagnostic build installs
++//!   that allocator, so the performance build never pays for these atomics.
++//! * **memo residency** -- the exact bytes the memo vectors occupy, read from
++//!   `Vec::capacity` right after the fill. Not an estimate.
++//! * **per-chunk window** -- the net live bytes inside one chunk task: the peak
++//!   of `live(now) - live(at window start)` on that worker thread. Requires the
++//!   per-thread `live` counter, which is also fed by the global allocator; with
++//!   no allocator installed the window reports zeros and says so.
++
++use std::cell::Cell;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::OnceLock;
++
++static ENABLED: OnceLock<bool> = OnceLock::new();
++
++/// `true` when `ORCHARD_F4A2_MEM` is set. Read once per process: the flag
++/// describes the build/run, not the arm, so the A and B arms of one process
++/// must agree on it.
++///
++/// The initializer allocates (the environment lookup builds an `OsString`), and
++/// this function is called from inside a global allocator hook. So while the
++/// hook is running we only ever read the already-initialised value: re-entering
++/// `get_or_init` from the allocator would deadlock. The harness calls
++/// `enabled()` once at startup to initialise it outside the hook.
++pub fn enabled() -> bool {
++    if IN_HOOK.with(Cell::get) {
++        return ENABLED.get().copied().unwrap_or(false);
++    }
++    *ENABLED.get_or_init(|| std::env::var_os("ORCHARD_F4A2_MEM").is_some())
++}
++
++static ALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
++static ALLOC_BYTES: AtomicU64 = AtomicU64::new(0);
++static DEALLOC_CALLS: AtomicU64 = AtomicU64::new(0);
++static DEALLOC_BYTES: AtomicU64 = AtomicU64::new(0);
++static MEMO_BYTES: AtomicU64 = AtomicU64::new(0);
++static MEMO_BYTES_MAX: AtomicU64 = AtomicU64::new(0);
++static MEMO_SLOTS: AtomicU64 = AtomicU64::new(0);
++static CHUNK_PEAK_MAX: AtomicU64 = AtomicU64::new(0);
++static CHUNK_PEAK_SUM: AtomicU64 = AtomicU64::new(0);
++static CHUNK_COUNT: AtomicU64 = AtomicU64::new(0);
++/// Windows whose net peak came out negative: a cross-thread free landed inside
++/// the window, so the thread-local delta is not a valid peak. Counted, not
++/// silently clamped, so the report can say how many samples were dropped.
++static CHUNK_ANOMALIES: AtomicU64 = AtomicU64::new(0);
++static CHUNK_ALLOC_SUM: AtomicU64 = AtomicU64::new(0);
++static CHUNK_ALLOC_MAX: AtomicU64 = AtomicU64::new(0);
++
++thread_local! {
++    /// Bytes currently allocated and not yet freed, as seen by *this* thread.
++    static LIVE: Cell<i64> = const { Cell::new(0) };
++    static IN_WINDOW: Cell<bool> = const { Cell::new(false) };
++    static WINDOW_BASE: Cell<i64> = const { Cell::new(0) };
++    static WINDOW_PEAK: Cell<i64> = const { Cell::new(0) };
++    static WINDOW_ALLOCS: Cell<u64> = const { Cell::new(0) };
++    /// Set while the global allocator hook body runs, to keep `enabled()` from
++    /// re-entering its own initialiser (which allocates).
++    static IN_HOOK: Cell<bool> = const { Cell::new(false) };
++}
++
++/// Called by the harness's global allocator for every allocation.
++#[inline]
++pub fn on_alloc(size: usize) {
++    IN_HOOK.with(|h| h.set(true));
++    if enabled() {
++        ALLOC_CALLS.fetch_add(1, Ordering::Relaxed);
++        ALLOC_BYTES.fetch_add(size as u64, Ordering::Relaxed);
++        LIVE.with(|live| {
++            let now = live.get() + size as i64;
++            live.set(now);
++            if IN_WINDOW.with(Cell::get) {
++                WINDOW_ALLOCS.with(|n| n.set(n.get() + 1));
++                WINDOW_PEAK.with(|peak| {
++                    if now > peak.get() {
++                        peak.set(now);
++                    }
++                });
++            }
++        });
++    }
++    IN_HOOK.with(|h| h.set(false));
++}
++
++/// Called by the harness's global allocator for every free.
++#[inline]
++pub fn on_dealloc(size: usize) {
++    IN_HOOK.with(|h| h.set(true));
++    if enabled() {
++        DEALLOC_CALLS.fetch_add(1, Ordering::Relaxed);
++        DEALLOC_BYTES.fetch_add(size as u64, Ordering::Relaxed);
++        LIVE.with(|live| live.set(live.get() - size as i64));
++    }
++    IN_HOOK.with(|h| h.set(false));
++}
++
++/// Opens a measurement window around one chunk task.
++#[inline]
++pub fn chunk_begin() {
++    if !enabled() {
++        return;
++    }
++    IN_WINDOW.with(|w| w.set(true));
++    let base = LIVE.with(Cell::get);
++    WINDOW_BASE.with(|b| b.set(base));
++    WINDOW_PEAK.with(|p| p.set(base));
++    WINDOW_ALLOCS.with(|n| n.set(0));
++}
++
++/// Closes the window and folds its net peak into the per-proof aggregates.
++#[inline]
++pub fn chunk_end() {
++    if !enabled() {
++        return;
++    }
++    IN_WINDOW.with(|w| w.set(false));
++    let peak = WINDOW_PEAK.with(Cell::get) - WINDOW_BASE.with(Cell::get);
++    if peak < 0 {
++        CHUNK_ANOMALIES.fetch_add(1, Ordering::Relaxed);
++        return;
++    }
++    let peak = peak as u64;
++    let allocs = WINDOW_ALLOCS.with(Cell::get);
++    CHUNK_ALLOC_SUM.fetch_add(allocs, Ordering::Relaxed);
++    CHUNK_ALLOC_MAX.fetch_max(allocs, Ordering::Relaxed);
++    CHUNK_PEAK_SUM.fetch_add(peak, Ordering::Relaxed);
++    CHUNK_COUNT.fetch_add(1, Ordering::Relaxed);
++    CHUNK_PEAK_MAX.fetch_max(peak, Ordering::Relaxed);
++}
++
++/// Records what one chunk's memo vectors actually occupy.
++pub fn note_memo(bytes: usize, slots: usize) {
++    if !enabled() {
++        return;
++    }
++    MEMO_BYTES.fetch_add(bytes as u64, Ordering::Relaxed);
++    MEMO_SLOTS.fetch_add(slots as u64, Ordering::Relaxed);
++    MEMO_BYTES_MAX.fetch_max(bytes as u64, Ordering::Relaxed);
++}
++
++/// Clears every counter. Called once per proof by the harness.
++pub fn reset() {
++    ALLOC_CALLS.store(0, Ordering::Relaxed);
++    ALLOC_BYTES.store(0, Ordering::Relaxed);
++    DEALLOC_CALLS.store(0, Ordering::Relaxed);
++    DEALLOC_BYTES.store(0, Ordering::Relaxed);
++    MEMO_BYTES.store(0, Ordering::Relaxed);
++    MEMO_BYTES_MAX.store(0, Ordering::Relaxed);
++    MEMO_SLOTS.store(0, Ordering::Relaxed);
++    CHUNK_PEAK_MAX.store(0, Ordering::Relaxed);
++    CHUNK_PEAK_SUM.store(0, Ordering::Relaxed);
++    CHUNK_COUNT.store(0, Ordering::Relaxed);
++    CHUNK_ANOMALIES.store(0, Ordering::Relaxed);
++    CHUNK_ALLOC_SUM.store(0, Ordering::Relaxed);
++    CHUNK_ALLOC_MAX.store(0, Ordering::Relaxed);
++}
++
++/// One JSON object with every counter above.
++pub fn report() -> String {
++    let chunks = CHUNK_COUNT.load(Ordering::Relaxed);
++    let mean = if chunks == 0 {
++        0
++    } else {
++        CHUNK_PEAK_SUM.load(Ordering::Relaxed) / chunks
++    };
++    let alloc_mean = if chunks == 0 {
++        0
++    } else {
++        CHUNK_ALLOC_SUM.load(Ordering::Relaxed) / chunks
++    };
++    format!(
++        "{{\"enabled\":{},\"alloc_calls\":{},\"alloc_bytes\":{},\"dealloc_calls\":{},\
++\"dealloc_bytes\":{},\"memo_bytes\":{},\"memo_bytes_max_chunk\":{},\"memo_slots\":{},\
++\"chunk_peak_max_bytes\":{},\"chunk_peak_mean_bytes\":{},\"chunk_count\":{},\
++\"chunk_allocs_mean\":{},\"chunk_allocs_max\":{},\"chunk_anomalies\":{}}}",
++        enabled(),
++        ALLOC_CALLS.load(Ordering::Relaxed),
++        ALLOC_BYTES.load(Ordering::Relaxed),
++        DEALLOC_CALLS.load(Ordering::Relaxed),
++        DEALLOC_BYTES.load(Ordering::Relaxed),
++        MEMO_BYTES.load(Ordering::Relaxed),
++        MEMO_BYTES_MAX.load(Ordering::Relaxed),
++        MEMO_SLOTS.load(Ordering::Relaxed),
++        CHUNK_PEAK_MAX.load(Ordering::Relaxed),
++        mean,
++        chunks,
++        alloc_mean,
++        CHUNK_ALLOC_MAX.load(Ordering::Relaxed),
++        CHUNK_ANOMALIES.load(Ordering::Relaxed),
++    )
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 4b3ed75..d120762 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -15,6 +15,9 @@ pub mod f2;
+ /// Stage F4-A: switch and counters for the shared selector-recovery chains
+ /// (inert unless `ORCHARD_F4A=1`). See the module docs.
+ pub mod f4a_impl;
++/// Stage F4-A.2: read-only resource counters (inert unless `ORCHARD_F4A2_MEM`
++/// is set). See the module docs.
++pub mod f4a2;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+index 08a10a7..dd2fd63 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+@@ -349,6 +349,10 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+         multicore::scope(|scope| {
+             for (chunk_index, out) in result.chunks_mut(chunk_size).enumerate() {
+                 scope.spawn(move |_| {
++                    // Stage F4-A.2: the window covers the memo fill *and* the
++                    // walk, because both live in this task's working set. It is
++                    // a no-op unless `ORCHARD_F4A2_MEM` is set.
++                    crate::f4a2::chunk_begin();
+                     // Stage F4-A: fill every slot for *this* chunk before the
+                     // walk, so the memo is immutable while it is being read.
+                     // The shared trees contain no `Ast::Memo` of their own, so
+@@ -369,6 +373,13 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+                             memo.push(recurse(ast, &pre).into_owned());
+                         }
+                         crate::f4a_impl::note_chunk_filled(chunk_index, memo.len());
++                        // Stage F4-A.2: exact bytes, from the vectors' own
++                        // capacity -- not `slots * chunk_size * 32` on paper.
++                        let bytes: usize = memo
++                            .iter()
++                            .map(|v| v.capacity() * core::mem::size_of::<F>())
++                            .sum();
++                        crate::f4a2::note_memo(bytes, memo.len());
+                         memo
+                     };
+                     let ctx = AstContext {
+@@ -380,6 +391,7 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+                         memo: &memo,
+                     };
+                     out.copy_from_slice(recurse(ast, &ctx).as_ref());
++                    crate::f4a2::chunk_end();
+                 });
+             }
+         });
