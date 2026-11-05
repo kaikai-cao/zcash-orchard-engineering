@@ -84,17 +84,23 @@ q · ∏_{i ≠ assigned_root} (i − q)
 
 ---
 
-## 3. 候选清单：本地能拿到什么
+## 3. 候选清单与未覆盖范围
 
-| 候选 | 是否走同一压缩 | 能否独立 prove/verify | 是否入选 | 说明 |
+| 候选 | 是否走同一压缩 | 能否独立 prove/verify | 定稿归类 | 说明 |
 |---|---|---|---|---|
 | `orchard` 0.16（PostNu6_3） | 是 | 是 | 基准 | 已有 21/24/26 的完整数据 |
-| `halo2_gadgets` 0.6 · Poseidon (`Pow5Chip`) | 是 | 是 | **入选为第二电路** | 3 门 / 3 selector，无需固定基点 |
-| `halo2_gadgets` 0.6 · ECC chip | 是 | 理论可以 | **未能构造** | 见 §3.1 |
-| `halo2_gadgets` 0.6 · Sinsemilla chip | 是 | 理论可以 | 未构造 | 同上，依赖 `FixedPoints` |
+| `halo2_gadgets` 0.6 · Poseidon (`Pow5Chip`) | 是 | 是 | **第二电路（唯一入选）** | 3 门 / 3 selector，无需固定基点 |
+| `halo2_gadgets` 0.6 · ECC chip | 是 | 理论可以 | **未覆盖范围（非候选）** | 见 §3.1；未测、未证伪，不产生结论 |
+| `halo2_gadgets` 0.6 · Sinsemilla chip | 是 | 理论可以 | **未覆盖范围（非候选）** | 同上，依赖 `FixedPoints` |
 | `halo2_poseidon` 0.2 | — | 否 | 排除 | 只有 hash 函数，不含电路 |
 | `halo2_proofs` 自带 examples | 是 | 是 | 排除 | 1–3 个门、1–2 个 selector，规模不足以产生组合 |
-| 其它生产电路（zkEVM 等） | 未知 | — | **本地不可及** | 本机没有第二份 halo2 工程，见 §9 |
+| 其它生产电路（zkEVM 等） | 未知 | — | **不可及** | 本机没有第二份 halo2 工程，见 §9 |
+
+> **归类口径（与 doc 26 §20 一致）**：ECC 与 Sinsemilla **不是"待验证的候选"**。
+> 它们没有被测过，也没有被证伪；在本研究里不产生任何结论，也不计入样本量（样本量 = 2，
+> 其中一个还是合成对照）。本表保留这两行，是为了记录"尝试过、被 API 可见性挡住"这一事实，
+> 不是为它们保留候选资格。若将来要覆盖，需要先补 `FixedPoints` 窗口表或改上游可见性，
+> 那是一个新立项，不是本轮的遗留项。
 
 ### 3.1 为什么 ECC chip 没做成（如实记录）
 
@@ -116,6 +122,7 @@ ECC 的 range check 表 (`GeneratorTableConfig`) 同样是 `pub(crate)`，
 外部无法 `load`。这是这条路的第二个硬阻塞。
 
 **结论**：这一轮没有拿到 ECC/Sinsemilla 的结构数据，不假装拿到了。
+按定稿口径（doc 26 §20），它们进入**未覆盖范围**，不再作为候选出现在任何结论里。
 
 ---
 
@@ -304,8 +311,8 @@ X5 的价值在于它证明**收益是规模专属的**。
 ### 8.2 不能说
 
 - **不能说 F4-A 是 Halo2 的通用优化。** 本轮只有一个真实的第二电路
-  （Poseidon，且它只有在人为抬 degree 后才出现链），另一个候选（ECC）
-  因 API 私有没能构造。样本量是 2，其中 1 个是合成对照。
+  （Poseidon，且它只有在人为抬 degree 后才出现链）；ECC / Sinsemilla 属于**未覆盖范围**
+  （doc 26 §20），既不支持也不反对任何结论。样本量是 2，其中 1 个是合成对照。
 - **不能把 `hi` 的 14 当成"预期收益"。** 它是结构计数，不是端到端时间；
   而且 `hi` 变体本身不是生产电路。
 - **不能由本轮的 2.3% 推断"所有电路收益都小"。** 只能推断
@@ -329,7 +336,7 @@ X5 的价值在于它证明**收益是规模专属的**。
 
 | 项 | 状态 | 原因 |
 |---|---|---|
-| ECC / Sinsemilla chip 的结构普查 | **未做** | `OrchardFixedBases` 与 `GeneratorTableConfig` 均不可从外部访问；自建固定基点表超出只读普查范围 |
+| ECC / Sinsemilla chip 的结构普查 | **未覆盖（非候选）** | 见 doc 26 §20：`OrchardFixedBases` 与 `GeneratorTableConfig` 均不可从外部访问；自建固定基点表超出只读普查范围 |
 | 其它生产 Halo2 电路（zkEVM、halo2-lib 等） | **不可及** | 本机只有 `orchard-upstream` 一份 halo2 工程；`cargo registry` 里只有 `halo2_gadgets` / `halo2_poseidon`，后者不含电路 |
 | 第二电路上的端到端 A/B | **未做** | X5 已 FAIL，按决定不移植 |
 | 第二电路的 `h` 指纹对照 | **未做** | 无 F4-A 实现臂，无对照可做 |
