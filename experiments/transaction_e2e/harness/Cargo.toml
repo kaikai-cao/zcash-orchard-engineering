@@ -35,6 +35,12 @@ f4a = []
 # `vendor/halo2_proofs-0.4.0-f4b-probe.patch` is applied. Read-only.
 f4b = []
 
+# Stage F4-A implementation. Off by default: `halo2_proofs::f4a_impl` only exists
+# after `vendor/halo2_proofs-0.4.0-f4a.patch` is applied. Unlike the probes this
+# one DOES change the evaluator -- but only when `ORCHARD_F4A=1` at run time, so
+# the same binary serves as both arms of the A/B.
+f4aimpl = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }

@@ -1,0 +1,55 @@
+Stage F4-A implementation -- build and provenance
+=================================================
+
+Date        2026-11-05
+Commit      (this commit; parent 49c8e90 "fix the unit levels and split 621 from 806")
+Host        Windows, Git Bash, no CPU pinning (`--mask` unused)
+Toolchain   rustc 1.88.0 (6b00bc388 2025-06-23)
+            cargo 1.88.0 (873a06493 2025-05-10)
+
+Patches applied on top of the frozen vendor
+-------------------------------------------
+experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-f4a.patch
+    +593 / -44, 6 files
+
+    src/f4a_impl.rs                  +149  (new) switch + counters + h hash
+    src/poly/evaluator.rs            +446/-36  Ast::Memo, Val, interning, memo fill
+    src/f2.rs                        +18/-4    `memo` counter in AstStats
+    src/plonk/prover.rs              +8        collect the list, intern, pass `shared`
+    src/plonk/vanishing/prover.rs    +13/-6    `construct` takes Vec + shared, set_shared
+    src/lib.rs                       +3        module declaration
+
+No other patch (H6, H7, f4-recon, f4a-probe, f4b-probe) is applied for these numbers.
+
+Replay hashes (git apply, then md5sum)
+-------------------------------------
+2cadc27dda41620eb04c8893a98377c8  src/f4a_impl.rs
+45307c88d005b3876737d3c1881a4c0a  src/poly/evaluator.rs
+8640f507b10470ef57ee1d1a768a5cda  src/f2.rs
+
+Binary
+------
+experiments/transaction_e2e/harness/target/release/orchard-e2e.exe
+    size      4318208 B
+    sha256    c3c32ba32c8d5be91b478be4a2650945... (first 32 hex)
+    .text     0033fc08 B at 0000000140001000
+
+Built with  cargo build --release --offline --features f4aimpl --bin orchard-e2e
+
+One binary serves both arms. `ORCHARD_F4A` is re-read once per proof, so a single
+process alternates A (`=0`) and B (`=1`) on the same fixture; `ORCHARD_F4A_STATS`
+adds the per-chunk counters and the h-coefficient hash.
+
+Runs
+----
+ab_1p.log           RAYON_NUM_THREADS=1  --reps 20   (20 pairs, stats off)
+ab_8p.log           RAYON_NUM_THREADS=8  --reps 20   (20 pairs, stats off)
+stats_1p.log        ORCHARD_F4A_STATS=1  RAYON_NUM_THREADS=1 --reps 1
+tree_crosscheck.log ORCHARD_F2=1 ORCHARD_F2_BENCH=1 ORCHARD_F4A_STATS=1
+                    RAYON_NUM_THREADS=1 --reps 1     (A/B tree comparison)
+
+Every run printed proof 7264 B / 0xa6bcd171d69e969a.
+
+Frozen-state check after reverting the vendor
+---------------------------------------------
+python scripts/analysis/f0_verify_frozen.py  ->  RESULT: PASS

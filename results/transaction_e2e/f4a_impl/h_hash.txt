@@ -1,0 +1,20 @@
+Stage F4-A -- correctness fingerprints
+======================================
+
+FNV-1a over each h(X) coefficient's canonical byte encoding
+(`note_h_poly` in src/f4a_impl.rs, active only with ORCHARD_F4A_STATS=1).
+
+stats_1p.log      RAYON_NUM_THREADS=1, --reps 1
+    arm A  (ORCHARD_F4A=0)   h_fnv = 0xee5d0c5e768ae539
+    arm B  (ORCHARD_F4A=1)   h_fnv = 0xee5d0c5e768ae539
+
+tree_crosscheck.log  ORCHARD_F2=1 ORCHARD_F2_BENCH=1, --reps 1
+    arm A  (ORCHARD_F4A=0)   h_fnv = 0xee5d0c5e768ae539
+    arm B  (ORCHARD_F4A=1)   h_fnv = 0xee5d0c5e768ae539
+
+Proof (all 80 timed proofs of ab_1p.log + ab_8p.log, plus both stats runs)
+    bytes  = 7264
+    fnv    = 0xa6bcd171d69e969a
+
+Same as the H6, H7, F4-recon and F4-A-probe records: the reference proof of the
+frozen state.

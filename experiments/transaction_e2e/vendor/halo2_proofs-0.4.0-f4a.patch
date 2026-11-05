@@ -1,0 +1,834 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
+index 25184b6..0275cd3 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f2.rs
+@@ -448,6 +448,8 @@ pub struct AstStats {
+     pub distribute_terms: u64,
+     pub linear: u64,
+     pub constant: u64,
++    /// Stage F4-A: `Ast::Memo` leaves. Zero unless the chain interning is on.
++    pub memo: u64,
+     pub max_depth: u32,
+     /// Per top-level `distribute_powers` term: (mul, scale, poly, add, nodes).
+     /// The terms arrive in a known order — every gate expression first, then the
+@@ -473,6 +475,7 @@ impl AstStats {
+         self.distribute_terms += o.distribute_terms;
+         self.linear += o.linear;
+         self.constant += o.constant;
++        self.memo += o.memo;
+         self.max_depth = self.max_depth.max(o.max_depth);
+     }
+ 
+@@ -485,7 +488,7 @@ impl AstStats {
+             .join(",");
+         format!(
+             "{{\"poly\":{},\"add\":{},\"mul\":{},\"scale\":{},\"distribute\":{},\
+-\"distribute_terms\":{},\"linear\":{},\"constant\":{},\"nodes\":{},\
++\"distribute_terms\":{},\"linear\":{},\"constant\":{},\"memo\":{},\"nodes\":{},\
+ \"max_depth\":{},\"vector_muls\":{},\"terms\":[{}]}}",
+             self.poly,
+             self.add,
+@@ -495,13 +498,15 @@ impl AstStats {
+             self.distribute_terms,
+             self.linear,
+             self.constant,
++            self.memo,
+             self.poly
+                 + self.add
+                 + self.mul
+                 + self.scale
+                 + self.distribute
+                 + self.linear
+-                + self.constant,
++                + self.constant
++                + self.memo,
+             self.max_depth,
+             self.vector_muls(),
+             terms
+@@ -605,7 +610,14 @@ pub fn flush_evals() {
+ \"field_muls_total\":{},\"field_adds_total\":{},\"leaf_elements_copied\":{},\"items\":[{}]}}",
+         calls,
+         total_poly_len,
+-        total.poly + total.add + total.mul + total.scale + total.distribute + total.linear + total.constant,
++        total.poly
++            + total.add
++            + total.mul
++            + total.scale
++            + total.distribute
++            + total.linear
++            + total.constant
++            + total.memo,
+         total.vector_muls(),
+         total_muls,
+         total_adds,
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a_impl.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a_impl.rs
+new file mode 100644
+index 0000000..4b0579b
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4a_impl.rs
+@@ -0,0 +1,149 @@
++//! Stage F4-A: bookkeeping for the shared selector-recovery chains.
++//!
++//! `compress_selectors` rewrites every packed virtual selector `q` as
++//! `q * prod_i (r_i - q)`. Constraints that used `q` each carry their own copy
++//! of that product, so the prover recomputes the same chain once per consumer.
++//! [`crate::poly::intern_chains`] replaces the root-position copies with
++//! `Ast::Memo(slot)`; the evaluator fills one memo slot per chunk before the
++//! walk. This module is only the switch and the counters — the mechanism lives
++//! in `poly/evaluator.rs`.
++//!
++//! **Off by default.** `ORCHARD_F4A=1` turns it on, so a build that has the
++//! patch applied but the variable unset is behaviourally identical to the
++//! baseline. That is what makes the A/B a same-binary comparison: `A` and `B`
++//! differ by one environment variable and nothing else.
++//!
++//! `ORCHARD_F4A_STATS=1` additionally counts memo reads. The counters are off
++//! during the timing runs (a relaxed load per memo visit is cheap but not free,
++//! and there is no reason to pay it while measuring).
++
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++fn var(name: &str) -> Option<String> {
++    std::env::var_os(name).map(|v| v.to_string_lossy().into_owned())
++}
++
++fn flag(name: &str) -> bool {
++    matches!(var(name).as_deref(), Some("1") | Some("true"))
++}
++
++/// Whether the chain interning is on for the *next* proof.
++///
++/// Deliberately not cached: it costs one `getenv` per proof, and re-reading it
++/// lets a single process alternate `A` and `B` proofs, which removes the
++/// process-start and allocator-state drift that separate runs would add on top
++/// of the machine drift already measured (doc 23 §10.3).
++pub fn enabled() -> bool {
++    flag("ORCHARD_F4A")
++}
++
++/// Whether the per-visit counters are on.
++fn stats_enabled() -> bool {
++    flag("ORCHARD_F4A_STATS")
++}
++
++static CHAINS: AtomicU64 = AtomicU64::new(0);
++static SLOTS: AtomicU64 = AtomicU64::new(0);
++static ROOT_CONSUMERS: AtomicU64 = AtomicU64::new(0);
++static CHAIN_MULS: AtomicU64 = AtomicU64::new(0);
++static SAVED_MULS: AtomicU64 = AtomicU64::new(0);
++
++static CHUNKS_FILLED: AtomicU64 = AtomicU64::new(0);
++static SLOT_FILLS: AtomicU64 = AtomicU64::new(0);
++static MEMO_READS: AtomicU64 = AtomicU64::new(0);
++
++static STATS_ON: AtomicBool = AtomicBool::new(false);
++
++/// Records what `intern_chains` decided, once per proof.
++///
++/// - `chains`: distinct root-position chains found (shared or not)
++/// - `slots`: chains with more than one consumer, i.e. memo slots
++/// - `root_consumers`: `sum over chains of occurrences`
++/// - `chain_muls`: `sum over chains of occ * (k - 1)` — the baseline's work
++/// - `saved_muls`: `sum over shared chains of (occ - 1) * (k - 1)` — the
++///   structural reduction, `structural_mul_eliminations` in doc 23 §10.2
++pub fn record_intern(
++    chains: usize,
++    slots: usize,
++    root_consumers: u64,
++    chain_muls: u64,
++    saved_muls: u64,
++    per_slot: Vec<(u32, u32)>,
++) {
++    STATS_ON.store(stats_enabled(), Ordering::Relaxed);
++    CHAINS.store(chains as u64, Ordering::Relaxed);
++    SLOTS.store(slots as u64, Ordering::Relaxed);
++    ROOT_CONSUMERS.store(root_consumers, Ordering::Relaxed);
++    CHAIN_MULS.store(chain_muls, Ordering::Relaxed);
++    SAVED_MULS.store(saved_muls, Ordering::Relaxed);
++    if STATS_ON.load(Ordering::Relaxed) {
++        let body = per_slot
++            .iter()
++            .map(|(k, occ)| format!("[{},{}]", k, occ))
++            .collect::<Vec<_>>()
++            .join(",");
++        println!("F4A_CHAINS {{\"slots\":{},\"k_occ\":[{}]}}", per_slot.len(), body);
++    }
++}
++
++/// One call per chunk that had slots to fill (V1: the fill loop covers `0..n`).
++pub fn note_chunk_filled(_chunk_index: usize, n_slots: usize) {
++    if !STATS_ON.load(Ordering::Relaxed) {
++        return;
++    }
++    CHUNKS_FILLED.fetch_add(1, Ordering::Relaxed);
++    SLOT_FILLS.fetch_add(n_slots as u64, Ordering::Relaxed);
++}
++
++/// One call per `Ast::Memo` visited (V2: every visit is an initialised slot —
++/// the index is bounds-checked by `ctx.memo[slot]` itself).
++pub fn note_memo_read(_chunk_index: usize, _slot: usize) {
++    if !STATS_ON.load(Ordering::Relaxed) {
++        return;
++    }
++    MEMO_READS.fetch_add(1, Ordering::Relaxed);
++}
++
++static H_FNV: AtomicU64 = AtomicU64::new(0);
++
++/// FNV-1a over the canonical byte encoding of `h`'s coefficients (P4: the A/B
++/// must agree on every coefficient, not just on the proof bytes).
++pub fn note_h_poly<F: ff::PrimeField>(coeffs: &[F]) {
++    // Reads the env directly rather than `STATS_ON`, because arm `A` never
++    // reaches `record_intern` and would otherwise inherit arm `B`'s hash.
++    if !stats_enabled() {
++        return;
++    }
++    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
++    for c in coeffs {
++        let repr = c.to_repr();
++        for b in repr.as_ref() {
++            h ^= *b as u64;
++            h = h.wrapping_mul(0x100_0000_01b3);
++        }
++    }
++    H_FNV.store(h, Ordering::Relaxed);
++}
++
++/// `F4A_IMPL {…}` for the harness to print.
++pub fn report() -> String {
++    let slots = SLOTS.load(Ordering::Relaxed);
++    let chunks = CHUNKS_FILLED.load(Ordering::Relaxed);
++    format!(
++        "{{\"enabled\":{},\"stats\":{},\"chains\":{},\"slots\":{},\"root_consumers\":{},\
++\"chain_muls\":{},\"structural_mul_eliminations\":{},\"chunks_filled\":{},\
++\"slot_fills\":{},\"memo_reads\":{},\"slot_fills_per_chunk\":{},\"h_fnv\":\"0x{:016x}\"}}",
++        enabled(),
++        STATS_ON.load(Ordering::Relaxed),
++        CHAINS.load(Ordering::Relaxed),
++        slots,
++        ROOT_CONSUMERS.load(Ordering::Relaxed),
++        CHAIN_MULS.load(Ordering::Relaxed),
++        SAVED_MULS.load(Ordering::Relaxed),
++        chunks,
++        SLOT_FILLS.load(Ordering::Relaxed),
++        MEMO_READS.load(Ordering::Relaxed),
++        if chunks == 0 { 0 } else { SLOT_FILLS.load(Ordering::Relaxed) / chunks },
++        H_FNV.load(Ordering::Relaxed),
++    )
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 5c71546..4b3ed75 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -12,6 +12,9 @@ pub mod arithmetic;
+ pub mod circuit;
+ /// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+ pub mod f2;
++/// Stage F4-A: switch and counters for the shared selector-recovery chains
++/// (inert unless `ORCHARD_F4A=1`). See the module docs.
++pub mod f4a_impl;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/prover.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/prover.rs
+index 61feb76..ac3419d 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/prover.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/prover.rs
+@@ -702,12 +702,20 @@ pub fn create_proof<
+             },
+         );
+ 
++    // Stage F4-A: materialise the list once, so the selector-recovery chains
++    // that `compress_selectors` duplicated across constraints can be replaced by
++    // `Ast::Memo` before evaluation. With `ORCHARD_F4A` unset this returns the
++    // list untouched and `shared` is empty.
++    let expressions: Vec<_> = expressions.collect();
++    let (expressions, shared) = poly::intern_chains(expressions);
++
+     // Construct the vanishing argument's h(X) commitments
+     let vanishing = vanishing.construct(
+         params,
+         domain,
+         coset_evaluator,
+         expressions,
++        shared,
+         y,
+         &mut rng,
+         transcript,
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/vanishing/prover.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/vanishing/prover.rs
+index a3447b5..a603166 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/vanishing/prover.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/plonk/vanishing/prover.rs
+@@ -72,12 +72,17 @@ impl<C: CurveAffine> Committed<C> {
+         self,
+         params: &Params<C>,
+         domain: &EvaluationDomain<C::Scalar>,
+-        evaluator: poly::Evaluator<Ev, C::Scalar, ExtendedLagrangeCoeff>,
+-        expressions: impl Iterator<Item = poly::Ast<Ev, C::Scalar, ExtendedLagrangeCoeff>>,
++        mut evaluator: poly::Evaluator<Ev, C::Scalar, ExtendedLagrangeCoeff>,
++        expressions: Vec<poly::Ast<Ev, C::Scalar, ExtendedLagrangeCoeff>>,
++        shared: Vec<poly::Ast<Ev, C::Scalar, ExtendedLagrangeCoeff>>,
+         y: ChallengeY<C>,
+         mut rng: R,
+         transcript: &mut T,
+     ) -> Result<Constructed<C>, Error> {
++        // Stage F4-A: slot `i` of `shared` is slot `i` of every `Ast::Memo(i)` in
++        // the tree built just below; the evaluator fills them once per chunk.
++        evaluator.set_shared(shared);
++
+         // Evaluate the h(X) polynomial's constraint system expressions for the constraints provided
+         let h_poly = poly::Ast::distribute_powers(expressions, *y); // Fold the gates together with the y challenge
+         let h_poly = evaluator.evaluate(&h_poly, domain); // Evaluate the h(X) polynomial
+@@ -88,6 +93,10 @@ impl<C: CurveAffine> Committed<C> {
+         // Obtain final h(X) polynomial
+         let h_poly = domain.extended_to_coeff(h_poly);
+ 
++        // Stage F4-A: with `ORCHARD_F4A_STATS=1`, hash the h coefficients so the
++        // A/B can compare them bit for bit (doc 23 P4/F4A-1). Costs one pass.
++        crate::f4a_impl::note_h_poly(&h_poly[..]);
++
+         // Split h(X) up into pieces
+         let h_pieces = h_poly
+             .chunks_exact(params.n as usize)
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+index 3e563b6..08a10a7 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/poly/evaluator.rs
+@@ -93,6 +93,13 @@ impl<E, B: Basis> AstLeaf<E, B> {
+ /// - Finally, we call [`Evaluator::evaluate`] passing in the [`Ast`].
+ pub(crate) struct Evaluator<E, F: Field, B: Basis> {
+     polys: Vec<Polynomial<F, B>>,
++    /// Stage F4-A: the subtrees that more than one `Ast::Memo` refers to.
++    ///
++    /// Empty unless [`Evaluator::set_shared`] was called, and index `i` here is
++    /// slot `i` in every `Ast::Memo(i)`. The list is fixed before `evaluate`,
++    /// so the per-chunk memo can be a plain `Vec<Vec<F>>` with no interior
++    /// mutability (doc 23 §3.2, §3.3 Q5).
++    shared: Vec<Ast<E, F, B>>,
+     _context: E,
+ }
+ 
+@@ -105,6 +112,7 @@ pub(crate) struct Evaluator<E, F: Field, B: Basis> {
+ pub(crate) fn new_evaluator<E: Fn() + Clone, F: Field, B: Basis>(context: E) -> Evaluator<E, F, B> {
+     Evaluator {
+         polys: vec![],
++        shared: vec![],
+         _context: context,
+     }
+ }
+@@ -125,6 +133,15 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+         }
+     }
+ 
++    /// Stage F4-A: declares the subtrees that `Ast::Memo(i)` nodes refer to.
++    ///
++    /// Called once per proof, between building the expression list and calling
++    /// [`Self::evaluate`]. Slot `i` of `shared` is slot `i` of every
++    /// `Ast::Memo(i)` in the tree that is about to be evaluated.
++    pub(crate) fn set_shared(&mut self, shared: Vec<Ast<E, F, B>>) {
++        self.shared = shared;
++    }
++
+     /// Evaluates the given polynomial operation against this context.
+     ///
+     /// Stage F2: when `ORCHARD_F2` is set, this wraps [`Self::evaluate_inner`]
+@@ -189,81 +206,180 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
+             chunk_size: usize,
+             chunk_index: usize,
+             polys: &'a [Polynomial<F, B>],
++            /// Stage F4-A: one already-evaluated chunk per shared slot. Empty
++            /// unless `Evaluator::set_shared` was called; when empty no
++            /// `Ast::Memo` can appear in the tree either.
++            memo: &'a [Vec<F>],
++        }
++
++        /// Stage F4-A: a chunk that either owns its buffer or borrows a memo slot.
++        ///
++        /// Only `Ast::Memo` produces `Borrowed`; every other arm keeps the
++        /// baseline's "fresh `Vec`, write in place" behaviour (doc 23 §8, third
++        /// constraint: no pooling, no in-place fusion).
++        enum Val<'a, F: Field> {
++            Owned(Vec<F>),
++            Borrowed(&'a [F]),
++        }
++
++        impl<'a, F: Field> Val<'a, F> {
++            fn as_ref(&self) -> &[F] {
++                match self {
++                    Val::Owned(v) => v.as_slice(),
++                    Val::Borrowed(s) => s,
++                }
++            }
++
++            fn into_owned(self) -> Vec<F> {
++                match self {
++                    Val::Owned(v) => v,
++                    Val::Borrowed(s) => s.to_vec(),
++                }
++            }
+         }
+ 
+-        fn recurse<E, F: WithSmallOrderMulGroup<3>, B: BasisOps>(
++        fn recurse<'a, E, F: WithSmallOrderMulGroup<3>, B: BasisOps>(
+             ast: &Ast<E, F, B>,
+-            ctx: &AstContext<'_, F, B>,
+-        ) -> Vec<F> {
++            ctx: &'a AstContext<'a, F, B>,
++        ) -> Val<'a, F> {
+             match ast {
+-                Ast::Poly(leaf) => B::get_chunk_of_rotated(
++                Ast::Poly(leaf) => Val::Owned(B::get_chunk_of_rotated(
+                     ctx.domain,
+                     ctx.chunk_size,
+                     ctx.chunk_index,
+                     &ctx.polys[leaf.index],
+                     leaf.rotation,
+-                ),
+-                Ast::Add(a, b) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    let rhs = recurse(b, ctx);
+-                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
+-                        *lhs += *rhs;
+-                    }
+-                    lhs
++                )),
++                // Stage F4-A: the chain was computed once, before the walk.
++                Ast::Memo(slot) => {
++                    let slot = *slot as usize;
++                    crate::f4a_impl::note_memo_read(ctx.chunk_index, slot);
++                    Val::Borrowed(&ctx.memo[slot])
+                 }
+-                Ast::Mul(AstMul(a, b)) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    let rhs = recurse(b, ctx);
+-                    for (lhs, rhs) in lhs.iter_mut().zip(rhs.iter()) {
+-                        *lhs *= *rhs;
++                // Field addition and multiplication are commutative and exact,
++                // so folding a borrowed operand into the owned one (rather than
++                // the other way round) leaves every bit of the result unchanged.
++                Ast::Add(a, b) => match (recurse(a, ctx), recurse(b, ctx)) {
++                    (Val::Owned(mut lhs), rhs) => {
++                        for (lhs, rhs) in lhs.iter_mut().zip(rhs.as_ref()) {
++                            *lhs += *rhs;
++                        }
++                        Val::Owned(lhs)
+                     }
+-                    lhs
+-                }
+-                Ast::Scale(a, scalar) => {
+-                    let mut lhs = recurse(a, ctx);
+-                    for lhs in lhs.iter_mut() {
+-                        *lhs *= scalar;
++                    (Val::Borrowed(lhs), Val::Owned(mut rhs)) => {
++                        for (rhs, lhs) in rhs.iter_mut().zip(lhs) {
++                            *rhs += *lhs;
++                        }
++                        Val::Owned(rhs)
+                     }
+-                    lhs
+-                }
+-                Ast::DistributePowers(terms, base) => terms.iter().fold(
+-                    B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, F::ZERO),
+-                    |mut acc, term| {
++                    (Val::Borrowed(lhs), Val::Borrowed(rhs)) => {
++                        let mut out = lhs.to_vec();
++                        for (out, rhs) in out.iter_mut().zip(rhs) {
++                            *out += *rhs;
++                        }
++                        Val::Owned(out)
++                    }
++                },
++                Ast::Mul(AstMul(a, b)) => match (recurse(a, ctx), recurse(b, ctx)) {
++                    (Val::Owned(mut lhs), rhs) => {
++                        for (lhs, rhs) in lhs.iter_mut().zip(rhs.as_ref()) {
++                            *lhs *= *rhs;
++                        }
++                        Val::Owned(lhs)
++                    }
++                    (Val::Borrowed(lhs), Val::Owned(mut rhs)) => {
++                        for (rhs, lhs) in rhs.iter_mut().zip(lhs) {
++                            *rhs *= *lhs;
++                        }
++                        Val::Owned(rhs)
++                    }
++                    (Val::Borrowed(lhs), Val::Borrowed(rhs)) => {
++                        let mut out = lhs.to_vec();
++                        for (out, rhs) in out.iter_mut().zip(rhs) {
++                            *out *= *rhs;
++                        }
++                        Val::Owned(out)
++                    }
++                },
++                Ast::Scale(a, scalar) => match recurse(a, ctx) {
++                    Val::Owned(mut lhs) => {
++                        for lhs in lhs.iter_mut() {
++                            *lhs *= scalar;
++                        }
++                        Val::Owned(lhs)
++                    }
++                    Val::Borrowed(lhs) => {
++                        Val::Owned(lhs.iter().map(|lhs| *lhs * scalar).collect())
++                    }
++                },
++                Ast::DistributePowers(terms, base) => {
++                    let mut acc =
++                        B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, F::ZERO);
++                    for term in terms.iter() {
++                        // The accumulator stays owned, so a borrowed term is only
++                        // read -- this is where 179 of the 181 consumers live.
+                         let term = recurse(term, ctx);
+-                        for (acc, term) in acc.iter_mut().zip(term) {
++                        for (acc, term) in acc.iter_mut().zip(term.as_ref()) {
+                             *acc *= base;
+-                            *acc += term;
++                            *acc += *term;
+                         }
+-                        acc
+-                    },
+-                ),
+-                Ast::LinearTerm(scalar) => B::linear_term(
++                    }
++                    Val::Owned(acc)
++                }
++                Ast::LinearTerm(scalar) => Val::Owned(B::linear_term(
+                     ctx.domain,
+                     ctx.poly_len,
+                     ctx.chunk_size,
+                     ctx.chunk_index,
+                     *scalar,
+-                ),
+-                Ast::ConstantTerm(scalar) => {
+-                    B::constant_term(ctx.poly_len, ctx.chunk_size, ctx.chunk_index, *scalar)
+-                }
++                )),
++                Ast::ConstantTerm(scalar) => Val::Owned(B::constant_term(
++                    ctx.poly_len,
++                    ctx.chunk_size,
++                    ctx.chunk_index,
++                    *scalar,
++                )),
+             }
+         }
+ 
+         // Apply `ast` to each chunk in parallel, writing the result into an output
+         // polynomial.
+         let mut result = B::empty_poly(domain);
++        let shared = &self.shared;
+         multicore::scope(|scope| {
+             for (chunk_index, out) in result.chunks_mut(chunk_size).enumerate() {
+                 scope.spawn(move |_| {
++                    // Stage F4-A: fill every slot for *this* chunk before the
++                    // walk, so the memo is immutable while it is being read.
++                    // The shared trees contain no `Ast::Memo` of their own, so
++                    // an empty memo is the right context for this loop.
++                    let memo: Vec<Vec<F>> = if shared.is_empty() {
++                        Vec::new()
++                    } else {
++                        let pre = AstContext {
++                            domain,
++                            poly_len,
++                            chunk_size,
++                            chunk_index,
++                            polys: &self.polys,
++                            memo: &[],
++                        };
++                        let mut memo = Vec::with_capacity(shared.len());
++                        for ast in shared.iter() {
++                            memo.push(recurse(ast, &pre).into_owned());
++                        }
++                        crate::f4a_impl::note_chunk_filled(chunk_index, memo.len());
++                        memo
++                    };
+                     let ctx = AstContext {
+                         domain,
+                         poly_len,
+                         chunk_size,
+                         chunk_index,
+                         polys: &self.polys,
++                        memo: &memo,
+                     };
+-                    out.copy_from_slice(&recurse(ast, &ctx));
++                    out.copy_from_slice(recurse(ast, &ctx).as_ref());
+                 });
+             }
+         });
+@@ -308,6 +424,13 @@ pub(crate) enum Ast<E, F: Field, B: Basis> {
+     ///
+     /// The field element is the same in both the standard and evaluation bases.
+     ConstantTerm(F),
++    /// Stage F4-A: a subtree that has already been evaluated for this chunk.
++    ///
++    /// The slot indexes `Evaluator::shared`, which is filled once per chunk
++    /// before the tree is walked and is read-only afterwards. Produced only by
++    /// [`intern_chains`], and only for selector-recovery chains with more than
++    /// one consumer.
++    Memo(u16),
+ }
+ 
+ impl<E, F: Field, B: Basis> Ast<E, F, B> {
+@@ -330,6 +453,7 @@ impl<E, F: Field, B: Basis> fmt::Debug for Ast<E, F, B> {
+                 .finish(),
+             Self::LinearTerm(x) => f.debug_tuple("LinearTerm").field(x).finish(),
+             Self::ConstantTerm(x) => f.debug_tuple("ConstantTerm").field(x).finish(),
++            Self::Memo(slot) => f.debug_tuple("Memo").field(slot).finish(),
+         }
+     }
+ }
+@@ -482,6 +606,246 @@ impl<E: Clone, F: Field> MulAssign for Ast<E, F, ExtendedLagrangeCoeff> {
+     }
+ }
+ 
++// ---------------------------------------------------------------------------
++// Stage F4-A: share the duplicated selector-recovery chains
++// ---------------------------------------------------------------------------
++//
++// `ConstraintSystem::compress_selectors` rewrites every virtual selector `q`
++// that got packed into a fixed column as `q * prod_i (r_i - q)`, where `r_i`
++// are the other members of the same column. Every constraint that used `q` now
++// carries its own copy of that product, so the 56 virtual selectors become 869
++// whole-chunk multiplications of identical work (doc 21 §5, doc 23 §2).
++//
++// `intern_chains` replaces each *root-position* copy with `Ast::Memo(slot)` and
++// hands the subtree itself to the evaluator, which computes it once per chunk.
++// Nothing else about the tree changes: the 193 constraints stay, the expression
++// nodes that remain keep their shape and their evaluation order, and a chain
++// with a single consumer is not touched at all.
++
++/// Splits a node into `q * f1 * ... * f_{k-1}` -- the left spine of a
++/// selector-recovery product -- returning the shared fixed leaf and the roots in
++/// spine order.
++fn as_recovery_chain<E, F: WithSmallOrderMulGroup<3>, B: Basis>(
++    e: &Ast<E, F, B>,
++) -> Option<(usize, Vec<F>)> {
++    let mut factors: Vec<&Ast<E, F, B>> = Vec::new();
++    let mut cur = e;
++    while let Ast::Mul(AstMul(a, b)) = cur {
++        factors.push(b.as_ref());
++        cur = a.as_ref();
++    }
++    // The spine has to bottom out on the compressed column itself, unrotated.
++    let leaf = match cur {
++        Ast::Poly(l) if l.rotation.0 == 0 => l.index,
++        _ => return None,
++    };
++    if factors.is_empty() {
++        return None;
++    }
++
++    let mut roots = Vec::with_capacity(factors.len());
++    for f in &factors {
++        roots.push(as_chain_factor(f, leaf)?);
++    }
++
++    // `k - 1` roots over `{1, ..., k}` minus this selector's own position: the
++    // same predicate the feasibility probe used (doc 22 §8.1), so a chain found
++    // here is a chain counted there.
++    let k = roots.len() + 1;
++    for (i, a) in roots.iter().enumerate() {
++        let mut in_range = false;
++        for j in 1..=k {
++            if *a == F::from(j as u64) {
++                in_range = true;
++                break;
++            }
++        }
++        if !in_range {
++            return None;
++        }
++        for b in roots.iter().skip(i + 1) {
++            if a == b {
++                return None;
++            }
++        }
++    }
++    Some((leaf, roots))
++}
++
++/// Matches `Constant(r) - Fixed(leaf)`, which the baseline builds as
++/// `Add(ConstantTerm(r), Scale(Poly(leaf), -1))`.
++fn as_chain_factor<E, F: WithSmallOrderMulGroup<3>, B: Basis>(
++    e: &Ast<E, F, B>,
++    leaf: usize,
++) -> Option<F> {
++    let (a, b) = match e {
++        Ast::Add(a, b) => (a.as_ref(), b.as_ref()),
++        _ => return None,
++    };
++    for (x, y) in [(a, b), (b, a)] {
++        if let (Ast::ConstantTerm(r), Ast::Scale(inner, scalar)) = (x, y) {
++            if *scalar != -F::ONE {
++                continue;
++            }
++            if let Ast::Poly(l) = inner.as_ref() {
++                if l.index == leaf && l.rotation.0 == 0 {
++                    return Some(*r);
++                }
++            }
++        }
++    }
++    None
++}
++
++/// Where a chain sits relative to its constraint.
++#[derive(Clone, Copy)]
++enum RootPos {
++    /// The whole constraint expression is the chain.
++    Whole,
++    /// The chain is the left operand of the constraint's root product.
++    Left,
++    /// The chain is the right operand of the constraint's root product.
++    Right,
++}
++
++/// The chain a node is, together with the position it occupies.
++fn at_root<E, F: WithSmallOrderMulGroup<3>, B: Basis>(
++    e: &Ast<E, F, B>,
++) -> Option<(RootPos, (usize, Vec<F>))> {
++    if let Some(key) = as_recovery_chain(e) {
++        return Some((RootPos::Whole, key));
++    }
++    if let Ast::Mul(AstMul(a, b)) = e {
++        if let Some(key) = as_recovery_chain(a) {
++            return Some((RootPos::Left, key));
++        }
++        if let Some(key) = as_recovery_chain(b) {
++            return Some((RootPos::Right, key));
++        }
++    }
++    None
++}
++
++fn subtree_of<'a, E, F: Field, B: Basis>(
++    e: &'a Ast<E, F, B>,
++    pos: RootPos,
++) -> Option<&'a Ast<E, F, B>> {
++    match (pos, e) {
++        (RootPos::Whole, _) => Some(e),
++        (RootPos::Left, Ast::Mul(AstMul(a, _))) => Some(a.as_ref()),
++        (RootPos::Right, Ast::Mul(AstMul(_, b))) => Some(b.as_ref()),
++        _ => None,
++    }
++}
++
++/// Stage F4-A: rewrites root-position selector-recovery chains into
++/// `Ast::Memo(slot)` and returns the per-slot subtrees alongside.
++///
++/// Returns `(expressions, shared)`; with `shared` empty the expressions are
++/// returned untouched (that is the `ORCHARD_F4A=0` baseline, and the fallback
++/// when no chain turns out to have more than one consumer).
++pub(crate) fn intern_chains<E, F, B>(exprs: Vec<Ast<E, F, B>>) -> (Vec<Ast<E, F, B>>, Vec<Ast<E, F, B>>)
++where
++    E: Clone,
++    F: WithSmallOrderMulGroup<3>,
++    B: Basis,
++{
++    if exprs.is_empty() {
++        return (exprs, Vec::new());
++    }
++    if !crate::f4a_impl::enabled() {
++        // Arm `A` of the A/B: reset the counters so the report says "nothing was
++        // shared" instead of repeating the previous proof's numbers.
++        crate::f4a_impl::record_intern(0, 0, 0, 0, 0, Vec::new());
++        return (exprs, Vec::new());
++    }
++
++    // Pass 1: find every root-position chain, and count its consumers. Slots are
++    // only allocated afterwards, so a chain with one consumer is never touched
++    // (doc 23 §10.4, V6).
++    let mut keys: Vec<(usize, Vec<F>)> = Vec::new();
++    let mut shared: Vec<Ast<E, F, B>> = Vec::new();
++    let mut occ: Vec<u32> = Vec::new();
++
++    for e in exprs.iter() {
++        let (pos, key) = match at_root(e) {
++            Some(hit) => hit,
++            None => continue,
++        };
++        let idx = match keys.iter().position(|k| *k == key) {
++            Some(idx) => idx,
++            None => {
++                keys.push(key);
++                shared.push(
++                    subtree_of(e, pos)
++                        .expect("root position implies a subtree")
++                        .clone(),
++                );
++                occ.push(0);
++                keys.len() - 1
++            }
++        };
++        occ[idx] += 1;
++    }
++
++    // Pass 2: keep only the chains that actually repeat.
++    let mut remap: Vec<Option<u16>> = vec![None; keys.len()];
++    let mut shared_out: Vec<Ast<E, F, B>> = Vec::new();
++    let mut chain_muls = 0u64;
++    let mut saved_muls = 0u64;
++    let mut root_occ_total = 0u64;
++    let mut per_slot: Vec<(u32, u32)> = Vec::new();
++    for (i, key) in keys.iter().enumerate() {
++        let k = (key.1.len() + 1) as u64;
++        chain_muls += occ[i] as u64 * (k - 1);
++        root_occ_total += occ[i] as u64;
++        if occ[i] >= 2 {
++            remap[i] = Some(shared_out.len() as u16);
++            saved_muls += (occ[i] as u64 - 1) * (k - 1);
++            per_slot.push((k as u32, occ[i]));
++            shared_out.push(shared[i].clone());
++        }
++    }
++
++    crate::f4a_impl::record_intern(
++        keys.len(),
++        shared_out.len(),
++        root_occ_total,
++        chain_muls,
++        saved_muls,
++        per_slot,
++    );
++
++    if shared_out.is_empty() {
++        return (exprs, Vec::new());
++    }
++
++    // Pass 3: rewrite. `Memo` only ever lands in a root position (F4A-2).
++    let lookup = |e: &Ast<E, F, B>| -> Option<(RootPos, u16)> {
++        let (pos, key) = at_root(e)?;
++        let idx = keys.iter().position(|k| *k == key)?;
++        remap[idx].map(|slot| (pos, slot))
++    };
++
++    let out = exprs
++        .into_iter()
++        .map(|e| match lookup(&e) {
++            Some((RootPos::Whole, slot)) => Ast::Memo(slot),
++            Some((RootPos::Left, slot)) => match e {
++                Ast::Mul(AstMul(_, b)) => Ast::Mul(AstMul(Arc::new(Ast::Memo(slot)), b)),
++                _ => unreachable!(),
++            },
++            Some((RootPos::Right, slot)) => match e {
++                Ast::Mul(AstMul(a, _)) => Ast::Mul(AstMul(a, Arc::new(Ast::Memo(slot)))),
++                _ => unreachable!(),
++            },
++            None => e,
++        })
++        .collect();
++
++    (out, shared_out)
++}
++
+ /// Operations which can be performed over a given basis.
+ pub(crate) trait BasisOps: Basis {
+     fn empty_poly<F: WithSmallOrderMulGroup<3>>(
+@@ -755,6 +1119,10 @@ fn f2_ast_stats<E, F: Field, B: Basis>(ast: &Ast<E, F, B>) -> crate::f2::AstStat
+             }
+             Ast::LinearTerm(_) => s.linear += 1,
+             Ast::ConstantTerm(_) => s.constant += 1,
++            // Stage F4-A: a memoised chain is one leaf from here on. The nodes it
++            // hides are not counted, which is exactly what "the tree got smaller"
++            // should look like.
++            Ast::Memo(_) => s.memo += 1,
+         }
+     }
+ 

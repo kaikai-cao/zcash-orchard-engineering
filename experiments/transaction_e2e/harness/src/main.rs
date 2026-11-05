@@ -334,8 +334,10 @@ fn main() {
         "f4a" => run_f4a(&args, pinned),
         #[cfg(feature = "f4b")]
         "f4b" => run_f4b(&args, pinned),
+        #[cfg(feature = "f4aimpl")]
+        "f4aimpl" => run_f4aimpl(&args, pinned),
         other => panic!(
-            "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a or f4b)"
+            "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a, f4b or f4aimpl)"
         ),
     }
 }
@@ -852,6 +854,7 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
     emit_e2("f2", 0);
 
     halo2_proofs::f2::flush_evals();
+    halo2_proofs::f2::flush_evals();
     println!("F2_REPORT {}", halo2_proofs::f2::take_report());
     println!(
         "F2_META {{\"mode\":\"f2\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
@@ -877,7 +880,8 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
     feature = "f3h7",
     feature = "f4",
     feature = "f4a",
-    feature = "f4b"
+    feature = "f4b",
+    feature = "f4aimpl"
 ))]
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -1044,6 +1048,7 @@ fn run_h7(args: &Args, pinned: Option<usize>) {
     let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
 
     halo2_proofs::f2::flush_evals();
+    halo2_proofs::f2::flush_evals();
     println!("F2_REPORT {}", halo2_proofs::f2::take_report());
     halo2_proofs::f3h7::flush_evals();
     println!("H7_REPORT {}", halo2_proofs::f3h7::take_report());
@@ -1133,6 +1138,7 @@ fn run_recon(args: &Args, pinned: Option<usize>) {
     // i.e. what one more fixed-column query would add to the opening argument.
     halo2_proofs::f4::bench_eval_poly::<halo2_proofs::pasta::pallas::Base>(1 << 11);
 
+    halo2_proofs::f2::flush_evals();
     halo2_proofs::f2::flush_evals();
     println!("F2_REPORT {}", halo2_proofs::f2::take_report());
     println!(
@@ -1311,6 +1317,107 @@ fn run_f4b(args: &Args, pinned: Option<usize>) {
         args.reps,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
+    );
+}
+
+/// Stage F4-A implementation A/B.
+///
+/// One process, one binary, one keygen: every pair alternates `A`
+/// (`ORCHARD_F4A=0`) and `B` (`ORCHARD_F4A=1`) on the *same* fixture, with a
+/// fresh `StdRng` seeded identically for both arms, so the two proofs must come
+/// out byte-identical and the only difference left is how many times the
+/// selector-recovery chains were computed.
+///
+/// `--reps N` is the number of pairs. Set `ORCHARD_F4A_STATS=1` to also hash the
+/// `h` coefficients (doc 23 P4) and count memo reads (V1/V2).
+#[cfg(feature = "f4aimpl")]
+fn run_f4aimpl(args: &Args, pinned: Option<usize>) {
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let mut actions = 0usize;
+
+    for pair in 0..args.reps {
+        for arm in ["A", "B"] {
+            let on = arm == "B";
+            std::env::set_var("ORCHARD_F4A", if on { "1" } else { "0" });
+
+            // Identical randomness in both arms: `create_proof` draws blinds from
+            // this rng and the draw count does not depend on F4-A.
+            let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+            let (note, path, anchor) =
+                note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+
+            let mut b = Builder::new(
+                BundleType::UNPADDED,
+                orchard_bv,
+                orchard_bv.default_flags(),
+                anchor,
+            )
+            .expect("orchard v3 builder");
+            b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+            b.add_change_output(
+                fvk.clone(),
+                None,
+                own_address,
+                NoteValue::from_raw(85_000_000),
+                [0u8; 512],
+            )
+            .expect("add_change_output");
+            let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+            actions = bundle.actions().len();
+
+            // `peak_working_set_mib` only grows, so the change across one proof
+            // is that arm's incremental peak (F4A-4).
+            let ws0 = mem::peak_working_set_mib();
+            let t_proof = Instant::now();
+            let proven = bundle.create_proof(&pk, &mut rng).expect("f4a proof");
+            let proof_ms = t_proof.elapsed().as_secs_f64() * 1e3;
+            let ws_peak_delta = mem::peak_working_set_mib() - ws0;
+
+            let authorized = proven
+                .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+                .expect("f4a signatures");
+            let proof = authorized.authorization().proof();
+            let proof_bytes = proof.as_ref().len();
+            let proof_fnv = fnv1a(proof.as_ref());
+
+            let t_verify = Instant::now();
+            authorized.verify_proof(&vk).expect("f4a verify");
+            let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
+
+            println!(
+                "F4A_RUN {{\"pair\":{},\"arm\":\"{}\",\"f4a\":{},\"proof_ms\":{:.6},\
+\"verify_ms\":{:.6},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\
+\"ws_peak_delta_mib\":{:.1}}}",
+                pair, arm, on, proof_ms, verify_ms, proof_bytes, proof_fnv, ws_peak_delta
+            );
+            println!("F4A_IMPL {}", halo2_proofs::f4a_impl::report());
+        }
+    }
+
+    std::env::set_var("ORCHARD_F4A", "0");
+
+    halo2_proofs::f2::flush_evals();
+    println!("F2_REPORT {}", halo2_proofs::f2::take_report());
+    println!(
+        "F4A_META {{\"mode\":\"f4aimpl\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"pairs\":{},\"seed\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\",\"stats\":{}}}",
+        actions,
+        args.reps,
+        args.seed,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+        std::env::var_os("ORCHARD_F4A_STATS").is_some(),
     );
 }
 

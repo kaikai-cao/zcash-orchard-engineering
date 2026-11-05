@@ -240,6 +240,12 @@ median 44.2 us   min 41.5 us   max 195.5 us   (21.58 ns/系数)
 
 ### 5.1 压缩的账单：869 个整块乘
 
+> **范围说明（2026-11-05 追加）**：本节所有数字都是**一个 `ConstraintSystem` 实例**
+> （193 条约束）的口径——普查挂在 `keygen` 的 `compress_selectors` 两侧，那里只有一份门表。
+> 证明者实际遍历的树是**每个 action 一份**，Orchard bundle 的 2 个 action 会让这些链
+> 出现两次：真实是 360 个消费者、1740 个整块乘、可省 1487 个。正文数字不改，
+> 见 [`24_f4a_implementation.md`](24_f4a_implementation.md) §4。
+
 §2.2 的对账说明 post 树比作者树多 869 个 product。把它按门摊开（`+muls = 该门约束数 × (k−1)`）：
 
 | # | gate | 约束 | selector | k | +整块乘 | 折算 ms（1P，外推） |

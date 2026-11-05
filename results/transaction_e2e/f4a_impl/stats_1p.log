@@ -1,0 +1,8 @@
+F4A_CHAINS {"slots":0,"k_occ":[]}
+F4A_RUN {"pair":0,"arm":"A","f4a":false,"proof_ms":7289.193400,"verify_ms":58.943000,"proof_bytes":7264,"proof_fnv":"0xa6bcd171d69e969a","ws_peak_delta_mib":70.0}
+F4A_IMPL {"enabled":false,"stats":true,"chains":0,"slots":0,"root_consumers":0,"chain_muls":0,"structural_mul_eliminations":0,"chunks_filled":0,"slot_fills":0,"memo_reads":0,"slot_fills_per_chunk":0,"h_fnv":"0xee5d0c5e768ae539"}
+F4A_CHAINS {"slots":49,"k_occ":[[6,8],[6,2],[6,2],[4,2],[4,4],[4,24],[6,2],[6,12],[6,8],[5,2],[5,12],[5,8],[5,4],[5,10],[4,6],[4,8],[4,16],[4,6],[4,8],[4,6],[4,2],[4,6],[6,8],[6,2],[7,6],[7,8],[6,28],[6,6],[6,6],[6,2],[7,4],[7,4],[7,10],[7,8],[7,2],[7,8],[7,10],[7,14],[7,6],[7,6],[7,2],[7,4],[7,4],[7,10],[7,8],[7,2],[7,8],[7,10],[7,14]]}
+F4A_RUN {"pair":0,"arm":"B","f4a":true,"proof_ms":5782.315800,"verify_ms":86.214400,"proof_bytes":7264,"proof_fnv":"0xa6bcd171d69e969a","ws_peak_delta_mib":7.2}
+F4A_IMPL {"enabled":true,"stats":true,"chains":51,"slots":49,"root_consumers":360,"chain_muls":1740,"structural_mul_eliminations":1487,"chunks_filled":4,"slot_fills":196,"memo_reads":1432,"slot_fills_per_chunk":49,"h_fnv":"0xee5d0c5e768ae539"}
+F2_REPORT {"evals":[]}
+F4A_META {"mode":"f4aimpl","circuit":"PostNu6_3","actions":2,"pairs":1,"seed":7,"rayon_threads":"1","affinity":"0x0","stats":true}
