@@ -1,0 +1,79 @@
+Stage F4-A -- feasibility probe (share the selector recovery chain?)
+====================================================================
+
+Built 2026-11-05 on the same host as F0-F4 (i7-14700, P-core logical 0-7 = 0xFF).
+No A/B and no timing of the proving path: this round counts structure and prices
+three kernels. The kernels are single-threaded serial loops; the prove run that
+proves read-only-ness is untimed and unpinned.
+
+Tree
+----
+Vendor = frozen baseline (as restored by `git checkout --`) + f4a probe patch only.
+H6 (`Neg`) and H7 (`Borrowed`/`Owned`) are NOT applied: neither changes the
+`ConstraintSystem`, and the proof bytes say so -- 7264 B /
+0xa6bcd171d69e969a, the same pair recorded in f3_h6/, f3_h7/ and f4_recon/.
+
+Commands (from experiments/transaction_e2e/harness)
+---------------------------------------------------
+  git checkout -- ../vendor/halo2_proofs-0.4.0
+  git apply ../vendor/halo2_proofs-0.4.0-f4a-probe.patch
+  cargo build --release --offline --features f4a --bin orchard-e2e
+  ./target/release/orchard-e2e --mode f4a --reps 200 > probe_on.log
+  ORCHARD_F4A=0 ./target/release/orchard-e2e --mode f4a --reps 0 > probe_off.log
+  python ../../../scripts/analysis/f4a_probe_report.py probe_on.log --out-dir .
+  # restore: git checkout -- ../vendor/.../src/{lib.rs,plonk/keygen.rs} && rm -f ../vendor/.../src/f4a.rs
+
+Toolchain
+---------
+  rustc 1.88.0 (6b00bc388 2025-06-23)
+  cargo 1.88.0 (873a06493 2025-05-10)
+  profile: release (unchanged from F1)
+
+Binary
+------
+                       bytes     sha256 (first 24)
+  orchard-e2e.exe     4326400   fb7143535f408c7d42773b4b
+
+PE .text section (VirtualSize, same measure as f3_h6 / f3_h7 / f4_recon)
+-----------------------------------------------------------------------
+  .text  3414952 (0x341ba8)
+  (f4_recon was 3429560 with a 469-line module; this module is 449 lines and
+   carries two kernels instead of one 200-rep eval_polynomial loop. None of it
+   is reachable from the proving path.)
+
+Patch
+-----
+  halo2_proofs-0.4.0-f4a-probe.patch   +453 / -0, 3 files
+    src/f4a.rs                  +449  (new: chain census + three kernels)
+    src/lib.rs                    +2  (module declaration + doc line)
+    src/plonk/keygen.rs           +2  (one hook after `compress_selectors`,
+                                       in keygen_vk and keygen_pk; the module
+                                       emits once via `Once`)
+
+  Why after `compress_selectors`: the chains do not exist before it. The probe
+  reads the compressed `ConstraintSystem`; it does not modify `ConstraintSystem`,
+  `Gate`, `Selector`, the layout, `poly::Ast` or `recurse`.
+
+Replay check
+------------
+Re-applying the patch from a clean vendor reproduces the three files byte for
+byte after line-ending normalisation (`core.autocrlf=true` stores CRLF):
+
+  src/f4a.rs              cd6ac02010fdc289c66c942e7109eec8
+  src/lib.rs              9d2236068fb66dbf6c040b1b9fc4effe
+  src/plonk/keygen.rs     57a6f7dd3d738745431b659795152448
+
+Read-only check
+---------------
+  probe on   0xa6bcd171d69e969a   7264 B   (F4A_CHAIN/OCC/CS/BENCH lines present)
+  probe off  0xa6bcd171d69e969a   7264 B   (none of them present)
+  f0_verify_frozen.py: RESULT PASS (58 files under vendor/.../src)
+
+What the log contains
+---------------------
+  F4A_CHAIN   one per distinct chain: column, k, node count, occurrences,
+              how many consumers sit at the constraint root, shared bytes
+  F4A_OCC     one per consumer: chain, gate index, gate name, constraint index
+  F4A_CS      totals (chains / consumers / saved_muls / occ_muls)
+  F4A_BENCH   three kernels x two geometries, 200 reps, median/min/max
+  F4A_META    proof size, fingerprint, probe flag, threads, affinity

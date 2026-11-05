@@ -1,0 +1,182 @@
+chain,column,k,gate,gate_name,poly,root_factorable
+27,25,6,32,CommitIvk canonicity check,0,1
+27,25,6,32,CommitIvk canonicity check,1,1
+27,25,6,32,CommitIvk canonicity check,2,1
+27,25,6,32,CommitIvk canonicity check,3,1
+27,25,6,32,CommitIvk canonicity check,4,1
+27,25,6,32,CommitIvk canonicity check,5,1
+27,25,6,32,CommitIvk canonicity check,6,1
+27,25,6,32,CommitIvk canonicity check,7,1
+27,25,6,32,CommitIvk canonicity check,8,1
+27,25,6,32,CommitIvk canonicity check,9,1
+27,25,6,32,CommitIvk canonicity check,10,1
+27,25,6,32,CommitIvk canonicity check,11,1
+27,25,6,32,CommitIvk canonicity check,12,1
+27,25,6,32,CommitIvk canonicity check,13,1
+38,27,7,43,y coordinate checks,0,1
+38,27,7,43,y coordinate checks,1,1
+38,27,7,43,y coordinate checks,2,1
+38,27,7,43,y coordinate checks,3,1
+38,27,7,43,y coordinate checks,4,1
+38,27,7,43,y coordinate checks,5,1
+38,27,7,43,y coordinate checks,6,1
+49,28,7,54,y coordinate checks,0,1
+49,28,7,54,y coordinate checks,1,1
+49,28,7,54,y coordinate checks,2,1
+49,28,7,54,y coordinate checks,3,1
+49,28,7,54,y coordinate checks,4,1
+49,28,7,54,y coordinate checks,5,1
+49,28,7,54,y coordinate checks,6,1
+6,19,4,6,complete addition,0,1
+6,19,4,6,complete addition,1,1
+6,19,4,6,complete addition,2,1
+6,19,4,6,complete addition,3,1
+6,19,4,6,complete addition,4,1
+6,19,4,6,complete addition,5,1
+6,19,4,6,complete addition,6,1
+6,19,4,6,complete addition,7,1
+6,19,4,6,complete addition,8,1
+6,19,4,6,complete addition,9,1
+6,19,4,6,complete addition,10,1
+6,19,4,6,complete addition,11,1
+8,18,6,8,q_mul_2 == 1 checks,0,1
+8,18,6,8,q_mul_2 == 1 checks,1,1
+8,18,6,8,q_mul_2 == 1 checks,2,1
+8,18,6,8,q_mul_2 == 1 checks,3,1
+8,18,6,8,q_mul_2 == 1 checks,4,1
+8,18,6,8,q_mul_2 == 1 checks,5,1
+33,26,7,38,NoteCommit input g_d,0,1
+33,26,7,38,NoteCommit input g_d,1,1
+33,26,7,38,NoteCommit input g_d,2,1
+33,26,7,38,NoteCommit input g_d,3,1
+33,26,7,38,NoteCommit input g_d,4,1
+37,27,7,42,NoteCommit input psi,0,1
+37,27,7,42,NoteCommit input psi,1,1
+37,27,7,42,NoteCommit input psi,2,1
+37,27,7,42,NoteCommit input psi,3,1
+37,27,7,42,NoteCommit input psi,4,1
+44,28,7,49,NoteCommit input g_d,0,1
+44,28,7,49,NoteCommit input g_d,1,1
+44,28,7,49,NoteCommit input g_d,2,1
+44,28,7,49,NoteCommit input g_d,3,1
+44,28,7,49,NoteCommit input g_d,4,1
+48,28,7,53,NoteCommit input psi,0,1
+48,28,7,53,NoteCommit input psi,1,1
+48,28,7,53,NoteCommit input psi,2,1
+48,28,7,53,NoteCommit input psi,3,1
+48,28,7,53,NoteCommit input psi,4,1
+17,21,4,20,Canonicity checks,0,1
+17,21,4,20,Canonicity checks,1,1
+17,21,4,20,Canonicity checks,2,1
+17,21,4,20,Canonicity checks,3,1
+17,21,4,20,Canonicity checks,4,1
+17,21,4,20,Canonicity checks,5,1
+17,21,4,20,Canonicity checks,6,1
+17,21,4,20,Canonicity checks,7,1
+11,20,5,11,q_mul_2 == 1 checks,0,1
+11,20,5,11,q_mul_2 == 1 checks,1,1
+11,20,5,11,q_mul_2 == 1 checks,2,1
+11,20,5,11,q_mul_2 == 1 checks,3,1
+11,20,5,11,q_mul_2 == 1 checks,4,1
+11,20,5,11,q_mul_2 == 1 checks,5,1
+26,26,7,31,Decomposition check,0,1
+26,26,7,31,Decomposition check,1,1
+26,26,7,31,Decomposition check,2,1
+26,26,7,31,Decomposition check,3,1
+34,26,7,39,NoteCommit input pk_d,0,1
+34,26,7,39,NoteCommit input pk_d,1,1
+34,26,7,39,NoteCommit input pk_d,2,1
+34,26,7,39,NoteCommit input pk_d,3,1
+36,27,7,41,NoteCommit input rho,0,1
+36,27,7,41,NoteCommit input rho,1,1
+36,27,7,41,NoteCommit input rho,2,1
+36,27,7,41,NoteCommit input rho,3,1
+45,28,7,50,NoteCommit input pk_d,0,1
+45,28,7,50,NoteCommit input pk_d,1,1
+45,28,7,50,NoteCommit input pk_d,2,1
+45,28,7,50,NoteCommit input pk_d,3,1
+47,28,7,52,NoteCommit input rho,0,1
+47,28,7,52,NoteCommit input rho,1,1
+47,28,7,52,NoteCommit input rho,2,1
+47,28,7,52,NoteCommit input rho,3,1
+14,20,5,14,overflow checks,0,1
+14,20,5,14,overflow checks,1,1
+14,20,5,14,overflow checks,2,1
+14,20,5,14,overflow checks,3,1
+14,20,5,14,overflow checks,4,1
+0,18,6,0,Orchard circuit checks,0,1
+0,18,6,0,Orchard circuit checks,1,1
+0,18,6,0,Orchard circuit checks,2,1
+0,18,6,0,Orchard circuit checks,3,1
+9,18,6,9,q_mul_3 == 1 checks,0,1
+9,18,6,9,q_mul_3 == 1 checks,1,1
+9,18,6,9,q_mul_3 == 1 checks,2,1
+9,18,6,9,q_mul_3 == 1 checks,3,1
+23,25,6,27,Decomposition check,0,1
+23,25,6,27,Decomposition check,1,1
+23,25,6,27,Decomposition check,2,1
+23,25,6,27,Decomposition check,3,1
+12,20,5,12,q_mul_3 == 1 checks,0,1
+12,20,5,12,q_mul_3 == 1 checks,1,1
+12,20,5,12,q_mul_3 == 1 checks,2,1
+12,20,5,12,q_mul_3 == 1 checks,3,1
+25,26,7,30,a' = b ⋅ swap + a ⋅ (1-swap),0,1
+25,26,7,30,a' = b ⋅ swap + a ⋅ (1-swap),1,1
+25,26,7,30,a' = b ⋅ swap + a ⋅ (1-swap),2,1
+39,27,7,44,NoteCommit MessagePiece b,0,1
+39,27,7,44,NoteCommit MessagePiece b,1,1
+39,27,7,44,NoteCommit MessagePiece b,2,1
+40,27,7,45,NoteCommit MessagePiece d,0,1
+40,27,7,45,NoteCommit MessagePiece d,1,1
+40,27,7,45,NoteCommit MessagePiece d,2,1
+28,25,6,33,NoteCommit MessagePiece b,0,1
+28,25,6,33,NoteCommit MessagePiece b,1,1
+28,25,6,33,NoteCommit MessagePiece b,2,1
+29,25,6,34,NoteCommit MessagePiece d,0,1
+29,25,6,34,NoteCommit MessagePiece d,1,1
+29,25,6,34,NoteCommit MessagePiece d,2,1
+16,21,4,19,Short fixed-base mul gate,0,1
+16,21,4,19,Short fixed-base mul gate,1,1
+16,21,4,19,Short fixed-base mul gate,2,1
+16,21,4,19,Short fixed-base mul gate,3,1
+19,24,4,22,partial rounds,0,1
+19,24,4,22,partial rounds,1,1
+19,24,4,22,partial rounds,2,1
+19,24,4,22,partial rounds,3,1
+15,21,4,15,LSB check,0,1
+15,21,4,15,LSB check,1,1
+15,21,4,15,LSB check,2,1
+18,21,4,21,full round,0,1
+18,21,4,21,full round,1,1
+18,21,4,21,full round,2,1
+20,24,4,23,pad-and-add,0,1
+20,24,4,23,pad-and-add,1,1
+20,24,4,23,pad-and-add,2,1
+22,24,4,26,a' = b ⋅ swap + a ⋅ (1-swap),0,1
+22,24,4,26,a' = b ⋅ swap + a ⋅ (1-swap),1,1
+22,24,4,26,a' = b ⋅ swap + a ⋅ (1-swap),2,1
+31,26,7,36,NoteCommit MessagePiece g,0,1
+31,26,7,36,NoteCommit MessagePiece g,1,1
+32,26,7,37,NoteCommit MessagePiece h,0,1
+32,26,7,37,NoteCommit MessagePiece h,1,1
+42,27,7,47,NoteCommit MessagePiece g,0,1
+42,27,7,47,NoteCommit MessagePiece g,1,1
+43,28,7,48,NoteCommit MessagePiece h,0,1
+43,28,7,48,NoteCommit MessagePiece h,1,1
+13,20,5,13,Decompose scalar for complete bits of variable-base mul,0,1
+13,20,5,13,Decompose scalar for complete bits of variable-base mul,1,1
+3,19,4,3,witness point,0,0
+3,19,4,3,witness point,1,0
+5,19,4,5,incomplete addition,0,1
+5,19,4,5,incomplete addition,1,1
+1,18,6,1,Field element addition: c = a + b,0,1
+2,18,6,2,Short lookup bitshift,0,1
+4,19,4,4,witness non-identity point,0,1
+7,18,6,7,q_mul_1 == 1 checks,0,1
+10,20,5,10,q_mul_1 == 1 checks,0,1
+21,24,4,24,Initial y_Q,0,1
+24,25,6,28,Initial y_Q,0,1
+30,25,6,35,NoteCommit MessagePiece e,0,1
+35,26,7,40,NoteCommit input value,0,1
+41,27,7,46,NoteCommit MessagePiece e,0,1
+46,28,7,51,NoteCommit input value,0,1

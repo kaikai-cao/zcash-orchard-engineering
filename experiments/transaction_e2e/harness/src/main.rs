@@ -330,7 +330,9 @@ fn main() {
         "h7" => run_h7(&args, pinned),
         #[cfg(feature = "f4")]
         "recon" => run_recon(&args, pinned),
-        other => panic!("unknown --mode {other} (expected v2, v3, profile, f2, lc, h7 or recon)"),
+        #[cfg(feature = "f4a")]
+        "f4a" => run_f4a(&args, pinned),
+        other => panic!("unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon or f4a)"),
     }
 }
 
@@ -866,7 +868,12 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
 
 /// FNV-1a, 64 bit. Used only to fingerprint the proof bytes so a run with the
 /// probe on and a run with it off can be compared without storing the proofs.
-#[cfg(any(feature = "f3lc", feature = "f3h7", feature = "f4"))]
+#[cfg(any(
+    feature = "f3lc",
+    feature = "f3h7",
+    feature = "f4",
+    feature = "f4a"
+))]
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in bytes {
@@ -1133,6 +1140,91 @@ fn run_recon(args: &Args, pinned: Option<usize>) {
         proof_bytes,
         proof_fnv,
         halo2_proofs::f4::enabled(),
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+/// F4-A feasibility probe (`--mode f4a`, needs `--features f4a`).
+///
+/// Same fixture as `--mode recon`: same seed, same V3 bundle, one prove, one
+/// verify. The census prints `F4A_CHAIN` / `F4A_OCC` / `F4A_CS` from inside
+/// keygen, and two kernels are priced at the two geometries that matter
+/// (`recurse`'s 4096-element chunk and the full 16384-element polynomial).
+///
+/// `ORCHARD_F4A=0` runs the same binary with the probe off: if the proof bytes
+/// and fingerprint match, the probe did not change a value.
+#[cfg(feature = "f4a")]
+fn run_f4a(args: &Args, pinned: Option<usize>) {
+    if std::env::var_os("ORCHARD_F4A").is_none() {
+        std::env::set_var("ORCHARD_F4A", "1");
+    }
+    std::env::set_var("ORCHARD_F4A_BENCH", args.reps.to_string());
+
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+    let actions = bundle.actions().len();
+
+    let t_proof = Instant::now();
+    let proven = bundle.create_proof(&pk, &mut rng).expect("f4a proof");
+    let proof_ms = t_proof.elapsed().as_secs_f64() * 1e3;
+
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let authorized = proven
+        .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+        .expect("f4a signatures");
+    let proof = authorized.authorization().proof();
+    let proof_bytes = proof.as_ref().len();
+    let proof_fnv = fnv1a(proof.as_ref());
+
+    let t_verify = Instant::now();
+    authorized.verify_proof(&vk).expect("f4a verify");
+    let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
+
+    // The two geometries: the chunk `recurse` actually works on, and one whole
+    // quotient polynomial. Prices are only valid per geometry -- H7's lesson.
+    halo2_proofs::f4a::bench_kernels::<halo2_proofs::pasta::pallas::Base>(1 << 12, args.reps);
+    halo2_proofs::f4a::bench_kernels::<halo2_proofs::pasta::pallas::Base>(1 << 14, args.reps);
+
+    println!(
+        "F4A_META {{\"mode\":\"f4a\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"proof_ms\":{:.6},\"verify_ms\":{:.6},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\
+\"probe\":{},\"bench_reps\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        proof_ms,
+        verify_ms,
+        proof_bytes,
+        proof_fnv,
+        halo2_proofs::f4a::enabled(),
         args.reps,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),

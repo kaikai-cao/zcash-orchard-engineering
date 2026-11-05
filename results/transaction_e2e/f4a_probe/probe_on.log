@@ -1,0 +1,239 @@
+F4A_OCC {"chain":0,"gate":0,"gate_name":"Orchard circuit checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":0,"gate":0,"gate_name":"Orchard circuit checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":0,"gate":0,"gate_name":"Orchard circuit checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":0,"gate":0,"gate_name":"Orchard circuit checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":1,"gate":1,"gate_name":"Field element addition: c = a + b","poly":0,"root_factorable":true}
+F4A_OCC {"chain":2,"gate":2,"gate_name":"Short lookup bitshift","poly":0,"root_factorable":true}
+F4A_OCC {"chain":3,"gate":3,"gate_name":"witness point","poly":0,"root_factorable":false}
+F4A_OCC {"chain":3,"gate":3,"gate_name":"witness point","poly":1,"root_factorable":false}
+F4A_OCC {"chain":4,"gate":4,"gate_name":"witness non-identity point","poly":0,"root_factorable":true}
+F4A_OCC {"chain":5,"gate":5,"gate_name":"incomplete addition","poly":0,"root_factorable":true}
+F4A_OCC {"chain":5,"gate":5,"gate_name":"incomplete addition","poly":1,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":0,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":1,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":2,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":3,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":4,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":5,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":6,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":7,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":8,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":9,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":10,"root_factorable":true}
+F4A_OCC {"chain":6,"gate":6,"gate_name":"complete addition","poly":11,"root_factorable":true}
+F4A_OCC {"chain":7,"gate":7,"gate_name":"q_mul_1 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":8,"gate":8,"gate_name":"q_mul_2 == 1 checks","poly":5,"root_factorable":true}
+F4A_OCC {"chain":9,"gate":9,"gate_name":"q_mul_3 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":9,"gate":9,"gate_name":"q_mul_3 == 1 checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":9,"gate":9,"gate_name":"q_mul_3 == 1 checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":9,"gate":9,"gate_name":"q_mul_3 == 1 checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":10,"gate":10,"gate_name":"q_mul_1 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":11,"gate":11,"gate_name":"q_mul_2 == 1 checks","poly":5,"root_factorable":true}
+F4A_OCC {"chain":12,"gate":12,"gate_name":"q_mul_3 == 1 checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":12,"gate":12,"gate_name":"q_mul_3 == 1 checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":12,"gate":12,"gate_name":"q_mul_3 == 1 checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":12,"gate":12,"gate_name":"q_mul_3 == 1 checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":13,"gate":13,"gate_name":"Decompose scalar for complete bits of variable-base mul","poly":0,"root_factorable":true}
+F4A_OCC {"chain":13,"gate":13,"gate_name":"Decompose scalar for complete bits of variable-base mul","poly":1,"root_factorable":true}
+F4A_OCC {"chain":14,"gate":14,"gate_name":"overflow checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":14,"gate":14,"gate_name":"overflow checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":14,"gate":14,"gate_name":"overflow checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":14,"gate":14,"gate_name":"overflow checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":14,"gate":14,"gate_name":"overflow checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":15,"gate":15,"gate_name":"LSB check","poly":0,"root_factorable":true}
+F4A_OCC {"chain":15,"gate":15,"gate_name":"LSB check","poly":1,"root_factorable":true}
+F4A_OCC {"chain":15,"gate":15,"gate_name":"LSB check","poly":2,"root_factorable":true}
+F4A_OCC {"chain":16,"gate":19,"gate_name":"Short fixed-base mul gate","poly":0,"root_factorable":true}
+F4A_OCC {"chain":16,"gate":19,"gate_name":"Short fixed-base mul gate","poly":1,"root_factorable":true}
+F4A_OCC {"chain":16,"gate":19,"gate_name":"Short fixed-base mul gate","poly":2,"root_factorable":true}
+F4A_OCC {"chain":16,"gate":19,"gate_name":"Short fixed-base mul gate","poly":3,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":5,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":6,"root_factorable":true}
+F4A_OCC {"chain":17,"gate":20,"gate_name":"Canonicity checks","poly":7,"root_factorable":true}
+F4A_OCC {"chain":18,"gate":21,"gate_name":"full round","poly":0,"root_factorable":true}
+F4A_OCC {"chain":18,"gate":21,"gate_name":"full round","poly":1,"root_factorable":true}
+F4A_OCC {"chain":18,"gate":21,"gate_name":"full round","poly":2,"root_factorable":true}
+F4A_OCC {"chain":19,"gate":22,"gate_name":"partial rounds","poly":0,"root_factorable":true}
+F4A_OCC {"chain":19,"gate":22,"gate_name":"partial rounds","poly":1,"root_factorable":true}
+F4A_OCC {"chain":19,"gate":22,"gate_name":"partial rounds","poly":2,"root_factorable":true}
+F4A_OCC {"chain":19,"gate":22,"gate_name":"partial rounds","poly":3,"root_factorable":true}
+F4A_OCC {"chain":20,"gate":23,"gate_name":"pad-and-add","poly":0,"root_factorable":true}
+F4A_OCC {"chain":20,"gate":23,"gate_name":"pad-and-add","poly":1,"root_factorable":true}
+F4A_OCC {"chain":20,"gate":23,"gate_name":"pad-and-add","poly":2,"root_factorable":true}
+F4A_OCC {"chain":21,"gate":24,"gate_name":"Initial y_Q","poly":0,"root_factorable":true}
+F4A_OCC {"chain":22,"gate":26,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":0,"root_factorable":true}
+F4A_OCC {"chain":22,"gate":26,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":1,"root_factorable":true}
+F4A_OCC {"chain":22,"gate":26,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":2,"root_factorable":true}
+F4A_OCC {"chain":23,"gate":27,"gate_name":"Decomposition check","poly":0,"root_factorable":true}
+F4A_OCC {"chain":23,"gate":27,"gate_name":"Decomposition check","poly":1,"root_factorable":true}
+F4A_OCC {"chain":23,"gate":27,"gate_name":"Decomposition check","poly":2,"root_factorable":true}
+F4A_OCC {"chain":23,"gate":27,"gate_name":"Decomposition check","poly":3,"root_factorable":true}
+F4A_OCC {"chain":24,"gate":28,"gate_name":"Initial y_Q","poly":0,"root_factorable":true}
+F4A_OCC {"chain":25,"gate":30,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":0,"root_factorable":true}
+F4A_OCC {"chain":25,"gate":30,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":1,"root_factorable":true}
+F4A_OCC {"chain":25,"gate":30,"gate_name":"a' = b ⋅ swap + a ⋅ (1-swap)","poly":2,"root_factorable":true}
+F4A_OCC {"chain":26,"gate":31,"gate_name":"Decomposition check","poly":0,"root_factorable":true}
+F4A_OCC {"chain":26,"gate":31,"gate_name":"Decomposition check","poly":1,"root_factorable":true}
+F4A_OCC {"chain":26,"gate":31,"gate_name":"Decomposition check","poly":2,"root_factorable":true}
+F4A_OCC {"chain":26,"gate":31,"gate_name":"Decomposition check","poly":3,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":0,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":1,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":2,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":3,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":4,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":5,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":6,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":7,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":8,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":9,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":10,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":11,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":12,"root_factorable":true}
+F4A_OCC {"chain":27,"gate":32,"gate_name":"CommitIvk canonicity check","poly":13,"root_factorable":true}
+F4A_OCC {"chain":28,"gate":33,"gate_name":"NoteCommit MessagePiece b","poly":0,"root_factorable":true}
+F4A_OCC {"chain":28,"gate":33,"gate_name":"NoteCommit MessagePiece b","poly":1,"root_factorable":true}
+F4A_OCC {"chain":28,"gate":33,"gate_name":"NoteCommit MessagePiece b","poly":2,"root_factorable":true}
+F4A_OCC {"chain":29,"gate":34,"gate_name":"NoteCommit MessagePiece d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":29,"gate":34,"gate_name":"NoteCommit MessagePiece d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":29,"gate":34,"gate_name":"NoteCommit MessagePiece d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":30,"gate":35,"gate_name":"NoteCommit MessagePiece e","poly":0,"root_factorable":true}
+F4A_OCC {"chain":31,"gate":36,"gate_name":"NoteCommit MessagePiece g","poly":0,"root_factorable":true}
+F4A_OCC {"chain":31,"gate":36,"gate_name":"NoteCommit MessagePiece g","poly":1,"root_factorable":true}
+F4A_OCC {"chain":32,"gate":37,"gate_name":"NoteCommit MessagePiece h","poly":0,"root_factorable":true}
+F4A_OCC {"chain":32,"gate":37,"gate_name":"NoteCommit MessagePiece h","poly":1,"root_factorable":true}
+F4A_OCC {"chain":33,"gate":38,"gate_name":"NoteCommit input g_d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":33,"gate":38,"gate_name":"NoteCommit input g_d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":33,"gate":38,"gate_name":"NoteCommit input g_d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":33,"gate":38,"gate_name":"NoteCommit input g_d","poly":3,"root_factorable":true}
+F4A_OCC {"chain":33,"gate":38,"gate_name":"NoteCommit input g_d","poly":4,"root_factorable":true}
+F4A_OCC {"chain":34,"gate":39,"gate_name":"NoteCommit input pk_d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":34,"gate":39,"gate_name":"NoteCommit input pk_d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":34,"gate":39,"gate_name":"NoteCommit input pk_d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":34,"gate":39,"gate_name":"NoteCommit input pk_d","poly":3,"root_factorable":true}
+F4A_OCC {"chain":35,"gate":40,"gate_name":"NoteCommit input value","poly":0,"root_factorable":true}
+F4A_OCC {"chain":36,"gate":41,"gate_name":"NoteCommit input rho","poly":0,"root_factorable":true}
+F4A_OCC {"chain":36,"gate":41,"gate_name":"NoteCommit input rho","poly":1,"root_factorable":true}
+F4A_OCC {"chain":36,"gate":41,"gate_name":"NoteCommit input rho","poly":2,"root_factorable":true}
+F4A_OCC {"chain":36,"gate":41,"gate_name":"NoteCommit input rho","poly":3,"root_factorable":true}
+F4A_OCC {"chain":37,"gate":42,"gate_name":"NoteCommit input psi","poly":0,"root_factorable":true}
+F4A_OCC {"chain":37,"gate":42,"gate_name":"NoteCommit input psi","poly":1,"root_factorable":true}
+F4A_OCC {"chain":37,"gate":42,"gate_name":"NoteCommit input psi","poly":2,"root_factorable":true}
+F4A_OCC {"chain":37,"gate":42,"gate_name":"NoteCommit input psi","poly":3,"root_factorable":true}
+F4A_OCC {"chain":37,"gate":42,"gate_name":"NoteCommit input psi","poly":4,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":5,"root_factorable":true}
+F4A_OCC {"chain":38,"gate":43,"gate_name":"y coordinate checks","poly":6,"root_factorable":true}
+F4A_OCC {"chain":39,"gate":44,"gate_name":"NoteCommit MessagePiece b","poly":0,"root_factorable":true}
+F4A_OCC {"chain":39,"gate":44,"gate_name":"NoteCommit MessagePiece b","poly":1,"root_factorable":true}
+F4A_OCC {"chain":39,"gate":44,"gate_name":"NoteCommit MessagePiece b","poly":2,"root_factorable":true}
+F4A_OCC {"chain":40,"gate":45,"gate_name":"NoteCommit MessagePiece d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":40,"gate":45,"gate_name":"NoteCommit MessagePiece d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":40,"gate":45,"gate_name":"NoteCommit MessagePiece d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":41,"gate":46,"gate_name":"NoteCommit MessagePiece e","poly":0,"root_factorable":true}
+F4A_OCC {"chain":42,"gate":47,"gate_name":"NoteCommit MessagePiece g","poly":0,"root_factorable":true}
+F4A_OCC {"chain":42,"gate":47,"gate_name":"NoteCommit MessagePiece g","poly":1,"root_factorable":true}
+F4A_OCC {"chain":43,"gate":48,"gate_name":"NoteCommit MessagePiece h","poly":0,"root_factorable":true}
+F4A_OCC {"chain":43,"gate":48,"gate_name":"NoteCommit MessagePiece h","poly":1,"root_factorable":true}
+F4A_OCC {"chain":44,"gate":49,"gate_name":"NoteCommit input g_d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":44,"gate":49,"gate_name":"NoteCommit input g_d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":44,"gate":49,"gate_name":"NoteCommit input g_d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":44,"gate":49,"gate_name":"NoteCommit input g_d","poly":3,"root_factorable":true}
+F4A_OCC {"chain":44,"gate":49,"gate_name":"NoteCommit input g_d","poly":4,"root_factorable":true}
+F4A_OCC {"chain":45,"gate":50,"gate_name":"NoteCommit input pk_d","poly":0,"root_factorable":true}
+F4A_OCC {"chain":45,"gate":50,"gate_name":"NoteCommit input pk_d","poly":1,"root_factorable":true}
+F4A_OCC {"chain":45,"gate":50,"gate_name":"NoteCommit input pk_d","poly":2,"root_factorable":true}
+F4A_OCC {"chain":45,"gate":50,"gate_name":"NoteCommit input pk_d","poly":3,"root_factorable":true}
+F4A_OCC {"chain":46,"gate":51,"gate_name":"NoteCommit input value","poly":0,"root_factorable":true}
+F4A_OCC {"chain":47,"gate":52,"gate_name":"NoteCommit input rho","poly":0,"root_factorable":true}
+F4A_OCC {"chain":47,"gate":52,"gate_name":"NoteCommit input rho","poly":1,"root_factorable":true}
+F4A_OCC {"chain":47,"gate":52,"gate_name":"NoteCommit input rho","poly":2,"root_factorable":true}
+F4A_OCC {"chain":47,"gate":52,"gate_name":"NoteCommit input rho","poly":3,"root_factorable":true}
+F4A_OCC {"chain":48,"gate":53,"gate_name":"NoteCommit input psi","poly":0,"root_factorable":true}
+F4A_OCC {"chain":48,"gate":53,"gate_name":"NoteCommit input psi","poly":1,"root_factorable":true}
+F4A_OCC {"chain":48,"gate":53,"gate_name":"NoteCommit input psi","poly":2,"root_factorable":true}
+F4A_OCC {"chain":48,"gate":53,"gate_name":"NoteCommit input psi","poly":3,"root_factorable":true}
+F4A_OCC {"chain":48,"gate":53,"gate_name":"NoteCommit input psi","poly":4,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":0,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":1,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":2,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":3,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":4,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":5,"root_factorable":true}
+F4A_OCC {"chain":49,"gate":54,"gate_name":"y coordinate checks","poly":6,"root_factorable":true}
+F4A_CHAIN {"chain":0,"column":18,"k":6,"nodes":26,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":1,"column":18,"k":6,"nodes":26,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":2,"column":18,"k":6,"nodes":26,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":3,"column":19,"k":4,"nodes":16,"occ":2,"root_factorable":0,"shared_bytes":524288}
+F4A_CHAIN {"chain":4,"column":19,"k":4,"nodes":16,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":5,"column":19,"k":4,"nodes":16,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":6,"column":19,"k":4,"nodes":16,"occ":12,"root_factorable":12,"shared_bytes":524288}
+F4A_CHAIN {"chain":7,"column":18,"k":6,"nodes":26,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":8,"column":18,"k":6,"nodes":26,"occ":6,"root_factorable":6,"shared_bytes":524288}
+F4A_CHAIN {"chain":9,"column":18,"k":6,"nodes":26,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":10,"column":20,"k":5,"nodes":21,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":11,"column":20,"k":5,"nodes":21,"occ":6,"root_factorable":6,"shared_bytes":524288}
+F4A_CHAIN {"chain":12,"column":20,"k":5,"nodes":21,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":13,"column":20,"k":5,"nodes":21,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":14,"column":20,"k":5,"nodes":21,"occ":5,"root_factorable":5,"shared_bytes":524288}
+F4A_CHAIN {"chain":15,"column":21,"k":4,"nodes":16,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":16,"column":21,"k":4,"nodes":16,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":17,"column":21,"k":4,"nodes":16,"occ":8,"root_factorable":8,"shared_bytes":524288}
+F4A_CHAIN {"chain":18,"column":21,"k":4,"nodes":16,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":19,"column":24,"k":4,"nodes":16,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":20,"column":24,"k":4,"nodes":16,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":21,"column":24,"k":4,"nodes":16,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":22,"column":24,"k":4,"nodes":16,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":23,"column":25,"k":6,"nodes":26,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":24,"column":25,"k":6,"nodes":26,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":25,"column":26,"k":7,"nodes":31,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":26,"column":26,"k":7,"nodes":31,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":27,"column":25,"k":6,"nodes":26,"occ":14,"root_factorable":14,"shared_bytes":524288}
+F4A_CHAIN {"chain":28,"column":25,"k":6,"nodes":26,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":29,"column":25,"k":6,"nodes":26,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":30,"column":25,"k":6,"nodes":26,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":31,"column":26,"k":7,"nodes":31,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":32,"column":26,"k":7,"nodes":31,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":33,"column":26,"k":7,"nodes":31,"occ":5,"root_factorable":5,"shared_bytes":524288}
+F4A_CHAIN {"chain":34,"column":26,"k":7,"nodes":31,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":35,"column":26,"k":7,"nodes":31,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":36,"column":27,"k":7,"nodes":31,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":37,"column":27,"k":7,"nodes":31,"occ":5,"root_factorable":5,"shared_bytes":524288}
+F4A_CHAIN {"chain":38,"column":27,"k":7,"nodes":31,"occ":7,"root_factorable":7,"shared_bytes":524288}
+F4A_CHAIN {"chain":39,"column":27,"k":7,"nodes":31,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":40,"column":27,"k":7,"nodes":31,"occ":3,"root_factorable":3,"shared_bytes":524288}
+F4A_CHAIN {"chain":41,"column":27,"k":7,"nodes":31,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":42,"column":27,"k":7,"nodes":31,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":43,"column":28,"k":7,"nodes":31,"occ":2,"root_factorable":2,"shared_bytes":524288}
+F4A_CHAIN {"chain":44,"column":28,"k":7,"nodes":31,"occ":5,"root_factorable":5,"shared_bytes":524288}
+F4A_CHAIN {"chain":45,"column":28,"k":7,"nodes":31,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":46,"column":28,"k":7,"nodes":31,"occ":1,"root_factorable":1,"shared_bytes":524288}
+F4A_CHAIN {"chain":47,"column":28,"k":7,"nodes":31,"occ":4,"root_factorable":4,"shared_bytes":524288}
+F4A_CHAIN {"chain":48,"column":28,"k":7,"nodes":31,"occ":5,"root_factorable":5,"shared_bytes":524288}
+F4A_CHAIN {"chain":49,"column":28,"k":7,"nodes":31,"occ":7,"root_factorable":7,"shared_bytes":524288}
+F4A_CS {"k":11,"ext_len":16384,"gates":55,"constraints":193,"chains":50,"chains_shared":39,"consumers":181,"saved_muls":627,"occ_muls":869,"root_factorable":179,"identity_fail":0,"domains":1}
+F4A_BENCH {"kernel":"in_place","n":4096,"reps":200,"median_ns":49400.0,"min_ns":49000.0,"max_ns":81700.0,"ns_per_elem":12.0605}
+F4A_BENCH {"kernel":"fused","n":4096,"reps":200,"median_ns":50500.0,"min_ns":50200.0,"max_ns":76500.0,"ns_per_elem":12.3291}
+F4A_BENCH {"kernel":"reused","n":4096,"reps":200,"median_ns":49700.0,"min_ns":49100.0,"max_ns":95500.0,"ns_per_elem":12.1338}
+F4A_BENCH {"kernel":"in_place","n":16384,"reps":200,"median_ns":199200.0,"min_ns":192400.0,"max_ns":386500.0,"ns_per_elem":12.1582}
+F4A_BENCH {"kernel":"fused","n":16384,"reps":200,"median_ns":202100.0,"min_ns":196500.0,"max_ns":336000.0,"ns_per_elem":12.3352}
+F4A_BENCH {"kernel":"reused","n":16384,"reps":200,"median_ns":201500.0,"min_ns":192400.0,"max_ns":345700.0,"ns_per_elem":12.2986}
+F4A_META {"mode":"f4a","circuit":"PostNu6_3","actions":2,"proof_ms":680.217900,"verify_ms":5.356100,"proof_bytes":7264,"proof_fnv":"0xa6bcd171d69e969a","probe":true,"bench_reps":200,"rayon_threads":"unset","affinity":"0x0"}

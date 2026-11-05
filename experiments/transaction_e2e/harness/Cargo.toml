@@ -25,6 +25,11 @@ f3h7 = []
 # is read-only, but it still lives in the vendored crate, so it is a patch.
 f4 = []
 
+# Stage F4-A feasibility probe. Off by default: `halo2_proofs::f4a` only exists
+# after `vendor/halo2_proofs-0.4.0-f4a-probe.patch` is applied. Read-only, but it
+# lives in the vendored crate, so it is a patch like the others.
+f4a = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
