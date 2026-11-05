@@ -1,0 +1,63 @@
+# Stage F4-A.3 · action-count scaling — build record
+
+Date        2026-11-05
+Repo        kaikai-cao/zcash-orchard-engineering
+Base        b392e3b (F4-A.2 audit) + 5cb439a (this pre-registration)
+Machine     Windows 11, same host as doc 24 / doc 25
+rustc       1.98.1 (48a229cea 2026-09-01)
+cargo       1.98.1 (797e8a9bc 2026-08-05)
+orchard     0.16.0 (D:\Research\orchard-upstream @ 616a669)
+halo2_proofs 0.4.0 (vendored)
+
+## Patches applied for this stage
+
+vendor/halo2_proofs-0.4.0-f4a.patch          +593 / -44, 6 files   (unchanged; the frozen F4-A patch)
+vendor/halo2_proofs-0.4.0-f4a2-mem.patch     +215 / -0,  3 files   (unchanged; diagnostic only)
+
+No new patch was written for F4-A.3. The only code change is in the harness:
+`--mode f4ascale`, `--pool`, `--actions`, and a shared-anchor multi-note fixture
+(`notes_at_leaves`). Both existing modes `f4a2mem` / `f4a2stage` were extended to
+accept `--pool` / `--actions` by the same code path.
+
+## Trees used by each batch
+
+T (timing + stages)   clean build, `--features f4aimpl`, no f4a2 patch effect
+                      (the f4a2 patch was NOT applied when this binary was built)
+                      target/stage/release/orchard-e2e.exe
+                      size 4 386 304 B, sha256 336b99a17760dd71…
+                      md5 (src/poly/evaluator.rs)     580e8f84bea8   (f4a only)
+                      md5 (src/plonk/vanishing/…)     be86a6e248cd
+
+C (structure counts)  same binary, `ORCHARD_F4A_STATS=1`
+
+M (memory / alloc)    diagnostic build, `--features f4aimpl,f4a2mem`,
+                      with BOTH patches applied
+                      target/release/orchard-e2e.exe
+                      size 4 538 880 B, sha256 2649540e8facfb57…
+                      md5 (src/f4a_impl.rs)           2cadc27dda41
+                      md5 (src/f4a2.rs)               d0603bdaa0df
+                      md5 (src/poly/evaluator.rs)     580e8f84bea8   (f4a2 adds markers only)
+
+The two binaries differ by the allocator hook, so **M's millisecond column is never
+used as time evidence**; only its memory and allocation counters enter the report
+(doc 26 §5).
+
+## Fixed conditions
+
+circuit        PostNu6_3, one `ProvingKey::build` per process, reused for every n
+               (K is therefore identical across n by construction, not by measurement)
+bundle         UNPADDED, n spends + n outputs (ironwood_v3) or n/2 spends + n/2
+               change outputs (orchard_v3)
+values         100 000 000 per spend, 85 000 000 per output/change
+fixture        notes at leaves 0..k of one tree, all paths asserted to the same anchor
+seed           7 (both arms reset the RNG, so the two arms prove the same bundle)
+threads        RAYON_NUM_THREADS = 1 (1P) / 8 (8P)
+affinity       --mask 0x1 (1P) / --mask 0xFF (8P), pinned before the rayon pool exists
+e2 timing      ORCHARD_E2_TIMING=1 for every batch (nine contiguous stages)
+switch         ORCHARD_F4A=0 (A) / 1 (B), re-read per proof, arms interleaved in one process
+
+## Samples
+
+T   20 pairs per (geometry, pool, n)   -> 7 configs × 20 × 2 arms × 2 geometries = 560 proofs
+C    2 pairs per (geometry, pool, n)   ->  56 proofs
+M    3 pairs per (geometry, pool, n)   ->  84 proofs

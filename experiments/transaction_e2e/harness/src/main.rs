@@ -321,6 +321,10 @@ struct Args {
     mask: usize,
     e3_out: String,
     e3_interval_ms: u64,
+    /// F4-A action-scaling: requested action count (mode `f4ascale`).
+    actions: usize,
+    /// F4-A action-scaling: which NU6.3 pool supplies the bundle shape.
+    pool: String,
 }
 
 fn parse_args() -> Args {
@@ -335,6 +339,8 @@ fn parse_args() -> Args {
         mask: 0,
         e3_out: String::new(),
         e3_interval_ms: 2,
+        actions: 2,
+        pool: "orchard".into(),
     };
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
@@ -359,6 +365,8 @@ fn parse_args() -> Args {
             "--tag" => a.tag = val(),
             "--e3-out" => a.e3_out = val(),
             "--e3-interval-ms" => a.e3_interval_ms = val().parse().expect("--e3-interval-ms"),
+            "--actions" => a.actions = val().parse().expect("--actions"),
+            "--pool" => a.pool = val(),
             other => panic!("unknown argument: {other}"),
         }
         i += 1;
@@ -413,6 +421,110 @@ fn note_at_leaf_zero(
     let anchor = path.root(cmx);
 
     (note, path, anchor)
+}
+
+/// `k` spendable notes at leaves `0..k` of one tree, plus the shared anchor.
+///
+/// A tree holding exactly `k` commitments is a legitimate state, and every leaf's
+/// authentication path is the *computed* sibling subtree root at each level (the
+/// empty-subtree root wherever the sibling side is still empty). Building the
+/// levels once and reading the sibling at `(i >> l) ^ 1` is the same construction
+/// the upstream builder tests use for shared-anchor witnesses, so the anchor is
+/// identical for all `k` notes by construction -- asserted below rather than
+/// assumed.
+///
+/// This is what makes an `n`-action bundle possible without changing any action's
+/// semantics: the actions really do spend distinct notes, they are not padding
+/// dressed up as work.
+#[allow(dead_code)] // only the f4ascale / f4a2mem builds call it
+fn notes_at_leaves(
+    fvk: &FullViewingKey,
+    values: &[u64],
+    version: NoteVersion,
+    rng: &mut StdRng,
+) -> (Vec<(Note, MerklePath)>, Anchor) {
+    let recipient = fvk.address_at(0u32, Scope::External);
+
+    let notes: Vec<Note> = values
+        .iter()
+        .map(|value| {
+            let rho = loop {
+                let mut b = [0u8; 32];
+                rng.fill_bytes(&mut b);
+                if let Some(r) = Option::<Rho>::from(Rho::from_bytes(&b)) {
+                    break r;
+                }
+            };
+            loop {
+                let mut s = [0u8; 32];
+                rng.fill_bytes(&mut s);
+                if let Some(rseed) = Option::<RandomSeed>::from(RandomSeed::from_bytes(s, &rho)) {
+                    if let Some(n) = Option::<Note>::from(Note::from_parts(
+                        recipient,
+                        NoteValue::from_raw(*value),
+                        rho,
+                        rseed,
+                        version,
+                    )) {
+                        break n;
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let leaves: Vec<MerkleHashOrchard> = notes
+        .iter()
+        .map(|n| MerkleHashOrchard::from_cmx(&n.commitment().into()))
+        .collect();
+
+    // levels[l][p] is the root of the subtree at level l, position p. Level 0 is
+    // the leaves; a missing right sibling contributes the empty-subtree root.
+    let mut levels: Vec<Vec<MerkleHashOrchard>> = Vec::with_capacity(MERKLE_DEPTH + 1);
+    levels.push(leaves);
+    for l in 0..MERKLE_DEPTH {
+        let level = Level::from(l as u8);
+        let cur = &levels[l];
+        let mut next = Vec::with_capacity(cur.len().div_ceil(2));
+        let mut p = 0;
+        while p < cur.len() {
+            let left = cur[p];
+            let right = cur
+                .get(p + 1)
+                .copied()
+                .unwrap_or_else(|| MerkleHashOrchard::empty_root(level));
+            next.push(MerkleHashOrchard::combine(level, &left, &right));
+            p += 2;
+        }
+        levels.push(next);
+    }
+
+    let witnesses: Vec<(Note, MerklePath)> = notes
+        .into_iter()
+        .enumerate()
+        .map(|(i, note)| {
+            let auth_path: [MerkleHashOrchard; MERKLE_DEPTH] = core::array::from_fn(|l| {
+                let level = Level::from(l as u8);
+                let sibling = (i >> l) ^ 1;
+                levels[l]
+                    .get(sibling)
+                    .copied()
+                    .unwrap_or_else(|| MerkleHashOrchard::empty_root(level))
+            });
+            (note, MerklePath::from_parts(i as u32, auth_path))
+        })
+        .collect();
+
+    let anchor = witnesses[0].1.root(witnesses[0].0.commitment().into());
+    for (note, path) in &witnesses {
+        assert_eq!(
+            path.root(note.commitment().into()),
+            anchor,
+            "notes_at_leaves produced a witness that does not root to the shared anchor"
+        );
+    }
+
+    (witnesses, anchor)
 }
 
 fn mean(v: &[f64]) -> f64 {
@@ -494,9 +606,11 @@ fn main() {
         "f4a2mem" => run_f4a2mem(&args, pinned),
         #[cfg(feature = "f4aimpl")]
         "f4a2stage" => run_f4a2stage(&args, pinned),
+        #[cfg(feature = "f4aimpl")]
+        "f4ascale" => run_f4ascale(&args, pinned),
         other => panic!(
             "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a, f4b, \
-f4aimpl, f4a2mem or f4a2stage)"
+f4aimpl, f4a2mem, f4a2stage or f4ascale)"
         ),
     }
 }
@@ -1596,8 +1710,22 @@ fn run_f4aimpl(args: &Args, pinned: Option<usize>) {
 // be sanity-checked; the audit's time evidence is block three.
 #[cfg(feature = "f4a2mem")]
 fn run_f4a2mem(args: &Args, pinned: Option<usize>) {
-    let orchard_bv = BundleVersion::orchard_v3();
-    let circuit_version = orchard_bv.circuit_version();
+    let n = args.actions;
+    assert!(n >= 1, "--actions must be >= 1");
+
+    let (bv, pool, spends, outputs) = match args.pool.as_str() {
+        "orchard" => {
+            assert!(
+                n % 2 == 0,
+                "orchard_v3 forbids cross-address transfers, so the action count must be even"
+            );
+            (BundleVersion::orchard_v3(), "orchard_v3", n / 2, n / 2)
+        }
+        "ironwood" => (BundleVersion::ironwood_v3(), "ironwood_v3", n, n),
+        other => panic!("--pool must be orchard or ironwood, got {other}"),
+    };
+    let cross = bv.default_flags().cross_address_enabled();
+    let circuit_version = bv.circuit_version();
 
     let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
     let fvk = FullViewingKey::from(&sk);
@@ -1607,6 +1735,8 @@ fn run_f4a2mem(args: &Args, pinned: Option<usize>) {
 
     let pk = ProvingKey::build(circuit_version);
     let vk = pk.verifying_key();
+    let spend_values = vec![100_000_000u64; spends];
+    let out_value = 85_000_000u64;
     let mut actions = 0usize;
 
     for pair in 0..args.reps {
@@ -1616,27 +1746,33 @@ fn run_f4a2mem(args: &Args, pinned: Option<usize>) {
 
             // Identical randomness in both arms (same reason as `f4aimpl`).
             let mut rng = StdRng::from_seed([args.seed as u8; 32]);
-            let (note, path, anchor) =
-                note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+            let (witnesses, anchor) =
+                notes_at_leaves(&fvk, &spend_values, NoteVersion::V2, &mut rng);
 
-            let mut b = Builder::new(
-                BundleType::UNPADDED,
-                orchard_bv,
-                orchard_bv.default_flags(),
-                anchor,
-            )
-            .expect("orchard v3 builder");
-            b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
-            b.add_change_output(
-                fvk.clone(),
-                None,
-                own_address,
-                NoteValue::from_raw(85_000_000),
-                [0u8; 512],
-            )
-            .expect("add_change_output");
+            let mut b = Builder::new(BundleType::UNPADDED, bv, bv.default_flags(), anchor)
+                .expect("scaled builder");
+            for (note, path) in &witnesses {
+                b.add_spend(fvk.clone(), *note, path.clone())
+                    .expect("add_spend");
+            }
+            for _ in 0..outputs {
+                if cross {
+                    b.add_output(None, own_address, NoteValue::from_raw(out_value), [0u8; 512])
+                        .expect("add_output");
+                } else {
+                    b.add_change_output(
+                        fvk.clone(),
+                        None,
+                        own_address,
+                        NoteValue::from_raw(out_value),
+                        [0u8; 512],
+                    )
+                    .expect("add_change_output");
+                }
+            }
             let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
             actions = bundle.actions().len();
+            assert_eq!(actions, n, "requested {n} actions, builder produced {actions}");
 
             halo2_proofs::f4a2::reset();
             let (proven, win) = mem2::run(|| bundle.create_proof(&pk, &mut rng).expect("proof"));
@@ -1679,9 +1815,13 @@ fn run_f4a2mem(args: &Args, pinned: Option<usize>) {
 
     std::env::set_var("ORCHARD_F4A", "0");
     println!(
-        "F4A2_META {{\"mode\":\"f4a2mem\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
-\"pairs\":{},\"seed\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        "F4A2_META {{\"mode\":\"f4a2mem\",\"pool\":\"{}\",\"circuit\":\"PostNu6_3\",\
+\"actions\":{},\"spends\":{},\"outputs\":{},\"pairs\":{},\"seed\":{},\
+\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        pool,
         actions,
+        spends,
+        outputs,
         args.reps,
         args.seed,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
@@ -1787,6 +1927,154 @@ fn run_f4a2stage(args: &Args, pinned: Option<usize>) {
         args.seed,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mode f4ascale: Stage F4-A action-count scaling
+// ---------------------------------------------------------------------------
+//
+// One proving key (one `PostNu6_3` build) serves every action count, so K and the
+// circuit shape are held fixed by construction: only the number of *instances*
+// changes. Two bundle shapes are available because the two NU6.3 pools differ in
+// how many actions a given number of spends/outputs produces:
+//
+//   ironwood_v3  cross-address permitted -> actions = max(spends, outputs)
+//                so `--actions n` is `n` spends + `n` outputs, any n >= 1.
+//   orchard_v3   cross-address forbidden -> actions = spends + outputs
+//                so `--actions n` must be even: `n/2` spends + `n/2` changes.
+//
+// Both build the same `PostNu6_3` circuit (the cross-address restriction is an
+// instance flag, not extra gates), but their flag bytes differ, so the two
+// curves are reported separately and never merged into one scaling line.
+#[cfg(feature = "f4aimpl")]
+fn run_f4ascale(args: &Args, pinned: Option<usize>) {
+    // Must be set before the first `e2_add` call inside the first `create_proof`.
+    std::env::set_var("ORCHARD_E2_TIMING", "1");
+
+    let n = args.actions;
+    assert!(n >= 1, "--actions must be >= 1");
+
+    let (bv, pool) = match args.pool.as_str() {
+        "orchard" => (BundleVersion::orchard_v3(), "orchard_v3"),
+        "ironwood" => (BundleVersion::ironwood_v3(), "ironwood_v3"),
+        other => panic!("--pool must be orchard or ironwood, got {other}"),
+    };
+    let cross = bv.default_flags().cross_address_enabled();
+    let (spends, outputs) = if cross {
+        (n, n)
+    } else {
+        assert!(
+            n % 2 == 0,
+            "orchard_v3 forbids cross-address transfers, so actions = spends + outputs \
+             and the count must be even; got {n}"
+        );
+        (n / 2, n / 2)
+    };
+
+    let circuit_version = bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    // One keygen for every action count in this process: same pk, same K.
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let spend_values = vec![100_000_000u64; spends];
+    let out_value = 85_000_000u64;
+
+    for pair in 0..args.reps {
+        for arm in ["A", "B"] {
+            let on = arm == "B";
+            std::env::set_var("ORCHARD_F4A", if on { "1" } else { "0" });
+
+            // Identical randomness in both arms: the arms may differ only in the
+            // `ORCHARD_F4A` value, never in the bundle they prove.
+            let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+            let (witnesses, anchor) =
+                notes_at_leaves(&fvk, &spend_values, NoteVersion::V2, &mut rng);
+
+            let mut b = Builder::new(BundleType::UNPADDED, bv, bv.default_flags(), anchor)
+                .expect("scaled builder");
+            for (note, path) in &witnesses {
+                b.add_spend(fvk.clone(), *note, path.clone())
+                    .expect("add_spend");
+            }
+            for _ in 0..outputs {
+                if cross {
+                    b.add_output(None, own_address, NoteValue::from_raw(out_value), [0u8; 512])
+                        .expect("add_output");
+                } else {
+                    b.add_change_output(
+                        fvk.clone(),
+                        None,
+                        own_address,
+                        NoteValue::from_raw(out_value),
+                        [0u8; 512],
+                    )
+                    .expect("add_change_output");
+                }
+            }
+            let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+            let observed = bundle.actions().len();
+            assert_eq!(
+                observed, n,
+                "requested {n} actions but the builder produced {observed}"
+            );
+
+            let t = Instant::now();
+            let proven = bundle.create_proof(&pk, &mut rng).expect("scaled proof");
+            let prove_ms = t.elapsed().as_secs_f64() * 1e3;
+
+            let mut stages = halo2_proofs::plonk::take_e2_timings();
+            stages.sort_by(|a, b| a.0.cmp(&b.0));
+            let body: Vec<String> = stages
+                .iter()
+                .map(|(k, v)| format!("\"{}\":{:.6}", k, v * 1e3))
+                .collect();
+
+            let authorized = proven
+                .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+                .expect("scaled signatures");
+            let proof = authorized.authorization().proof();
+            let proof_bytes = proof.as_ref().len();
+            let proof_fnv = fnv1a(proof.as_ref());
+            authorized.verify_proof(&vk).expect("scaled verify");
+
+            println!(
+                "F4AS_RUN {{\"pair\":{},\"arm\":\"{}\",\"f4a\":{},\"actions\":{},\
+\"prove_ms\":{:.3},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\"stages_ms\":{{{}}}}}",
+                pair,
+                arm,
+                on,
+                observed,
+                prove_ms,
+                proof_bytes,
+                proof_fnv,
+                body.join(",")
+            );
+            println!("F4A_IMPL {}", halo2_proofs::f4a_impl::report());
+        }
+    }
+
+    std::env::set_var("ORCHARD_F4A", "0");
+    println!(
+        "F4AS_META {{\"mode\":\"f4ascale\",\"pool\":\"{}\",\"circuit\":\"PostNu6_3\",\
+\"requested_actions\":{},\"spends\":{},\"outputs\":{},\"pairs\":{},\"seed\":{},\
+\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\",\"stats\":{}}}",
+        pool,
+        n,
+        spends,
+        outputs,
+        args.reps,
+        args.seed,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+        std::env::var_os("ORCHARD_F4A_STATS").is_some(),
     );
 }
 
