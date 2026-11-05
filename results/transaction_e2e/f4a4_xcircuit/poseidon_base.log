@@ -1,0 +1,2 @@
+F4A_CS {"k":6,"ext_len":512,"gates":3,"constraints":10,"chains":0,"chains_shared":0,"consumers":0,"saved_muls":0,"occ_muls":0,"root_factorable":0,"identity_fail":0,"domains":1}
+XCENSUS_RUN {"circuit":"poseidon_only","variant":"base","k":6,"proof_bytes":2400,"proof_fnv":"0xa36d603c02b842ea"}

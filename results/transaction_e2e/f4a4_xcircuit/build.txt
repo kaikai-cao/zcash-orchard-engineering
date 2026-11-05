@@ -1,0 +1,50 @@
+# F4-A.4 · cross-circuit census — build record
+
+Date       2026-11-05
+Host       Windows, single machine, RAYON_NUM_THREADS=1
+Toolchain  rustc 1.98.1 (48a229cea 2026-09-01) / cargo 1.98.1 (797e8a9bc 2026-08-05)
+
+## What was applied to the vendored crate
+
+    experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-f4a-probe.patch
+    md5 475d8eae2db6...
+
+Read-only probe: it only calls `f4a::census(&cs, ...)` right after
+`cs.compress_selectors(...)` in `plonk/keygen.rs`. It never touches the
+evaluator, so the frozen proving path is unchanged. The F4-A implementation
+patch (`-f4a.patch`) was **not** applied for this stage.
+
+The probe was reverted before committing; `f0_verify_frozen.py` is PASS.
+
+## Binary
+
+    harness/src/bin/xcensus.rs        new, 2 circuits x 1 variant each
+    cargo build --release --offline --bin xcensus
+    CARGO_TARGET_DIR=target/xc
+    target/xc/release/xcensus.exe     1 495 552 B
+    sha256 (first 16)                 ce5093c027fa87bc
+
+Dependency added: `halo2_gadgets = { version = "0.6", default-features = false }`.
+`[patch.crates-io] halo2_proofs` already points at the vendored 0.4.0, so the
+gadget crate compiles against the same `halo2_proofs` as Orchard. No other
+dependency changed.
+
+## Runs
+
+    ORCHARD_F4A=1 XCENSUS_K=6 XCENSUS_VARIANT=base ./target/xc/release/xcensus
+    ORCHARD_F4A=1 XCENSUS_K=6 XCENSUS_VARIANT=hi   ./target/xc/release/xcensus
+
+Both exit 0. Logs: `results/transaction_e2e/f4a4_xcircuit/poseidon_{base,hi}.log`
+
+## What each line means
+
+    F4A_CS     {"k":6,"ext_len":512,"gates":3,"constraints":10,
+                "chains":0,"chains_shared":0,"consumers":0,
+                "saved_muls":0,"occ_muls":0,"root_factorable":0,
+                "identity_fail":0,"domains":1}
+    F4A_CHAIN  one line per distinct recovery chain (only in the `hi` variant)
+    F4A_OCC    one line per (chain, gate, poly) occurrence (suppressed by grep here)
+    XCENSUS_RUN proof bytes and FNV-1a fingerprint of the produced proof
+
+`k` in `F4A_CS` is the `Params` k (6 here), not the chain length. The chain
+length is the `k` field inside `F4A_CHAIN` (3 in the `hi` variant).

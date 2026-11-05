@@ -1,0 +1,15 @@
+F4A_OCC {"chain":0,"gate":0,"gate_name":"full round","poly":0,"root_factorable":true}
+F4A_OCC {"chain":0,"gate":0,"gate_name":"full round","poly":1,"root_factorable":true}
+F4A_OCC {"chain":0,"gate":0,"gate_name":"full round","poly":2,"root_factorable":true}
+F4A_OCC {"chain":1,"gate":1,"gate_name":"partial rounds","poly":0,"root_factorable":true}
+F4A_OCC {"chain":1,"gate":1,"gate_name":"partial rounds","poly":1,"root_factorable":true}
+F4A_OCC {"chain":1,"gate":1,"gate_name":"partial rounds","poly":2,"root_factorable":true}
+F4A_OCC {"chain":1,"gate":1,"gate_name":"partial rounds","poly":3,"root_factorable":true}
+F4A_OCC {"chain":2,"gate":2,"gate_name":"pad-and-add","poly":0,"root_factorable":true}
+F4A_OCC {"chain":2,"gate":2,"gate_name":"pad-and-add","poly":1,"root_factorable":true}
+F4A_OCC {"chain":2,"gate":2,"gate_name":"pad-and-add","poly":2,"root_factorable":true}
+F4A_CHAIN {"chain":0,"column":10,"k":3,"nodes":11,"occ":3,"root_factorable":3,"shared_bytes":32768}
+F4A_CHAIN {"chain":1,"column":10,"k":3,"nodes":11,"occ":4,"root_factorable":4,"shared_bytes":32768}
+F4A_CHAIN {"chain":2,"column":10,"k":3,"nodes":11,"occ":3,"root_factorable":3,"shared_bytes":32768}
+F4A_CS {"k":6,"ext_len":1024,"gates":4,"constraints":11,"chains":3,"chains_shared":3,"consumers":10,"saved_muls":14,"occ_muls":20,"root_factorable":10,"identity_fail":0,"domains":1}
+XCENSUS_RUN {"circuit":"poseidon_only","variant":"hi","k":6,"proof_bytes":2368,"proof_fnv":"0x1de15e310b1e24cc"}

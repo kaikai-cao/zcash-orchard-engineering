@@ -65,6 +65,10 @@ windows-sys = { version = "0.59", features = [
 ] }
 # Same feature set orchard itself enables, so adding this direct dependency does
 # not perturb the dependency graph the perf numbers were taken on.
+# F4-A.4 cross-circuit census: the ECC chip is a complete Halo2 circuit that
+# contains none of Orchard's gates, so it is a legitimate second circuit for the
+# read-only structural survey. Same version Orchard itself pins.
+halo2_gadgets = { version = "0.6", default-features = false }
 halo2_proofs = { version = "0.4", default-features = false, features = [
     "batch",
     "floor-planner-v1-legacy-pdqsort",

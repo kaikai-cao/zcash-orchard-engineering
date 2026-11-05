@@ -596,6 +596,7 @@ dependencies = [
 name = "orchard-e2e"
 version = "0.1.0"
 dependencies = [
+ "halo2_gadgets",
  "halo2_proofs",
  "incrementalmerkletree",
  "orchard",
