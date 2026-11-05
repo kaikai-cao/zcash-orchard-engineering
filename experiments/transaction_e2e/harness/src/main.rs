@@ -332,7 +332,11 @@ fn main() {
         "recon" => run_recon(&args, pinned),
         #[cfg(feature = "f4a")]
         "f4a" => run_f4a(&args, pinned),
-        other => panic!("unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon or f4a)"),
+        #[cfg(feature = "f4b")]
+        "f4b" => run_f4b(&args, pinned),
+        other => panic!(
+            "unknown --mode {other} (expected v2, v3, profile, f2, lc, h7, recon, f4a or f4b)"
+        ),
     }
 }
 
@@ -872,7 +876,8 @@ fn run_f2(args: &Args, pinned: Option<usize>) {
     feature = "f3lc",
     feature = "f3h7",
     feature = "f4",
-    feature = "f4a"
+    feature = "f4a",
+    feature = "f4b"
 ))]
 fn fnv1a(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -1225,6 +1230,84 @@ fn run_f4a(args: &Args, pinned: Option<usize>) {
         proof_bytes,
         proof_fnv,
         halo2_proofs::f4a::enabled(),
+        args.reps,
+        std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
+        pinned.unwrap_or(0),
+    );
+}
+
+/// Stage F4-A · implementation probe. Proves one V3 bundle exactly like
+/// `--mode f4a` so the probe-on/off runs can be compared byte for byte, then
+/// prices the three bookkeeping mechanisms and the per-chunk model.
+#[cfg(feature = "f4b")]
+fn run_f4b(args: &Args, pinned: Option<usize>) {
+    if std::env::var_os("ORCHARD_F4B").is_none() {
+        std::env::set_var("ORCHARD_F4B", "1");
+    }
+    std::env::set_var("ORCHARD_F4B_BENCH", args.reps.to_string());
+
+    let mut rng = StdRng::from_seed([args.seed as u8; 32]);
+    let orchard_bv = BundleVersion::orchard_v3();
+    let circuit_version = orchard_bv.circuit_version();
+
+    let sk = SpendingKey::from_bytes([args.seed as u8; 32]).expect("spending key");
+    let fvk = FullViewingKey::from(&sk);
+    let (note, path, anchor) = note_at_leaf_zero(&fvk, 100_000_000, NoteVersion::V2, &mut rng);
+    let own_address: Address = fvk.address_at(0u32, Scope::External);
+
+    let pk = ProvingKey::build(circuit_version);
+    let vk = pk.verifying_key();
+
+    let mut b = Builder::new(
+        BundleType::UNPADDED,
+        orchard_bv,
+        orchard_bv.default_flags(),
+        anchor,
+    )
+    .expect("orchard v3 builder");
+    b.add_spend(fvk.clone(), note, path.clone()).expect("add_spend");
+    b.add_change_output(
+        fvk.clone(),
+        None,
+        own_address,
+        NoteValue::from_raw(85_000_000),
+        [0u8; 512],
+    )
+    .expect("add_change_output");
+    let (bundle, _meta) = b.build::<i64>(&mut rng).expect("build").expect("bundle");
+    let actions = bundle.actions().len();
+
+    let t_proof = Instant::now();
+    let proven = bundle.create_proof(&pk, &mut rng).expect("f4b proof");
+    let proof_ms = t_proof.elapsed().as_secs_f64() * 1e3;
+
+    let ask = orchard::keys::SpendAuthorizingKey::from(&sk);
+    let sighash = [0x11u8; 32];
+    let authorized = proven
+        .apply_signatures(&mut rng, sighash, core::slice::from_ref(&ask))
+        .expect("f4b signatures");
+    let proof = authorized.authorization().proof();
+    let proof_bytes = proof.as_ref().len();
+    let proof_fnv = fnv1a(proof.as_ref());
+
+    let t_verify = Instant::now();
+    authorized.verify_proof(&vk).expect("f4b verify");
+    let verify_ms = t_verify.elapsed().as_secs_f64() * 1e3;
+
+    // Prices are quoted per chunk, so all three geometries get measured: 512 is
+    // the 8P unit, 4096 the 1P unit, 16384 only a cross-check.
+    halo2_proofs::f4b::run::<halo2_proofs::pasta::pallas::Base>(1 << 14, args.reps);
+
+    println!(
+        "F4B_META {{\"mode\":\"f4b\",\"circuit\":\"PostNu6_3\",\"actions\":{},\
+\"proof_ms\":{:.6},\"verify_ms\":{:.6},\"proof_bytes\":{},\"proof_fnv\":\"0x{:016x}\",\
+\"probe\":{},\"bench_reps\":{},\"rayon_threads\":\"{}\",\"affinity\":\"0x{:x}\"}}",
+        actions,
+        proof_ms,
+        verify_ms,
+        proof_bytes,
+        proof_fnv,
+        halo2_proofs::f4b::enabled(),
         args.reps,
         std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into()),
         pinned.unwrap_or(0),

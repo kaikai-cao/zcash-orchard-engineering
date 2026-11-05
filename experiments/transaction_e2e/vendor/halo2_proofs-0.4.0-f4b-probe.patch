@@ -1,0 +1,508 @@
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4b.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4b.rs
+new file mode 100644
+index 0000000..64ff121
+--- /dev/null
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/f4b.rs
+@@ -0,0 +1,489 @@
++//! Stage F4-A · implementation probe.
++//!
++//! Read-only. Three questions, all answered with a stopwatch and a counter:
++//!
++//! 1. **Where does a shared node live?** `Ast` (`poly/evaluator.rs:293-311`)
++//!    already holds its children as `Arc`, so a shared subtree needs no new node
++//!    type -- it only needs the *construction* to reuse one `Arc`. The open
++//!    question is how the evaluator finds it during the walk: a match arm on a
++//!    dedicated variant (index into a slice), a hash map, or a pointer scan.
++//!    All three are priced here.
++//! 2. **What does one chunk cost today, and what would it cost shared?** The
++//!    evaluator works per chunk (`get_chunk_params`), not per whole polynomial,
++//!    so the model is built per chunk at both real geometries (4096 at 1P,
++//!    512 at 8P) and the 16384 column is kept only as a cross-check.
++//! 3. **What does the whole thing cost at the two ends?** Interning at AST
++//!    construction (once per proof) and the per-chunk memo slice.
++//!
++//! Nothing here is wired into `recurse`. The numbers are prices, not a treatment.
++
++use std::collections::HashMap;
++use std::sync::Arc;
++
++use ff::PrimeField;
++
++/// `ORCHARD_F4B` unset -> off; `"0"` -> off; anything else -> on.
++pub fn enabled() -> bool {
++    match std::env::var_os("ORCHARD_F4B") {
++        Some(v) => v != "0",
++        None => false,
++    }
++}
++
++/// `ORCHARD_F4B_BENCH=n` sets the repetition count; absent -> 0 (no benches).
++pub fn bench_reps() -> usize {
++    std::env::var("ORCHARD_F4B_BENCH")
++        .ok()
++        .and_then(|v| v.parse().ok())
++        .unwrap_or(0)
++}
++
++/// The 50 recovery chains exactly as the F4-A census found them:
++/// `(k, consumers)`, where `k-1` is the number of products in the chain's spine.
++///
++/// Copied from `results/transaction_e2e/f4a_probe/probe_on.log`; the three
++/// invariants are asserted in `bench_chain_model` so a typo cannot pass silently:
++/// `sum occ*(k-1) = 869`, `sum (k-1) = 242`, `saved = 627`.
++const CHAINS: &[(u32, u32)] = &[
++    (4, 12),
++    (4, 8),
++    (4, 4),
++    (4, 4),
++    (4, 3),
++    (4, 3),
++    (4, 3),
++    (4, 3),
++    (4, 2),
++    (4, 2),
++    (4, 1),
++    (4, 1),
++    (5, 6),
++    (5, 5),
++    (5, 4),
++    (5, 2),
++    (5, 1),
++    (6, 14),
++    (6, 6),
++    (6, 4),
++    (6, 4),
++    (6, 4),
++    (6, 3),
++    (6, 3),
++    (6, 1),
++    (6, 1),
++    (6, 1),
++    (6, 1),
++    (6, 1),
++    (7, 7),
++    (7, 7),
++    (7, 5),
++    (7, 5),
++    (7, 5),
++    (7, 5),
++    (7, 4),
++    (7, 4),
++    (7, 4),
++    (7, 4),
++    (7, 4),
++    (7, 3),
++    (7, 3),
++    (7, 3),
++    (7, 2),
++    (7, 2),
++    (7, 2),
++    (7, 2),
++    (7, 1),
++    (7, 1),
++    (7, 1),
++];
++
++/// `chunk_size = ceil(poly_len / (threads * 4))`, from `poly/evaluator.rs:19-35`.
++///
++/// Duplicated rather than exposed, so this probe touches no line of the
++/// evaluator. The duplication is checked against F2's own recorded geometry
++/// (`results/transaction_e2e/f2_expression/eval_calls.csv`): 1P -> 4096, 8P -> 512.
++pub fn geometry(poly_len: usize) {
++    if !enabled() {
++        return;
++    }
++    let current = crate::multicore::current_num_threads();
++    for threads in [1usize, 2, 4, 8, current] {
++        let num_chunks = threads * 4;
++        let chunk_size = (poly_len + num_chunks - 1) / num_chunks;
++        let num_chunks = (poly_len + chunk_size - 1) / chunk_size;
++        println!(
++            "F4B_GEOM {{\"poly_len\":{},\"threads\":{},\"chunk_size\":{},\"num_chunks\":{},\
++\"elems_per_consumer\":{},\"current\":{}}}",
++            poly_len,
++            threads,
++            chunk_size,
++            num_chunks,
++            poly_len,
++            threads == current
++        );
++    }
++}
++
++fn median(mut v: Vec<f64>) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn leaf<F: PrimeField>(n: usize, seed: u64) -> Vec<F> {
++    (0..n)
++        .map(|i| F::from((i as u64 * 31 + seed) % 1009 + 1))
++        .collect()
++}
++
++/// The three elementwise idioms, one per geometry.
++///
++/// - `in_place`: the destination is already an owned buffer (today's `Add`/`Mul`
++///   after `recurse` returned an owned `Vec`).
++/// - `fused`: one pass with a fresh allocation -- what a consumer pays if it has
++///   to *materialise* a borrowed shared value.
++/// - `reused`: one pass into a preallocated buffer (lower bound for `fused`,
++///   i.e. what buffer pooling would buy later).
++pub fn bench_kernels<F: PrimeField>(n: usize, reps: usize) {
++    if !enabled() || reps == 0 {
++        return;
++    }
++    let a: Vec<F> = leaf(n, 3);
++    let b: Vec<F> = leaf(n, 5);
++
++    for _ in 0..3 {
++        let mut dst = a.clone();
++        for (d, y) in dst.iter_mut().zip(b.iter()) {
++            *d *= *y;
++        }
++        std::hint::black_box(dst[n - 1]);
++        let dst: Vec<F> = a.iter().zip(b.iter()).map(|(x, y)| *x * *y).collect();
++        std::hint::black_box(dst[n - 1]);
++        let mut dst = a.clone();
++        for ((d, x), y) in dst.iter_mut().zip(a.iter()).zip(b.iter()) {
++            *d = *x * *y;
++        }
++        std::hint::black_box(dst[n - 1]);
++    }
++
++    let mut t_in = Vec::with_capacity(reps);
++    let mut t_fused = Vec::with_capacity(reps);
++    let mut t_reused = Vec::with_capacity(reps);
++    let mut t_add = Vec::with_capacity(reps);
++
++    for _ in 0..reps {
++        let mut dst = a.clone();
++        let t = std::time::Instant::now();
++        for (d, y) in dst.iter_mut().zip(b.iter()) {
++            *d *= *y;
++        }
++        t_in.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(dst[n - 1]);
++
++        let t = std::time::Instant::now();
++        let dst: Vec<F> = a.iter().zip(b.iter()).map(|(x, y)| *x * *y).collect();
++        t_fused.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(dst[n - 1]);
++
++        let mut dst = a.clone();
++        let t = std::time::Instant::now();
++        for ((d, x), y) in dst.iter_mut().zip(a.iter()).zip(b.iter()) {
++            *d = *x * *y;
++        }
++        t_reused.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(dst[n - 1]);
++
++        // An add pass, so the model below can price `Sum` separately from `Product`.
++        let mut dst = a.clone();
++        let t = std::time::Instant::now();
++        for (d, y) in dst.iter_mut().zip(b.iter()) {
++            *d += *y;
++        }
++        t_add.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(dst[n - 1]);
++    }
++
++    for (name, v) in [
++        ("in_place", t_in),
++        ("fused", t_fused),
++        ("reused", t_reused),
++        ("add", t_add),
++    ] {
++        let m = median(v.clone());
++        println!(
++            "F4B_BENCH {{\"kernel\":\"{}\",\"n\":{},\"reps\":{},\"median_ns\":{:.1},\
++\"min_ns\":{:.1},\"max_ns\":{:.1},\"ns_per_elem\":{:.4}}}",
++            name,
++            n,
++            reps,
++            m,
++            v.iter().cloned().fold(f64::INFINITY, f64::min),
++            v.iter().cloned().fold(0.0, f64::max),
++            m / n as f64
++        );
++    }
++}
++
++/// How the evaluator would find a shared node, priced per lookup.
++///
++/// `array` is the proposal: the `Ast` variant carries a dense slot index and the
++/// memo is a slice. `hash` is the general fallback keyed by address; `ptr_scan`
++/// walks the (39-entry) slot table comparing `Arc` pointers.
++pub fn bench_lookup(reps: usize) {
++    if !enabled() || reps == 0 {
++        return;
++    }
++    const SLOTS: usize = 39;
++    const ITERS: usize = 200_000;
++
++    let slot: Vec<Vec<u64>> = (0..SLOTS).map(|i| vec![i as u64; 8]).collect();
++    let map: HashMap<u16, usize> = (0..SLOTS).map(|i| (i as u16, i)).collect();
++    let arced: Vec<Arc<Vec<u64>>> = (0..SLOTS).map(|i| Arc::new(vec![i as u64; 8])).collect();
++
++    let mut rows: Vec<(&str, Vec<f64>)> = vec![
++        ("array", Vec::with_capacity(reps)),
++        ("hash", Vec::with_capacity(reps)),
++        ("ptr_scan", Vec::with_capacity(reps)),
++    ];
++
++    for _ in 0..reps {
++        let mut acc = 0u64;
++
++        let t = std::time::Instant::now();
++        for i in 0..ITERS {
++            let j = std::hint::black_box(i % SLOTS);
++            let v = &slot[j];
++            acc = acc.wrapping_add(v[0]).wrapping_add(i as u64);
++        }
++        rows[0].1.push(t.elapsed().as_secs_f64() * 1e9 / ITERS as f64);
++
++        let t = std::time::Instant::now();
++        for i in 0..ITERS {
++            let key = std::hint::black_box((i % SLOTS) as u16);
++            let j = *map.get(&key).unwrap();
++            let v = &slot[j];
++            acc = acc.wrapping_add(v[0]).wrapping_add(i as u64);
++        }
++        rows[1].1.push(t.elapsed().as_secs_f64() * 1e9 / ITERS as f64);
++
++        let t = std::time::Instant::now();
++        for i in 0..ITERS {
++            let k = std::hint::black_box(i % SLOTS);
++            let target = &arced[k];
++            let j = arced.iter().position(|x| Arc::ptr_eq(x, target)).unwrap();
++            let v = &slot[j];
++            acc = acc.wrapping_add(v[0]).wrapping_add(i as u64);
++        }
++        rows[2].1.push(t.elapsed().as_secs_f64() * 1e9 / ITERS as f64);
++
++        std::hint::black_box(acc);
++    }
++
++    for (name, v) in rows {
++        let m = median(v.clone());
++        println!(
++            "F4B_LOOKUP {{\"mechanism\":\"{}\",\"iters\":{},\"reps\":{},\"ns_per_lookup\":{:.3},\
++\"min_ns\":{:.3},\"max_ns\":{:.3}}}",
++            name,
++            ITERS,
++            reps,
++            m,
++            v.iter().cloned().fold(f64::INFINITY, f64::min),
++            v.iter().cloned().fold(0.0, f64::max)
++        );
++    }
++}
++
++/// The per-chunk model: what one chunk of the quotient tree costs today
++/// (`repeat`) versus with the 39 chains hoisted (`shared`).
++///
++/// Both arms do the same number of *consumer reads* (181, as `DistributePowers`
++/// does one `acc = acc*y + term` per constraint), so the difference is the
++/// recomputation alone. The `repeat` arm reproduces what `recurse` does today
++/// node for node: `ConstantTerm` allocates a chunk, the `Sum` negates `q` into
++/// it (H6 fused the negation into that pass), the `Product` multiplies in place,
++/// and every consumer copies its own `Vec`.
++/// Builds one chain the way `recurse` does today: `Constant` allocates, `Sum`
++/// folds into that buffer, `Product` multiplies in place. Returns the value a
++/// consumer would read.
++fn build_chain<F: PrimeField>(n: usize, k: u32, q: &[F], consts: &[F]) -> Vec<F> {
++    let mut prod: Vec<F> = Vec::new();
++    for i in 0..(k as usize - 1) {
++        // `ConstantTerm(scalar)` -> `vec![scalar; n]`, exactly as the real arm
++        // fills it. (Filling with `F::from` here would add a Montgomery
++        // conversion per element and swamp the pass being measured.)
++        let mut cs: Vec<F> = vec![consts[i]; n];
++        // `Sum`: cs += -q  (one pass; H6 fuses the negation into it).
++        for (c, x) in cs.iter_mut().zip(q.iter()) {
++            *c -= *x;
++        }
++        if i == 0 {
++            // `Product`: q * (r_1 - q) -> fresh buffer.
++            prod = q.iter().zip(cs.iter()).map(|(a, c)| *a * *c).collect();
++        } else {
++            for (p, c) in prod.iter_mut().zip(cs.iter()) {
++                *p *= *c;
++            }
++        }
++    }
++    prod
++}
++
++/// Prices one chunk of the quotient tree two ways: `repeat` (every consumer
++/// recomputes its chain, as today) and `shared` (each of the 39 chains built
++/// once, then read by its consumers). Both arms perform the same 181 consumer
++/// reads, so `delta` is the recomputation alone.
++pub fn bench_chain_model<F: PrimeField>(n: usize, reps: usize) {
++    if !enabled() || reps == 0 {
++        return;
++    }
++    let q: Vec<F> = leaf(n, 11);
++    let y = F::from(7u64);
++    // One constant per spine factor; k <= 7 so six is the most any chain needs.
++    let consts: Vec<F> = (0..6u64).map(|i| F::from(1009 + i)).collect();
++
++    let occ_muls: u64 = CHAINS.iter().map(|(k, o)| *o as u64 * (*k as u64 - 1)).sum();
++    let kept_muls: u64 = CHAINS.iter().map(|(k, _)| *k as u64 - 1).sum();
++    let saved_muls: u64 = CHAINS.iter().map(|(k, o)| (*o as u64 - 1) * (*k as u64 - 1)).sum();
++    let consumers: u64 = CHAINS.iter().map(|(_, o)| *o as u64).sum();
++    assert_eq!((occ_muls, kept_muls, saved_muls, consumers), (869, 242, 627, 181));
++
++    let mut t_repeat = Vec::with_capacity(reps);
++    let mut t_shared = Vec::with_capacity(reps);
++
++    for _ in 0..3 {
++        let mut acc: Vec<F> = leaf(n, 13);
++        for &(k, occ) in CHAINS {
++            for _ in 0..occ {
++                let prod = build_chain::<F>(n, k, &q, &consts);
++                for (a, t) in acc.iter_mut().zip(prod.iter()) {
++                    *a *= y;
++                    *a += *t;
++                }
++            }
++        }
++        std::hint::black_box(acc[n - 1]);
++        let mut acc: Vec<F> = leaf(n, 13);
++        for &(k, occ) in CHAINS {
++            let prod = build_chain::<F>(n, k, &q, &consts);
++            for _ in 0..occ {
++                for (a, t) in acc.iter_mut().zip(prod.iter()) {
++                    *a *= y;
++                    *a += *t;
++                }
++            }
++        }
++        std::hint::black_box(acc[n - 1]);
++    }
++
++    for _ in 0..reps {
++        let mut acc: Vec<F> = leaf(n, 13);
++        let t = std::time::Instant::now();
++        for &(k, occ) in CHAINS {
++            for _ in 0..occ {
++                let prod = build_chain::<F>(n, k, &q, &consts);
++                for (a, t) in acc.iter_mut().zip(prod.iter()) {
++                    *a *= y;
++                    *a += *t;
++                }
++            }
++        }
++        t_repeat.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(acc[n - 1]);
++
++        let mut acc: Vec<F> = leaf(n, 13);
++        let t = std::time::Instant::now();
++        for &(k, occ) in CHAINS {
++            let prod = build_chain::<F>(n, k, &q, &consts);
++            for _ in 0..occ {
++                for (a, t) in acc.iter_mut().zip(prod.iter()) {
++                    *a *= y;
++                    *a += *t;
++                }
++            }
++        }
++        t_shared.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(acc[n - 1]);
++    }
++
++    let mr = median(t_repeat);
++    let ms = median(t_shared);
++    println!(
++        "F4B_MODEL {{\"n\":{},\"reps\":{},\"repeat_ns\":{:.0},\"shared_ns\":{:.0},\
++\"delta_ns\":{:.0},\"repeat_ms\":{:.4},\"shared_ms\":{:.4},\"delta_ms\":{:.4},\
++\"occ_muls\":{},\"kept_muls\":{},\"saved_muls\":{},\"consumers\":{}}}",
++        n,
++        reps,
++        mr,
++        ms,
++        mr - ms,
++        mr / 1e6,
++        ms / 1e6,
++        (mr - ms) / 1e6,
++        occ_muls,
++        kept_muls,
++        saved_muls,
++        consumers
++    );
++}
++
++/// Interning at AST construction: 193 constraint roots, 181 of which are chains,
++/// 39 distinct. Priced as `HashMap<(column, k), slot>` traffic, once per proof.
++pub fn bench_intern(reps: usize) {
++    if !enabled() || reps == 0 {
++        return;
++    }
++    const CONSTRAINTS: usize = 193;
++    const CHAIN_ROOTS: usize = 181;
++
++    let mut rows: Vec<(&str, Vec<f64>)> = vec![("intern", Vec::with_capacity(reps))];
++    for _ in 0..reps {
++        let t = std::time::Instant::now();
++        let mut map: HashMap<(u16, u8), u16> = HashMap::with_capacity(64);
++        let mut next = 0u16;
++        let mut acc = 0u64;
++        for i in 0..CONSTRAINTS {
++            if i < CHAIN_ROOTS {
++                // 50 distinct keys repeated 181 times, as the real 11 columns are.
++                let key = ((i as u16 % 50) * 7, 6);
++                let slot = *map.entry(key).or_insert_with(|| {
++                    next += 1;
++                    next
++                });
++                acc = acc.wrapping_add(slot as u64);
++            }
++        }
++        rows[0].1.push(t.elapsed().as_secs_f64() * 1e9);
++        std::hint::black_box(acc);
++    }
++
++    for (name, v) in rows {
++        let m = median(v.clone());
++        println!(
++            "F4B_INTERN {{\"mechanism\":\"{}\",\"constraints\":{},\"chain_roots\":{},\
++\"distinct\":{},\"reps\":{},\"median_ns\":{:.1},\"min_ns\":{:.1},\"max_ns\":{:.1}}}",
++            name,
++            CONSTRAINTS,
++            CHAIN_ROOTS,
++            50,
++            reps,
++            m,
++            v.iter().cloned().fold(f64::INFINITY, f64::min),
++            v.iter().cloned().fold(0.0, f64::max)
++        );
++    }
++}
++
++/// Run everything: geometry, the three lookup mechanisms, the per-chunk model at
++/// both real geometries, and the once-per-proof interning cost.
++pub fn run<F: PrimeField>(poly_len: usize, reps: usize) {
++    if !enabled() || reps == 0 {
++        return;
++    }
++    geometry(poly_len);
++    bench_lookup(reps);
++    bench_intern(reps);
++    for n in [1usize << 9, 1 << 12, 1 << 14] {
++        bench_kernels::<F>(n, reps);
++        bench_chain_model::<F>(n, reps);
++    }
++}
+diff --git a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+index 5c71546..6ad16d0 100644
+--- a/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
++++ b/experiments/transaction_e2e/vendor/halo2_proofs-0.4.0/src/lib.rs
+@@ -12,6 +12,8 @@ pub mod arithmetic;
+ pub mod circuit;
+ /// Stage F2 diagnostics (inert unless `ORCHARD_F2` is set). See the module docs.
+ pub mod f2;
++/// Stage F4-A implementation probe (inert unless `ORCHARD_F4B` is set).
++pub mod f4b;
+ pub use pasta_curves as pasta;
+ mod multicore;
+ pub mod plonk;

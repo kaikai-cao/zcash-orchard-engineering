@@ -1,0 +1,46 @@
+F4-A implementation probe · build record
+========================================
+
+date            2026-11-05
+vendor          experiments/transaction_e2e/vendor/halo2_proofs-0.4.0 (frozen, H6 state)
+patch           experiments/transaction_e2e/vendor/halo2_proofs-0.4.0-f4b-probe.patch
+                +491 / -0, 2 files
+                  src/f4b.rs       +489
+                  src/lib.rs       +2
+                `git apply --check` OK on the frozen tree
+
+toolchain
+  rustc 1.88.0 (6b00bc388 2025-06-23)
+  cargo 1.88.0 (873a06493 2025-05-10)
+
+harness
+  cd experiments/transaction_e2e/harness
+  cargo build --release --offline --features f4b --bin orchard-e2e
+  orchard-e2e.exe   4343296 B
+  sha256            f5889bcdfece813ed0527454a731f127… (first 32 hex)
+  .text             0x003452a8 (3429544 B)
+
+replay
+  git apply <patch> && md5sum src/f4b.rs src/lib.rs
+  f4b.rs            b43fe43838cbf545670307639cbf93e8
+  lib.rs            224d96583bd14d32e9b4aa77e27a333d
+
+runs
+  RAYON_NUM_THREADS=1 ./target/release/orchard-e2e --mode f4b --reps 200   -> probe_1p.log
+  RAYON_NUM_THREADS=8 ./target/release/orchard-e2e --mode f4b --reps 50    -> probe_8p.log
+  ORCHARD_F4B=0 RAYON_NUM_THREADS=1 … --reps 0                             -> probe_off.log
+
+identity (all three runs)
+  proof_bytes       7264
+  proof_fnv         0xa6bcd171d69e969a
+  same as H6 / H7 / F4 / F4-A recorded values
+
+restore
+  git checkout -- src/lib.rs && rm -f src/f4b.rs
+  python scripts/analysis/f0_verify_frozen.py   -> RESULT: PASS
+
+note
+  The kernel prices in this session are 2x the F4-A session's (24.32 vs 12.06
+  ns/element at n=4096; prove 7835 vs 2725.8 ms). The machine changed state
+  between runs, so nothing here is compared in absolute ms across sessions —
+  only ratios are carried over.

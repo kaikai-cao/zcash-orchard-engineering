@@ -30,6 +30,11 @@ f4 = []
 # lives in the vendored crate, so it is a patch like the others.
 f4a = []
 
+# Stage F4-A implementation probe (bookkeeping mechanisms + per-chunk model).
+# Off by default: `halo2_proofs::f4b` only exists after
+# `vendor/halo2_proofs-0.4.0-f4b-probe.patch` is applied. Read-only.
+f4b = []
+
 [dependencies]
 orchard = { path = "../../../../orchard-upstream", features = ["circuit", "multicore"] }
 rand = { version = "0.10", features = ["std", "std_rng", "thread_rng"] }
