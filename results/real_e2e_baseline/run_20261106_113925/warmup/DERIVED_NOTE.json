@@ -1,0 +1,26 @@
+{
+  "status": "measurement-chain validation only",
+  "reason": "first run of baseline_measure_v2.py crashed in the OUTPUT layer after all measurement CSVs were flushed; transaction was NOT re-run",
+  "crash": "statistics.median on empty valid_rows (warm-up rows are valid=false by design)",
+  "fix": "output-layer guard added to baseline_measure_v2.py; measurement path AST-identical to baseline_measure.py",
+  "do_not_use_as_results": [
+    "prove_ms 1415.515",
+    "prove_share 0.949135",
+    "rss_max_kb 414288"
+  ],
+  "existing_files_untouched": [
+    "rounds.csv",
+    "stage_timings.csv",
+    "rss_timeseries.csv",
+    "rss_windows.csv",
+    "gate.csv",
+    "invalid_runs.csv",
+    "summary.csv"
+  ],
+  "empty_stat_files": {
+    "summary.csv": "all n=0 (warm-up rows are valid=false); NOT a baseline statistic",
+    "prove_share.csv": "WARMUP_ONLY marker",
+    "rss_verdict.csv": "WARMUP_ONLY_NOT_A_RESULT marker"
+  },
+  "authoritative_results_dir": "../final/"
+}

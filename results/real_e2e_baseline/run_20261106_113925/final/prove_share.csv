@@ -1,0 +1,6 @@
+estimator,value,unit,note
+median(per-round prove/build),94.9,percent,"PRIMARY estimator, §4.5"
+median(prove)/median(build),95.35,percent,SECONDARY estimator; must not replace the primary
+per-round prove/build IQR,0.4,percent,descriptive only
+per-round prove/build min,93.8,percent,descriptive only
+per-round prove/build max,95.8,percent,descriptive only

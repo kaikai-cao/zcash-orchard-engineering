@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-11-06T11:40:36",
+  "phase": "after_single_fund_55",
+  "blocks": 32300,
+  "fund_zec_nominal": 55,
+  "fund_count": 1,
+  "fund_txid": "8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab",
+  "source": "live RPC read now; fund_once_55zec.log step[5] agrees",
+  "pools_zat": {
+    "sapling": 6374980000,
+    "ironwood": 6749720000
+  },
+  "pools_zec": {
+    "sapling": 63.7498,
+    "ironwood": 67.4972
+  },
+  "ironwood_delta_zec": 56.249,
+  "sapling_delta_zec": -56.25,
+  "need_gate_zec": 63.021,
+  "need_20_zec": 60.02,
+  "gate_margin_zec": 4.4762,
+  "note": "55 ZEC is a preparation action; G0 judged on ACTUAL balance, never on the nominal credit"
+}

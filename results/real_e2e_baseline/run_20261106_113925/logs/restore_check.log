@@ -1,0 +1,17 @@
+[11:39:34] 预检归档内容…
+[11:39:34]   预检 OK：共 1058 条目（zebra-state 1051 / zallet 3）
+[11:39:34] === 深度校验（解包到临时目录，服务与现有数据均不受影响）===
+  解包体积: zebra-state 67M / zallet 3.1M
+
+  --- zebra-state（rocksdb）---
+    .sst 文件 = 30    .log 文件 = 1
+    CURRENT    : /tmp/snapcheck.Ru7Ham/data/zebra-state/state/v28/regtest/CURRENT
+    IDENTITY   : /tmp/snapcheck.Ru7Ham/data/zebra-state/state/v28/regtest/IDENTITY
+    OPTIONS-* : 2 个
+
+  --- wallet.db（SQLite）---
+    integrity_check : ok
+    blocks(MAX,COUNT): [(32297, 32297)]
+    accounts        : [(1, 'bench', 0, 308)]
+
+[11:39:35] --check 完成（临时目录已清理；未停机、未改动现有数据）

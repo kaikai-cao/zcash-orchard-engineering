@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-11-06T11:39:51",
+  "phase": "after_snapshot_restore_before_fund",
+  "blocks": 32297,
+  "source": "restore_yes.log + fund_once_55zec.log step[1] (both read-only printed)",
+  "pools_zat": {
+    "sapling": 11999980000,
+    "ironwood": 1124820000
+  },
+  "pools_zec": {
+    "sapling": 119.9998,
+    "ironwood": 11.2482
+  }
+}

@@ -1,0 +1,17 @@
+[1] 注资前池余额: {'sapling': 11999980000, 'ironwood': 1124820000}
+
+[2] 派生 orchard-only 收款地址
+    uregtest1msjq6ew8kx9d2lpqay8y0n7e2uc533zzah238c3k6yldq25maatzz2e34y077jfjyuxwnyq47svf2uy3yln4p7r9z4hgyeyn5qawu78u
+    receivers: {"orchard": "uregtest1msjq6ew8kx9d2lpqay8y0n7e2uc533zzah238c3k6yldq25maatzz2e34y077jfjyuxwnyq47svf2uy3yln4p7r9z4hgyeyn5qawu78u"}
+
+[3] 跨池注资 55.0 ZEC（policy=AllowRevealedAmounts）
+    形态 1 接受（5 参）opid=opid-f7ebac3b-c93a-4b08-af79-4c87e99a16b2
+    status=success  15.04s
+    result: {"txid": "8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab", "txids": ["8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab"], "broadcast": true}
+    error : null
+
+[4] 挖 3 块 + 等追平
+    +3 块  wallet=32300 目标=32300（2.0s）
+
+[5] 注资后池余额: {'sapling': 6374980000, 'ironwood': 6749720000}
+    可用花费池: {'sapling': '63.7498 ZEC', 'ironwood': '67.4972 ZEC'}

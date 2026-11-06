@@ -1,0 +1,532 @@
+BATCH run_20261106_113925 · RAW OUTPUT
+说明：本文件只拼接原始输出，不做统计、不做结论。正式结果见 docs/orchard/29 §15–§20。
+==============================================================================
+
+##############################################################################
+## ③ 快照恢复 · --check
+文件: logs/restore_check.log
+##############################################################################
+
+[11:39:34] 预检归档内容…
+[11:39:34]   预检 OK：共 1058 条目（zebra-state 1051 / zallet 3）
+[11:39:34] === 深度校验（解包到临时目录，服务与现有数据均不受影响）===
+  解包体积: zebra-state 67M / zallet 3.1M
+
+  --- zebra-state（rocksdb）---
+    .sst 文件 = 30    .log 文件 = 1
+    CURRENT    : /tmp/snapcheck.Ru7Ham/data/zebra-state/state/v28/regtest/CURRENT
+    IDENTITY   : /tmp/snapcheck.Ru7Ham/data/zebra-state/state/v28/regtest/IDENTITY
+    OPTIONS-* : 2 个
+
+  --- wallet.db（SQLite）---
+    integrity_check : ok
+    blocks(MAX,COUNT): [(32297, 32297)]
+    accounts        : [(1, 'bench', 0, 308)]
+
+[11:39:35] --check 完成（临时目录已清理；未停机、未改动现有数据）
+
+
+##############################################################################
+## ③ 快照恢复 · --yes（回到 h=32297）
+文件: logs/restore_yes.log
+##############################################################################
+
+[11:39:39] 预检归档内容…
+[11:39:40]   预检 OK：共 1058 条目（zebra-state 1051 / zallet 3）
+[11:39:40] === 快照信息 ===
+  归档: /mnt/d/Research/z3/snapshots/z3_regtest_h32297_20261029_145710.tar.gz
+  体积: 13M
+[11:39:40] === 环境现状 ===
+  当前链高: 32302
+
+计划：停服务 → 现有 data 目录改名备份 → 解包 → 重启 → 等钱包追平到 快照高度
+现有数据不会被删除（改名保留为 *.bak.<时间戳>），确认无误后可手动 rm。
+[11:39:40] === 1) 停止服务 ===
+[11:39:40]   zallet-zaino pid=1027 → TERM
+[11:39:41]   /home/dell/z3-regtest/bin/zebrad pid=736 → TERM
+[11:39:43] === 2) 备份现有 data 目录 ===
+[11:39:43]   zebra-state → zebra-state.bak.20261106_113943
+[11:39:43]   zallet → zallet.bak.20261106_113943
+[11:39:43] === 3) 解包 ===
+[11:39:43]   已还原: 68M zebra-state / 3.1M zallet
+[11:39:43] === 4) 重启 ===
+[11:39:43]   zebrad 已拉起，等 RPC…
+[11:39:49]   zebra blocks = 32297
+[11:39:49]   zallet 已拉起，等 RPC 与同步（恢复扫描可能 1~5 分钟）…
+[11:39:49] === 5) 等钱包追平 ===
+
+  等待 zallet RPC… 已等 2s   
+  wallet=32297 目标=32297 synced=32297  已等 4s   
+[11:39:51] 钱包已追平
+  zebra  blocks = 32297
+  wallet tip   = 32297
+  余额         = {'sapling': {'valueZat': 11999980000}, 'ironwood': {'valueZat': 1124820000}}
+
+[11:39:51] === 恢复完成 ===
+  备份（确认无误后可删）: /home/dell/z3-regtest/data/zebra-state.bak.20261106_113943 , /home/dell/z3-regtest/data/zallet.bak.20261106_113943
+  链高起点: 见上方（> 32257，ZIP 212 已强制，pczt_create 可直接用）
+
+
+##############################################################################
+## ① 恢复后初始余额
+文件: logs/balance_initial.json
+##############################################################################
+
+{
+  "timestamp": "2026-11-06T11:39:51",
+  "phase": "after_snapshot_restore_before_fund",
+  "blocks": 32297,
+  "source": "restore_yes.log + fund_once_55zec.log step[1] (both read-only printed)",
+  "pools_zat": {
+    "sapling": 11999980000,
+    "ironwood": 1124820000
+  },
+  "pools_zec": {
+    "sapling": 119.9998,
+    "ironwood": 11.2482
+  }
+}
+
+
+##############################################################################
+## ② 唯一一次 fund_pool.py --fund-zec 55 原始日志
+文件: logs/fund_once_55zec.log
+##############################################################################
+
+[1] 注资前池余额: {'sapling': 11999980000, 'ironwood': 1124820000}
+
+[2] 派生 orchard-only 收款地址
+    uregtest1msjq6ew8kx9d2lpqay8y0n7e2uc533zzah238c3k6yldq25maatzz2e34y077jfjyuxwnyq47svf2uy3yln4p7r9z4hgyeyn5qawu78u
+    receivers: {"orchard": "uregtest1msjq6ew8kx9d2lpqay8y0n7e2uc533zzah238c3k6yldq25maatzz2e34y077jfjyuxwnyq47svf2uy3yln4p7r9z4hgyeyn5qawu78u"}
+
+[3] 跨池注资 55.0 ZEC（policy=AllowRevealedAmounts）
+    形态 1 接受（5 参）opid=opid-f7ebac3b-c93a-4b08-af79-4c87e99a16b2
+    status=success  15.04s
+    result: {"txid": "8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab", "txids": ["8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab"], "broadcast": true}
+    error : null
+
+[4] 挖 3 块 + 等追平
+    +3 块  wallet=32300 目标=32300（2.0s）
+
+[5] 注资后池余额: {'sapling': 6374980000, 'ironwood': 6749720000}
+    可用花费池: {'sapling': '63.7498 ZEC', 'ironwood': '67.4972 ZEC'}
+
+
+##############################################################################
+## ③ 注资后实际到账余额（不假定名义值）
+文件: logs/balance_post_fund.json
+##############################################################################
+
+{
+  "timestamp": "2026-11-06T11:40:36",
+  "phase": "after_single_fund_55",
+  "blocks": 32300,
+  "fund_zec_nominal": 55,
+  "fund_count": 1,
+  "fund_txid": "8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab",
+  "source": "live RPC read now; fund_once_55zec.log step[5] agrees",
+  "pools_zat": {
+    "sapling": 6374980000,
+    "ironwood": 6749720000
+  },
+  "pools_zec": {
+    "sapling": 63.7498,
+    "ironwood": 67.4972
+  },
+  "ironwood_delta_zec": 56.249,
+  "sapling_delta_zec": -56.25,
+  "need_gate_zec": 63.021,
+  "need_20_zec": 60.02,
+  "gate_margin_zec": 4.4762,
+  "note": "55 ZEC is a preparation action; G0 judged on ACTUAL balance, never on the nominal credit"
+}
+
+
+##############################################################################
+## ④ G0 · 8/8 PASS 报告（Errata-1 判据 63.021 ZEC）
+文件: g0/g0_gate_g0_final.txt
+##############################################################################
+
+G0 GATE [g0_final]  2026-11-06T11:40:50  overall=PASS (8/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    PASS zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": {"pid": 1940, "exe": "/home/dell/z3-regtest/bin/zebrad", "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "basename": "zebrad"}, "zallet-zaino": {"pid": 2255, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7", "basename": "zallet-zaino"}}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    PASS CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"set": {"rc": 0, "stdout": "pid 1940's current affinity list: 0-27\npid 1940's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}, "zallet-zaino": {"set": {"rc": 0, "stdout": "pid 2255's current affinity list: 0-27\npid 2255's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}}
+G0-E    PASS RPC up + height >= 32257 + wallet synced                   {"zebra_blocks": 32300, "wallet_tip": 32300, "node_tip": 32300, "sync_target": 32300, "synced": true}
+G0-F    PASS bench account UUID present                                 [{"account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9", "name": "bench", "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8", "zip32_account_index": 0, "account": 0, "addresses": [{"diversifier_index": 3, "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"}, {"diversifier_index": 5, "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"}, {"diversifier_index": 8, "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"}, {"diversifier_index": 4610581665, "ua": "uregtest1rpsxl4jh8utay
+G0-G    PASS ironwood balance >= 63.021 ZEC (actual, not assumed)       {"zat": {"sapling": 6374980000, "ironwood": 6749720000}, "zec": {"sapling": 63.7498, "ironwood": 67.4972}, "need_zat": 6302100000, "need_zec": 63.021, "per_round_zat": 300100000, "need_20_zat": 6002000000, "shortfall_zec": 0.0, "margin_zec": 4.4762, "criterion": "docs/orchard/29_real_e2e_baseline.md §14 Errata-1 (v1.0-errata-1)", "note": "judged on ACTUAL balance; --fund-zec 55 is only a preparation action"}
+        note: Errata-1 §14.3; 55 ZEC funding is a preparation action, not a criterion
+G0-H    PASS shape ironwood.actions=2 / orchard.actions=0               {"ironwood_actions": 2, "orchard_actions": 0, "sapling_spends": 0, "fee_zat": 20000, "privacy_policy": "AllowRevealedAmounts", "pczt_b64_len": 9224, "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"}
+
+
+##############################################################################
+## ⑤ warm-up 控制台原始输出（含输出层崩溃记录）
+文件: logs/warmup_console.log
+##############################################################################
+
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=2255 zebra_pid=1940 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 63.7498, 'ironwood': 67.4972} | need(this batch)=3.0010 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=True (short 0.000000 ZEC)
+
+----- warmup round 1/1 -----
+  build   1491.4 ms (wall   1492.1, delta    0.8) prove   1415.5 ms share 0.9491
+  rss window: 28 samples, min=343564 max=414288 delta=70724 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=False
+Traceback (most recent call last):
+  File "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/tools/baseline_measure_v2.py", line 571, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/tools/baseline_measure_v2.py", line 503, in main
+    med_prove = statistics.median([float(r["prove_ms"]) for r in valid_rows
+                                   if r.get("prove_ms") is not None])
+  File "/usr/lib/python3.14/statistics.py", line 343, in median
+    raise StatisticsError("no median for empty data")
+statistics.StatisticsError: no median for empty data
+
+
+##############################################################################
+## ⑤ warm-up 逐轮原始字段
+文件: warmup/rounds.csv
+##############################################################################
+
+run_id,version,scenario,label,create_ms,sign_ms,prove_ms,extract_ms,build_total_ms,wall_ms,other_ms,wall_minus_build_ms,prove_share,txid,size_bytes,size_b64,actions,orchard_actions,sapling_spends,signed,ironwood_proven,fee_zat,policy,extract_success,broadcast_accepted,confirmed,confirmations,mined_blocks_delta,wallet_pid,wallet_exe,wallet_sha256,rss_window_samples,valid,failure_codes
+r01,official_beta3_no_f4a,frozen_pczt,warmup,27.794,10.104,1415.515,37.961,1491.373,1492.14,75.858,0.767,0.949135,d146cdf60582f2e1b7ee4d92f6a3f9395dd3f22811f12982657b37381a784773,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,False,
+
+
+##############################################################################
+## ⑤ warm-up 七段计时
+文件: warmup/stage_timings.csv
+##############################################################################
+
+run_id,stage,ms
+r01,pczt_create,27.794
+r01,pczt_sign,10.104
+r01,pczt_prove,1415.515
+r01,pczt_extract,37.961
+r01,broadcast,164.577
+r01,mine,520.459
+r01,confirm,0.829
+
+
+##############################################################################
+## ⑤ warm-up prove 窗口 RSS 汇总
+文件: warmup/rss_windows.csv
+##############################################################################
+
+run_id,t_prove_start,t_prove_end,window_seconds,rss_window_samples,phase_anomalies,rss_first_kb,rss_min_kb,rss_max_kb,rss_median_kb,delta_window_kb,low_confidence
+r01,1258.201869,1259.617385,1.415517,28,0,343564,343564,414288,390970.0,70724,False
+
+
+##############################################################################
+## ⑥ 放行门禁 8/8 PASS 报告
+文件: warmup_release_gate.txt
+##############################################################################
+
+WARM-UP RELEASE GATE  2026-11-06T11:42:40  overall=PASS (8/8 PASS)
+
+W-1   PASS exactly 1 warm-up row, label=warmup, valid=false (not counted)   [{"run_id": "r01", "label": "warmup", "valid": "False"}]
+W-2   PASS extract / broadcast / confirmed all true                         {"extract_success": "True", "broadcast_accepted": "True", "confirmed": "True", "confirmations": "2"}
+W-3   PASS shape ironwood.actions=2 / orchard.actions=0                     {"actions": "2", "orchard_actions": "0"}
+W-5   PASS |T_wall - T_build| / T_wall <= 5%                                {"wall_ms": "1492.14", "wall_minus_build_ms": "0.767", "ratio": 0.000514}
+W-8   PASS no failure codes on warm-up row                                  {"failure_codes": ""}
+W-4   PASS prove window RSS >= 10 samples, 0 phase anomalies, confident     {"rss_window_samples": 28, "phase_anomalies": 0, "low_confidence": "False", "window_seconds": "1.415517"}
+W-6   PASS wallet PID / exe / SHA256 identical to G0                        {"warmup": {"pid": "2255", "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}, "g0": {"pid": 2255, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}}
+W-7   PASS ACTUAL post-warm-up ironwood >= 60.02 ZEC (20 valid rounds)      {"zat": {"sapling": 6674980000, "ironwood": 6449700000}, "zec": {"sapling": 66.7498, "ironwood": 64.497}, "need_zat": 6002000000, "need_zec": 60.02, "margin_zec": 4.477, "shortfall_zec": 0.0}
+      note: §14.3 step 6 release gate; independent of G0-G 63.021 ZEC
+
+
+##############################################################################
+## ⑦ 正式 20 轮控制台原始输出
+文件: logs/final_console.log
+##############################################################################
+
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=2255 zebra_pid=1940 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 66.7498, 'ironwood': 64.497} | need(this batch)=60.0200 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=True (short 0.000000 ZEC)
+
+----- final round 1/20 -----
+  build   1707.5 ms (wall   1708.6, delta    1.1) prove   1602.0 ms share 0.9382
+  rss window: 31 samples, min=340944 max=422108 delta=81164 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 2/20 -----
+  build   1569.3 ms (wall   1569.8, delta    0.5) prove   1495.8 ms share 0.9531
+  rss window: 28 samples, min=363760 max=453648 delta=89888 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 3/20 -----
+  build   1607.4 ms (wall   1608.2, delta    0.8) prove   1540.4 ms share 0.9583
+  rss window: 29 samples, min=367620 max=453704 delta=86084 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 4/20 -----
+  build   1501.2 ms (wall   1501.8, delta    0.6) prove   1425.2 ms share 0.9494
+  rss window: 28 samples, min=372276 max=452108 delta=79832 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 5/20 -----
+  build   1495.0 ms (wall   1495.5, delta    0.5) prove   1419.4 ms share 0.9494
+  rss window: 27 samples, min=392876 max=478988 delta=86112 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 6/20 -----
+  build   1493.8 ms (wall   1494.3, delta    0.5) prove   1414.2 ms share 0.9467
+  rss window: 28 samples, min=393932 max=478124 delta=84192 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 7/20 -----
+  build   1476.0 ms (wall   1476.6, delta    0.6) prove   1404.2 ms share 0.9514
+  rss window: 27 samples, min=398620 max=476152 delta=77532 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 8/20 -----
+  build   1474.9 ms (wall   1475.4, delta    0.5) prove   1409.0 ms share 0.9554
+  rss window: 28 samples, min=374892 max=458324 delta=83432 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 9/20 -----
+  build   1470.5 ms (wall   1471.0, delta    0.5) prove   1396.2 ms share 0.9495
+  rss window: 27 samples, min=369676 max=447516 delta=77840 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 10/20 -----
+  build   1492.6 ms (wall   1493.2, delta    0.6) prove   1415.7 ms share 0.9485
+  rss window: 28 samples, min=390696 max=452940 delta=62244 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 11/20 -----
+  build   1477.7 ms (wall   1478.1, delta    0.4) prove   1401.2 ms share 0.9483
+  rss window: 28 samples, min=366408 max=449092 delta=82684 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 12/20 -----
+  build   1482.4 ms (wall   1483.5, delta    1.1) prove   1413.3 ms share 0.9534
+  rss window: 27 samples, min=364988 max=451084 delta=86096 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 13/20 -----
+  build   1508.7 ms (wall   1509.4, delta    0.7) prove   1426.7 ms share 0.9456
+  rss window: 28 samples, min=360964 max=448732 delta=87768 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 14/20 -----
+  build   1477.4 ms (wall   1477.9, delta    0.4) prove   1402.1 ms share 0.9490
+  rss window: 27 samples, min=390880 max=469356 delta=78476 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 15/20 -----
+  build   1462.4 ms (wall   1462.9, delta    0.5) prove   1389.6 ms share 0.9502
+  rss window: 26 samples, min=374176 max=455904 delta=81728 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 16/20 -----
+  build   1454.2 ms (wall   1454.7, delta    0.5) prove   1379.2 ms share 0.9484
+  rss window: 27 samples, min=363316 max=448884 delta=85568 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 17/20 -----
+  build   1475.4 ms (wall   1476.0, delta    0.5) prove   1395.9 ms share 0.9461
+  rss window: 27 samples, min=360816 max=445996 delta=85180 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 18/20 -----
+  build   1493.4 ms (wall   1493.9, delta    0.5) prove   1426.7 ms share 0.9553
+  rss window: 27 samples, min=361844 max=448712 delta=86868 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 19/20 -----
+  build   1473.5 ms (wall   1474.0, delta    0.5) prove   1400.7 ms share 0.9506
+  rss window: 27 samples, min=379360 max=466872 delta=87512 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 20/20 -----
+  build   1470.2 ms (wall   1470.9, delta    0.7) prove   1394.0 ms share 0.9482
+  rss window: 28 samples, min=381156 max=465456 delta=84300 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+[out] /mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/run_20261106_113925/final  rows=20 valid=20 rss_samples=1348  N_rss=55.547 MiB -> R3
+
+
+##############################################################################
+## ⑦ 逐轮原始字段（20 行）
+文件: final/rounds.csv
+##############################################################################
+
+run_id,version,scenario,label,create_ms,sign_ms,prove_ms,extract_ms,build_total_ms,wall_ms,other_ms,wall_minus_build_ms,prove_share,txid,size_bytes,size_b64,actions,orchard_actions,sapling_spends,signed,ironwood_proven,fee_zat,policy,extract_success,broadcast_accepted,confirmed,confirmations,mined_blocks_delta,wallet_pid,wallet_exe,wallet_sha256,rss_window_samples,valid,failure_codes
+r01,official_beta3_no_f4a,frozen_pczt,final,53.601,14.276,1601.998,37.668,1707.543,1708.618,105.545,1.075,0.938189,9ffab198dfbd8af5a3ca5b9acb3225af2287c25fa54f68a93f17a32b48a8883d,11134,9204,2,0,0,2,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,31,True,
+r02,official_beta3_no_f4a,frozen_pczt,final,26.223,9.696,1495.754,37.605,1569.279,1569.781,73.525,0.502,0.953147,a78dc0e8b5daeef32e80efd9e3947d37c784ddedae9a18132b60ed09114113d1,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r03,official_beta3_no_f4a,frozen_pczt,final,27.536,9.678,1540.352,29.856,1607.422,1608.187,67.07,0.765,0.958275,48d406a32e20239efa49f033c0935f81e30fddcecd9a213e8623a62785f2e8ab,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,29,True,
+r04,official_beta3_no_f4a,frozen_pczt,final,27.32,10.011,1425.175,38.706,1501.212,1501.837,76.037,0.625,0.94935,5261e450efb0dcae30e6ca76f4f9b82e091cf01b0fda1d3c823a9cc13d2e7fe9,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r05,official_beta3_no_f4a,frozen_pczt,final,27.596,9.753,1419.354,38.293,1494.996,1495.482,75.642,0.486,0.949403,e9fa6d5dfe969baa2844ee539b99995ca7cdc023f6b4f49882838143f93c3236,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r06,official_beta3_no_f4a,frozen_pczt,final,32.572,11.325,1414.244,35.659,1493.8,1494.273,79.556,0.473,0.946743,caf0dce65ce2ab6e44213978ace63eba7c7df2cc81da03bad14e80269614f69e,11134,9204,2,0,0,2,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r07,official_beta3_no_f4a,frozen_pczt,final,26.654,9.964,1404.222,35.174,1476.014,1476.635,71.792,0.621,0.951361,d5e2c16a2cff144cdaf968781cb3f2f1ef1c5e69637c3606a8cda77153673c30,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r08,official_beta3_no_f4a,frozen_pczt,final,26.778,9.781,1409.05,29.244,1474.854,1475.382,65.804,0.528,0.955383,d11a79f51ede80d680b3eab51b3fc7ba346a5f74b4d453b5377ee7f109ae2378,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r09,official_beta3_no_f4a,frozen_pczt,final,27.322,9.918,1396.238,37.021,1470.498,1471.012,74.26,0.514,0.9495,12442ab9a5ef9f4439d7b5653f1cb12fa8a3974ead7380c21e64ea569ef79e0e,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r10,official_beta3_no_f4a,frozen_pczt,final,26.952,10.01,1415.723,39.902,1492.587,1493.214,76.864,0.627,0.948503,5ae70622c51ab2639a281617b4bc313daeda8cf5ddc926c64007e63e9b353f65,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r11,official_beta3_no_f4a,frozen_pczt,final,27.697,9.615,1401.249,39.109,1477.67,1478.111,76.421,0.441,0.948283,5509376f475e1579c53a08dc4d40cc0cfa18a047fee0d0e17ebe9b72646d226c,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r12,official_beta3_no_f4a,frozen_pczt,final,26.884,10.109,1413.317,32.067,1482.377,1483.527,69.06,1.15,0.953413,9b42456e5528e3d00f37e52834aa75d5385dc37824511b1bfb390f44c8c6ffcf,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r13,official_beta3_no_f4a,frozen_pczt,final,27.238,10.009,1426.678,44.785,1508.71,1509.375,82.032,0.665,0.945628,7319c233b349353e1cfec4db88f8844765491c3d1ab22f778f044b237f0dfeab,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+r14,official_beta3_no_f4a,frozen_pczt,final,27.62,9.738,1402.123,37.965,1477.446,1477.876,75.323,0.43,0.949018,ce55d35bd77624d8c86fa477a277c43372802b4fae461de1f3f01f3d9b512048,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r15,official_beta3_no_f4a,frozen_pczt,final,27.116,9.809,1389.626,35.835,1462.386,1462.918,72.76,0.532,0.950246,0da076879ce24c794013193de82c3cc24c20583b48e6490cc6e63c76103d32e9,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,26,True,
+r16,official_beta3_no_f4a,frozen_pczt,final,26.946,10.182,1379.213,37.838,1454.179,1454.692,74.966,0.513,0.948448,853c05e165ffd39134ac89fe2cf4824adfd6962a1c7a92bebc71014890c71f79,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r17,official_beta3_no_f4a,frozen_pczt,final,26.823,9.835,1395.882,42.907,1475.447,1475.965,79.565,0.518,0.946074,25bc38f8e5eeabe096c6ba131d1b2d0f61c714dac868d44f79071293f55fe5e4,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r18,official_beta3_no_f4a,frozen_pczt,final,26.586,9.887,1426.71,30.24,1493.423,1493.883,66.713,0.46,0.955329,9177016934e5ff1a073df022daa6a167a60a180f283bbf90fea40607cb51d34e,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r19,official_beta3_no_f4a,frozen_pczt,final,26.742,9.858,1400.71,36.207,1473.518,1474.028,72.808,0.51,0.950589,781d1545bbf0c72f0c0de12e106471bfe9465b6a1294a36f933ce341bab6b8a9,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,27,True,
+r20,official_beta3_no_f4a,frozen_pczt,final,27.431,9.928,1394.003,38.834,1470.195,1470.915,76.192,0.72,0.948176,6f43e8b017da54968676f31867981cfe6ae92648483417cf862f74630b1878c4,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,2255,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,28,True,
+
+
+##############################################################################
+## ⑦ 冻结统计 summary.csv
+文件: final/summary.csv
+##############################################################################
+
+metric,n,median_ms,q1_ms,q3_ms,iqr_ms,min_ms,max_ms
+create,20,27.2,26.8,27.6,0.7,26.2,53.6
+sign,20,9.9,9.8,10.0,0.2,9.6,14.3
+prove,20,1411.2,1399.6,1425.6,26.0,1379.2,1602.0
+extract,20,37.6,35.5,38.7,3.2,29.2,44.8
+build_total,20,1480.0,1474.5,1496.6,22.0,1454.2,1707.5
+other,20,75.1,72.5,76.5,4.0,65.8,105.5
+wall,20,1480.8,1475.0,1497.1,22.0,1454.7,1708.6
+
+
+##############################################################################
+## ⑦ 两种 prove_share 口径
+文件: final/prove_share.csv
+##############################################################################
+
+estimator,value,unit,note
+median(per-round prove/build),94.9,percent,"PRIMARY estimator, §4.5"
+median(prove)/median(build),95.35,percent,SECONDARY estimator; must not replace the primary
+per-round prove/build IQR,0.4,percent,descriptive only
+per-round prove/build min,93.8,percent,descriptive only
+per-round prove/build max,95.8,percent,descriptive only
+
+
+##############################################################################
+## ⑦ RSS 汇总与 R 档判定
+文件: final/rss_summary.csv
+##############################################################################
+
+metric,n,median_kb,q1_kb,q3_kb,iqr_kb,min_kb,max_kb,unit,note
+rss_max_kb (window peak),20,453294.0,448846.0,465810.0,16964.0,422108.0,478988.0,KB,§5.5
+delta_window_kb,20,84246.0,80831.0,86100.0,5269.0,62244.0,89888.0,KB,§5.5
+rss_first_kb,,,,,,,,KB,round-to-round baseline range=57148 KB
+
+
+##############################################################################
+## ⑦ R3 判定明细
+文件: final/rss_verdict.csv
+##############################################################################
+
+metric,value,unit,verdict,criterion
+N_rss,56880.0,KB,R3,§5.5 frozen: <=6 MiB R1; 6-18 MiB R2; >18 MiB R3
+N_rss,55.547,MiB,R3,"6 MiB is doc 25 reference scale, NOT an A/B delta"
+low_confidence_rounds,0,count,R3,each round needs >= 10 samples
+phase_anomalies_total,0,count,R3,phase vs monotonic-window cross-check
+
+
+##############################################################################
+## ⑦ 无效轮次（应为空）
+文件: final/invalid_runs.csv
+##############################################################################
+
+run_id,label,failure_codes
+
+
+##############################################################################
+## ⑦ meta.json（环境/余额/哈希回引）
+文件: final/meta.json
+##############################################################################
+
+{
+  "label": "final",
+  "timestamp": "2026-11-06T11:43:25",
+  "version": "official_beta3_no_f4a",
+  "scenario": "frozen_pczt",
+  "args": {
+    "rounds": 20,
+    "label": "final",
+    "send_zec": 3,
+    "minconf": 1,
+    "policy": "AllowRevealedAmounts",
+    "fund_source": "orchard",
+    "mine_blocks": 2,
+    "outdir": "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/run_20261106_113925/final"
+  },
+  "kernel": "6.18.58.1-microsoft-standard-WSL2",
+  "derived_from": "zcash-sapling-engineering@5e46712:experiments/e2e_testnet_tx/pczt_bench_pool.py",
+  "prereg_doc": "docs/orchard/29_real_e2e_baseline.md",
+  "wallet": {
+    "pid": 2255,
+    "exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+    "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+    "basename": "zallet-zaino"
+  },
+  "zebrad": {
+    "pid": 1940,
+    "exe": "/home/dell/z3-regtest/bin/zebrad",
+    "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+    "basename": "zebrad"
+  },
+  "cpu_allowed": {
+    "zallet-zaino": "0",
+    "zebrad": "0"
+  },
+  "binaries_on_disk": {
+    "zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+    "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+    "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"
+  },
+  "blocks_before": 32302,
+  "balances_before": {
+    "sapling": 6674980000,
+    "ironwood": 6449700000
+  },
+  "need_this_batch_zat": 6002000000,
+  "need_20_rounds_zat": 6002000000,
+  "g0_balance_gate_20_rounds": true,
+  "g0_shortfall_20_rounds_zec": 0.0,
+  "rss_verdict": "R3",
+  "N_rss_kb": 56880.0,
+  "N_rss_mib": 55.547,
+  "prove_share_primary_percent": 94.9,
+  "prove_share_secondary_percent": 95.35,
+  "blocks_after": 32342,
+  "balances_after": {
+    "sapling": 12674980000,
+    "ironwood": 449300000
+  },
+  "n_rows": 20,
+  "n_valid": 20,
+  "n_rss_samples_total": 1348,
+  "errata": "docs/orchard/29_real_e2e_baseline.md §14 Errata-1 (v1.0-errata-1)",
+  "prereg_prefix_sha256": "c3d8f999e910e471c218777dc62680994c596324829b1eb16703055a6e666de1",
+  "prereg_prefix_bytes": 36366
+}
+
+
+##############################################################################
+## 环境记录
+文件: logs/environment.txt
+##############################################################################
+
+=== environment.txt (doc 29 §12.1) ===
+timestamp: 2026-11-06T11:45:46+08:00
+kernel: 6.18.58.1-microsoft-standard-WSL2
+wsl: Linux version 6.18.58.1-microsoft-standard-WSL2 (root@6869314ecc53) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026
+python3: Python 3.14.4
+taskset: /usr/bin/taskset
+cpu_allowed_zebrad: Cpus_allowed_list:	0
+cpu_allowed_zallet: Cpus_allowed_list:	0
+bin_sha256:
+baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7  /home/dell/z3-regtest/bin/zebrad
+523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a  /home/dell/z3-regtest/bin/zallet
+e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7  /home/dell/z3-regtest/bin/zallet-zaino
+cookie_exists: yes
+services:
+    410 sleep           sleep 86400
+   1940 zebrad          /home/dell/z3-regtest/bin/zebrad --config /home/dell/z3-regtest/conf/zebra.toml start
+   2255 zallet-zaino    /home/dell/z3-regtest/bin/zallet-zaino --datadir /home/dell/z3-regtest/data/zallet --config /home/dell/z3-regtest/conf/zallet.toml start
+

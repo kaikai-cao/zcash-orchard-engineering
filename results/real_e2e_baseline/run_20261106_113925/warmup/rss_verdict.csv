@@ -1,0 +1,2 @@
+metric,value,unit,verdict,criterion
+N_rss,not_applicable,-,WARMUP_ONLY_NOT_A_RESULT,§14.4: no R verdict from warm-up

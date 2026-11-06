@@ -1,0 +1,17 @@
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=2255 zebra_pid=1940 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 63.7498, 'ironwood': 67.4972} | need(this batch)=3.0010 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=True (short 0.000000 ZEC)
+
+----- warmup round 1/1 -----
+  build   1491.4 ms (wall   1492.1, delta    0.8) prove   1415.5 ms share 0.9491
+  rss window: 28 samples, min=343564 max=414288 delta=70724 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=False
+Traceback (most recent call last):
+  File "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/tools/baseline_measure_v2.py", line 571, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/tools/baseline_measure_v2.py", line 503, in main
+    med_prove = statistics.median([float(r["prove_ms"]) for r in valid_rows
+                                   if r.get("prove_ms") is not None])
+  File "/usr/lib/python3.14/statistics.py", line 343, in median
+    raise StatisticsError("no median for empty data")
+statistics.StatisticsError: no median for empty data

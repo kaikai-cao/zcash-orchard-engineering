@@ -1,0 +1,11 @@
+WARM-UP RELEASE GATE  2026-11-06T11:42:40  overall=PASS (8/8 PASS)
+
+W-1   PASS exactly 1 warm-up row, label=warmup, valid=false (not counted)   [{"run_id": "r01", "label": "warmup", "valid": "False"}]
+W-2   PASS extract / broadcast / confirmed all true                         {"extract_success": "True", "broadcast_accepted": "True", "confirmed": "True", "confirmations": "2"}
+W-3   PASS shape ironwood.actions=2 / orchard.actions=0                     {"actions": "2", "orchard_actions": "0"}
+W-5   PASS |T_wall - T_build| / T_wall <= 5%                                {"wall_ms": "1492.14", "wall_minus_build_ms": "0.767", "ratio": 0.000514}
+W-8   PASS no failure codes on warm-up row                                  {"failure_codes": ""}
+W-4   PASS prove window RSS >= 10 samples, 0 phase anomalies, confident     {"rss_window_samples": 28, "phase_anomalies": 0, "low_confidence": "False", "window_seconds": "1.415517"}
+W-6   PASS wallet PID / exe / SHA256 identical to G0                        {"warmup": {"pid": "2255", "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}, "g0": {"pid": 2255, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}}
+W-7   PASS ACTUAL post-warm-up ironwood >= 60.02 ZEC (20 valid rounds)      {"zat": {"sapling": 6674980000, "ironwood": 6449700000}, "zec": {"sapling": 66.7498, "ironwood": 64.497}, "need_zat": 6002000000, "need_zec": 60.02, "margin_zec": 4.477, "shortfall_zec": 0.0}
+      note: §14.3 step 6 release gate; independent of G0-G 63.021 ZEC

@@ -1,0 +1,173 @@
+{
+  "label": "warmup",
+  "valid": false,
+  "counted_in_statistics": false,
+  "rebuilt_at": "2026-11-06T11:42:33",
+  "why_rebuilt": "first run of baseline_measure_v2.py crashed in the OUTPUT layer (statistics.median on empty valid_rows) AFTER all measurement CSVs were flushed; the transaction was NOT re-run",
+  "transaction_executed_exactly_once": true,
+  "kernel": "6.18.58.1-microsoft-standard-WSL2",
+  "prereg_prefix_sha256": "c3d8f999e910e471c218777dc62680994c596324829b1eb16703055a6e666de1",
+  "errata": "docs/orchard/29_real_e2e_baseline.md §14 Errata-1 (v1.0-errata-1)",
+  "derived_from": "zcash-sapling-engineering@5e46712:experiments/e2e_testnet_tx/pczt_bench_pool.py",
+  "scenario": "frozen_pczt",
+  "version": "official_beta3_no_f4a",
+  "g0": {
+    "label": "g0_final",
+    "overall": "PASS",
+    "n_pass": 8,
+    "need_zat": 6302100000,
+    "processes": {
+      "zebrad": {
+        "pid": 1940,
+        "exe": "/home/dell/z3-regtest/bin/zebrad",
+        "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "basename": "zebrad"
+      },
+      "zallet-zaino": {
+        "pid": 2255,
+        "exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+        "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+        "basename": "zallet-zaino"
+      }
+    },
+    "affinity": {
+      "zebrad": {
+        "set": {
+          "rc": 0,
+          "stdout": "pid 1940's current affinity list: 0-27\npid 1940's new affinity list: 0",
+          "stderr": ""
+        },
+        "Cpus_allowed_list": "0"
+      },
+      "zallet-zaino": {
+        "set": {
+          "rc": 0,
+          "stdout": "pid 2255's current affinity list: 0-27\npid 2255's new affinity list: 0",
+          "stderr": ""
+        },
+        "Cpus_allowed_list": "0"
+      }
+    }
+  },
+  "blocks_before_fund": 32297,
+  "balances_initial_zat": {
+    "sapling": 11999980000,
+    "ironwood": 1124820000
+  },
+  "fund_once": {
+    "nominal_zec": 55,
+    "count": 1,
+    "txid": "8d601799cc7ff83cfa6f382db91ed3adea0033d939312c55a369c4667a9a84ab",
+    "actual_ironwood_zec": 67.4972,
+    "blocks_after": 32300
+  },
+  "blocks_after_warmup": 32302,
+  "balances_after_warmup_zat": {
+    "sapling": 6674980000,
+    "ironwood": 6449700000
+  },
+  "balances_after_warmup_zec": {
+    "sapling": 66.7498,
+    "ironwood": 64.497
+  },
+  "n_rows": 1,
+  "n_valid": 0,
+  "warmup_row": {
+    "run_id": "r01",
+    "version": "official_beta3_no_f4a",
+    "scenario": "frozen_pczt",
+    "label": "warmup",
+    "create_ms": "27.794",
+    "sign_ms": "10.104",
+    "prove_ms": "1415.515",
+    "extract_ms": "37.961",
+    "build_total_ms": "1491.373",
+    "wall_ms": "1492.14",
+    "other_ms": "75.858",
+    "wall_minus_build_ms": "0.767",
+    "prove_share": "0.949135",
+    "txid": "d146cdf60582f2e1b7ee4d92f6a3f9395dd3f22811f12982657b37381a784773",
+    "size_bytes": "11134",
+    "size_b64": "9224",
+    "actions": "2",
+    "orchard_actions": "0",
+    "sapling_spends": "0",
+    "signed": "1",
+    "ironwood_proven": "True",
+    "fee_zat": "20000",
+    "policy": "AllowRevealedAmounts",
+    "extract_success": "True",
+    "broadcast_accepted": "True",
+    "confirmed": "True",
+    "confirmations": "2",
+    "mined_blocks_delta": "2",
+    "wallet_pid": "2255",
+    "wallet_exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+    "wallet_sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+    "rss_window_samples": "28",
+    "valid": "False",
+    "failure_codes": ""
+  },
+  "rss_window": {
+    "run_id": "r01",
+    "t_prove_start": "1258.201869",
+    "t_prove_end": "1259.617385",
+    "window_seconds": "1.415517",
+    "rss_window_samples": "28",
+    "phase_anomalies": "0",
+    "rss_first_kb": "343564",
+    "rss_min_kb": "343564",
+    "rss_max_kb": "414288",
+    "rss_median_kb": "390970.0",
+    "delta_window_kb": "70724",
+    "low_confidence": "False"
+  },
+  "stage_timings": [
+    {
+      "run_id": "r01",
+      "stage": "pczt_create",
+      "ms": "27.794"
+    },
+    {
+      "run_id": "r01",
+      "stage": "pczt_sign",
+      "ms": "10.104"
+    },
+    {
+      "run_id": "r01",
+      "stage": "pczt_prove",
+      "ms": "1415.515"
+    },
+    {
+      "run_id": "r01",
+      "stage": "pczt_extract",
+      "ms": "37.961"
+    },
+    {
+      "run_id": "r01",
+      "stage": "broadcast",
+      "ms": "164.577"
+    },
+    {
+      "run_id": "r01",
+      "stage": "mine",
+      "ms": "520.459"
+    },
+    {
+      "run_id": "r01",
+      "stage": "confirm",
+      "ms": "0.829"
+    }
+  ],
+  "measurement_chain_validation": {
+    "rss_window_samples": 28,
+    "phase_anomalies": 0,
+    "wall_minus_build_ms": 0.767,
+    "three_gates": [
+      "True",
+      "True",
+      "True"
+    ],
+    "note": "measurement-chain evidence only; timing/RSS numbers are NOT baseline statistics (§14.4)"
+  }
+}

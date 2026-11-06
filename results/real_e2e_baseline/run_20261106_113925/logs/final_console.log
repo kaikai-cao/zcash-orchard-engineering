@@ -1,0 +1,104 @@
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=2255 zebra_pid=1940 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 66.7498, 'ironwood': 64.497} | need(this batch)=60.0200 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=True (short 0.000000 ZEC)
+
+----- final round 1/20 -----
+  build   1707.5 ms (wall   1708.6, delta    1.1) prove   1602.0 ms share 0.9382
+  rss window: 31 samples, min=340944 max=422108 delta=81164 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 2/20 -----
+  build   1569.3 ms (wall   1569.8, delta    0.5) prove   1495.8 ms share 0.9531
+  rss window: 28 samples, min=363760 max=453648 delta=89888 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 3/20 -----
+  build   1607.4 ms (wall   1608.2, delta    0.8) prove   1540.4 ms share 0.9583
+  rss window: 29 samples, min=367620 max=453704 delta=86084 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 4/20 -----
+  build   1501.2 ms (wall   1501.8, delta    0.6) prove   1425.2 ms share 0.9494
+  rss window: 28 samples, min=372276 max=452108 delta=79832 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 5/20 -----
+  build   1495.0 ms (wall   1495.5, delta    0.5) prove   1419.4 ms share 0.9494
+  rss window: 27 samples, min=392876 max=478988 delta=86112 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 6/20 -----
+  build   1493.8 ms (wall   1494.3, delta    0.5) prove   1414.2 ms share 0.9467
+  rss window: 28 samples, min=393932 max=478124 delta=84192 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 7/20 -----
+  build   1476.0 ms (wall   1476.6, delta    0.6) prove   1404.2 ms share 0.9514
+  rss window: 27 samples, min=398620 max=476152 delta=77532 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 8/20 -----
+  build   1474.9 ms (wall   1475.4, delta    0.5) prove   1409.0 ms share 0.9554
+  rss window: 28 samples, min=374892 max=458324 delta=83432 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 9/20 -----
+  build   1470.5 ms (wall   1471.0, delta    0.5) prove   1396.2 ms share 0.9495
+  rss window: 27 samples, min=369676 max=447516 delta=77840 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 10/20 -----
+  build   1492.6 ms (wall   1493.2, delta    0.6) prove   1415.7 ms share 0.9485
+  rss window: 28 samples, min=390696 max=452940 delta=62244 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 11/20 -----
+  build   1477.7 ms (wall   1478.1, delta    0.4) prove   1401.2 ms share 0.9483
+  rss window: 28 samples, min=366408 max=449092 delta=82684 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 12/20 -----
+  build   1482.4 ms (wall   1483.5, delta    1.1) prove   1413.3 ms share 0.9534
+  rss window: 27 samples, min=364988 max=451084 delta=86096 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 13/20 -----
+  build   1508.7 ms (wall   1509.4, delta    0.7) prove   1426.7 ms share 0.9456
+  rss window: 28 samples, min=360964 max=448732 delta=87768 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 14/20 -----
+  build   1477.4 ms (wall   1477.9, delta    0.4) prove   1402.1 ms share 0.9490
+  rss window: 27 samples, min=390880 max=469356 delta=78476 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 15/20 -----
+  build   1462.4 ms (wall   1462.9, delta    0.5) prove   1389.6 ms share 0.9502
+  rss window: 26 samples, min=374176 max=455904 delta=81728 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 16/20 -----
+  build   1454.2 ms (wall   1454.7, delta    0.5) prove   1379.2 ms share 0.9484
+  rss window: 27 samples, min=363316 max=448884 delta=85568 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 17/20 -----
+  build   1475.4 ms (wall   1476.0, delta    0.5) prove   1395.9 ms share 0.9461
+  rss window: 27 samples, min=360816 max=445996 delta=85180 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 18/20 -----
+  build   1493.4 ms (wall   1493.9, delta    0.5) prove   1426.7 ms share 0.9553
+  rss window: 27 samples, min=361844 max=448712 delta=86868 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 19/20 -----
+  build   1473.5 ms (wall   1474.0, delta    0.5) prove   1400.7 ms share 0.9506
+  rss window: 27 samples, min=379360 max=466872 delta=87512 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+----- final round 20/20 -----
+  build   1470.2 ms (wall   1470.9, delta    0.7) prove   1394.0 ms share 0.9482
+  rss window: 28 samples, min=381156 max=465456 delta=84300 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=2255 -> valid=True
+
+[out] /mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/run_20261106_113925/final  rows=20 valid=20 rss_samples=1348  N_rss=55.547 MiB -> R3

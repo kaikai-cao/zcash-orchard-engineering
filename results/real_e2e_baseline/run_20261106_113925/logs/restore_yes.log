@@ -1,0 +1,32 @@
+[11:39:39] 预检归档内容…
+[11:39:40]   预检 OK：共 1058 条目（zebra-state 1051 / zallet 3）
+[11:39:40] === 快照信息 ===
+  归档: /mnt/d/Research/z3/snapshots/z3_regtest_h32297_20261029_145710.tar.gz
+  体积: 13M
+[11:39:40] === 环境现状 ===
+  当前链高: 32302
+
+计划：停服务 → 现有 data 目录改名备份 → 解包 → 重启 → 等钱包追平到 快照高度
+现有数据不会被删除（改名保留为 *.bak.<时间戳>），确认无误后可手动 rm。
+[11:39:40] === 1) 停止服务 ===
+[11:39:40]   zallet-zaino pid=1027 → TERM
+[11:39:41]   /home/dell/z3-regtest/bin/zebrad pid=736 → TERM
+[11:39:43] === 2) 备份现有 data 目录 ===
+[11:39:43]   zebra-state → zebra-state.bak.20261106_113943
+[11:39:43]   zallet → zallet.bak.20261106_113943
+[11:39:43] === 3) 解包 ===
+[11:39:43]   已还原: 68M zebra-state / 3.1M zallet
+[11:39:43] === 4) 重启 ===
+[11:39:43]   zebrad 已拉起，等 RPC…
+[11:39:49]   zebra blocks = 32297
+[11:39:49]   zallet 已拉起，等 RPC 与同步（恢复扫描可能 1~5 分钟）…
+[11:39:49] === 5) 等钱包追平 ===
+  等待 zallet RPC… 已等 2s     wallet=32297 目标=32297 synced=32297  已等 4s   
+[11:39:51] 钱包已追平
+  zebra  blocks = 32297
+  wallet tip   = 32297
+  余额         = {'sapling': {'valueZat': 11999980000}, 'ironwood': {'valueZat': 1124820000}}
+
+[11:39:51] === 恢复完成 ===
+  备份（确认无误后可删）: /home/dell/z3-regtest/data/zebra-state.bak.20261106_113943 , /home/dell/z3-regtest/data/zallet.bak.20261106_113943
+  链高起点: 见上方（> 32257，ZIP 212 已强制，pczt_create 可直接用）

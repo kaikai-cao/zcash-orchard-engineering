@@ -1,0 +1,4 @@
+metric,n,median_kb,q1_kb,q3_kb,iqr_kb,min_kb,max_kb,unit,note
+rss_max_kb (window peak),20,453294.0,448846.0,465810.0,16964.0,422108.0,478988.0,KB,§5.5
+delta_window_kb,20,84246.0,80831.0,86100.0,5269.0,62244.0,89888.0,KB,§5.5
+rss_first_kb,,,,,,,,KB,round-to-round baseline range=57148 KB

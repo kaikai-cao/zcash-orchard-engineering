@@ -1,0 +1,5 @@
+metric,value,unit,verdict,criterion
+N_rss,56880.0,KB,R3,§5.5 frozen: <=6 MiB R1; 6-18 MiB R2; >18 MiB R3
+N_rss,55.547,MiB,R3,"6 MiB is doc 25 reference scale, NOT an A/B delta"
+low_confidence_rounds,0,count,R3,each round needs >= 10 samples
+phase_anomalies_total,0,count,R3,phase vs monotonic-window cross-check

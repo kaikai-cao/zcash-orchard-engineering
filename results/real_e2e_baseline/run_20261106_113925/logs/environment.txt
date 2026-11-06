@@ -1,0 +1,17 @@
+=== environment.txt (doc 29 §12.1) ===
+timestamp: 2026-11-06T11:45:46+08:00
+kernel: 6.18.58.1-microsoft-standard-WSL2
+wsl: Linux version 6.18.58.1-microsoft-standard-WSL2 (root@6869314ecc53) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026
+python3: Python 3.14.4
+taskset: /usr/bin/taskset
+cpu_allowed_zebrad: Cpus_allowed_list:	0
+cpu_allowed_zallet: Cpus_allowed_list:	0
+bin_sha256:
+baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7  /home/dell/z3-regtest/bin/zebrad
+523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a  /home/dell/z3-regtest/bin/zallet
+e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7  /home/dell/z3-regtest/bin/zallet-zaino
+cookie_exists: yes
+services:
+    410 sleep           sleep 86400
+   1940 zebrad          /home/dell/z3-regtest/bin/zebrad --config /home/dell/z3-regtest/conf/zebra.toml start
+   2255 zallet-zaino    /home/dell/z3-regtest/bin/zallet-zaino --datadir /home/dell/z3-regtest/data/zallet --config /home/dell/z3-regtest/conf/zallet.toml start

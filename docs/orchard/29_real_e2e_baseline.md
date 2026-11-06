@@ -705,3 +705,199 @@ warm-up 同样是一次完整的 `create → sign → prove → extract → broa
 | 提交方式 | **单独提交**，只含本勘误与旧批次资格标记，不夹带实验代码或结果 |
 | 与正文冲突时 | 以本节为准（§13 勘误通道）；原句保留在 §8.2 / §11.1 作历史记录 |
 | 后续改动 | 只允许再起 §21+ 勘误或按 §14.5 追加结果节 |
+
+---
+
+## 15. 环境与 G0 复核（正式批次实测）
+
+**批次目录**：`results/real_e2e_baseline/run_20261106_113925/`。
+执行顺序严格按 §14.3 的 ①–⑦；预注册正文与 §14 勘误均未改动。
+
+### 15.1 恢复、注资与门禁链（全部落盘）
+
+| 步骤 | 结果 | 产物 |
+| --- | --- | --- |
+| ③ 恢复原始快照 | `--check` 1058 条目、`wallet.db integrity ok`、h=**32297**；`--yes` 后 zebra/wallet 均 32297 | `logs/restore_check.log`、`logs/restore_yes.log` |
+| ① 初始余额 | ironwood **11.2482** / sapling **119.998** ZEC | `logs/balance_initial.json` |
+| ② 单次注资 | **一次且仅一次** `--fund-zec 55`，txid `8d601799…a84ab`，挖 3 块到 32300 | `logs/fund_once_55zec.log` |
+| ③ 实际到账 | ironwood **67.4972**（`+56.249`，含找零）/ sapling **63.7498** ZEC；**未按名义 55 假定** | `logs/balance_post_fund.json` |
+| ④ G0 | **8/8 PASS**，G0-G 实测 `67.4972 ≥ 63.021 ZEC`，余量 **4.4762** | `g0/g0_gate_g0_final.{txt,json}` |
+| ⑤ warm-up | 1 轮，`valid=false`，三门禁全 True、形态 2/0、RSS 28 点 / 0 相位异常、`T_wall−T_build=0.767 ms` | `warmup/rounds.csv`、`rss_windows.csv`、`meta.json` |
+| ⑥ 放行门禁 | **8/8 PASS**，W-7 实测 warm-up 后 **64.497 ≥ 60.02 ZEC**，余量 **4.477** | `warmup_release_gate.{txt,json}` |
+| ⑦ 正式 20 轮 | **20/20 有效**，无失败轮、无效轮 0 | `final/rounds.csv` 等 |
+
+G0 八项：内核 `6.18.58.1`（记录项，§2.2 已定证跨会话漂移）、三个二进制 SHA256 与冻结指纹逐位一致、
+`zebrad pid=1940` / `zallet-zaino pid=2255` 经 `/proc/PID/exe` + SHA256 确认、两进程 `Cpus_allowed_list=0` 回读、
+RPC 同步（32300）、`bench` 账户存在、资金 PASS、形态 `ironwood.actions=2 / orchard.actions=0`。
+
+### 15.2 资金闭合（独立核对，非性能指标）
+
+```
+warm-up 后  ironwood 64.4970 → 20 轮后 4.4930   Δ = −60.0040 ZEC = 20 × 3.00020
+            sapling  66.7498 → 126.7498          Δ = +60.0000 ZEC
+链高         32302 → 32342                      Δ = +40 = 20 × 2 块
+```
+
+G0 之后**没有第二次注资**，20 轮期间**没有中途注资**，没有改 `send_zec` / CPU mask / 参数，
+没有重启后拼接。`txid` 20 个互不相同，`fee_zat=20000`、`size_bytes=11134`、
+`policy=AllowRevealedAmounts`、`actions=2`、`orchard_actions=0` 在 20 轮中恒定。
+全程 wallet `pid=2255` / exe / SHA256 恒定（`pid_changed` 未触发）。
+
+### 15.3 执行层事实（不是结果，不改变任何判据）
+
+1. **warm-up 输出层崩溃**：首跑 `baseline_measure_v2.py` 在所有测量 CSV 落盘**之后**、
+   写 `meta.json` 之前，因 warm-up 行 `valid=false` 使 `valid_rows` 为空而在
+   `statistics.median` 处抛错。**交易只执行了一次，没有重跑**（重跑会多一笔交易并改变链状态，
+   违反 §9.3）。修复只加在统计输出层（空数据保护 + warm-up 不发 R 档），
+   测量路径经 AST 与 `baseline_measure.py` 逐函数比对**完全一致**；
+   `meta.json` 由 `tools/rebuild_warmup_meta.py` 只读从已落盘 CSV + 两个只读 RPC 重建。
+   `warmup/DERIVED_NOTE.json` 明确标注 warm-up 的时间/RSS 数值**不是**正式统计结果（§14.4）。
+2. **余额记录脚本**：首次两段内联记录脚本因 shell 变量未 `export` 而未写文件（不影响链状态）；
+   初始值由 `restore_yes.log` 与 `fund_once_55zec.log` 的 `[1]` 只读输出双证固定，
+   注资后值由实时只读 RPC 复取并与日志 `[5]` 一致。已补写两份 JSON 并注明来源。
+3. **WSL 常驻会话**：沿用 `4f7983d` 已验证的 keeper（`sleep 86400`）保持实例存活；
+   恢复脚本自带停服→备份→解包→重启，**未执行** `regtest_run.sh`（它会 `pkill -9` 并额外挖块）。
+   与 §11.1 的执行路径差异如实标注。
+4. **`taskset -pc 0`**：§11.2 字面 `0x1` 是输出格式、输入只收十进制列表（旧批次已定证），
+   本批次沿用 `0`，回读 `Cpus_allowed_list: 0`。
+5. **推送**：Errata-1 提交 `710fded` 首次 `git push` 遇代理 502，本地提交与冻结不受影响，重试后补齐。
+
+---
+
+## 16. 时间结果（正式 20 轮，§4.3 / §4.4 冻结算法）
+
+| 量 | n | median (ms) | IQR (ms) | min (ms) | max (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `create` | 20 | 27.2 | 0.7 | 26.2 | 53.6 |
+| `sign` | 20 | 9.9 | 0.2 | 9.6 | 14.3 |
+| `prove` | 20 | **1411.2** | 26.0 | 1379.2 | 1602.0 |
+| `extract` | 20 | 37.6 | 3.2 | 29.2 | 44.8 |
+| **`build_total`** | 20 | **1480.0** | 22.0 | 1454.2 | 1707.5 |
+| `other` | 20 | 75.1 | 4.0 | 65.8 | 105.5 |
+| `wall`（核对） | 20 | 1480.8 | 22.0 | 1454.7 | 1708.6 |
+
+- 统计用 `statistics.median` 与 `statistics.quantiles(n=4, method='inclusive')`；
+  `IQR = Q3−Q1`。**独立复算**（`§15` 附带的核对脚本）与 `final/summary.csv` 逐格一致。
+- `min/max` 仅作辅助；不报标准差、p 值、置信区间，不做假设检验（§4.3 / §4.4）。
+- `T_wall − T_build` 中位 **0.523 ms**、最大 **1.150 ms**（均 < 5%），
+  说明未被计时的 `pczt_inspect` 诊断 RPC 没有污染窗口（§3.4）。
+- 门禁三段**不计入** `T_build`，仅作背景记录：`broadcast` 中位 167.5 ms、
+  `mine` 中位 517.4 ms、`confirm` 中位 0.8 ms（§10、§7.2 第 6 条）。
+- 最慢的 `r01`（`prove` 1602.0 ms、`create` 53.6 ms）**未剔除**：
+  §9.3 规定无异常不得因"看起来偏慢"删除，且它三门禁、形态、PID 全部通过。
+
+### 16.1 `prove / build_total` 两种口径（§4.5，不可互算）
+
+| 口径 | 值 | 身份 |
+| --- | ---: | --- |
+| `median(逐轮 prove/build)` | **94.94%** | **主报**（冻结口径，百分比 2 位小数） |
+| `median(prove)/median(build)` | **95.35%** | 辅报，只是两个边际中位数之比 |
+| 逐轮比值的 IQR / min / max | 0.36% / 93.82% / 95.83% | 描述性 |
+
+**输出精度偏差（如实标注，不改原始 CSV）**：`final/prove_share.csv` 由脚本按 1 位小数写出
+（`94.9` / `0.4` / `93.8` / `95.8`），比 §4.4 冻结的"百分比 2 位小数"粗一位。
+本节以冻结口径复算值 94.94% 为主报；原始 CSV 保留原样，不做回填。
+两口径相差 0.41 个百分点，**不得互相替代**（§7.2 第 9 条）。
+
+---
+
+## 17. RSS 结果与 R 档判定（§5.5 冻结阈值）
+
+| 量 | n | median | IQR | min | max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 每轮 `pczt_prove` 窗口峰值 `rss_max_kb` | 20 | 453 294 KB | 16 964 KB | 422 108 KB | 478 988 KB |
+| 每轮窗口内增量 `delta_window_kb` | 20 | 84 246 KB | 5 269 KB | 62 244 KB | 89 888 KB |
+
+- 每轮窗口采样 **26–31 点**（全部 ≥ 10），`low_confidence = 0` 轮，
+  `phase_anomalies = 0`，总采样 **1348** 点，仅落在 `pczt_prove` 窗口内。
+- 轮间 `rss_first_kb` 极差 **57 148 KB = 55.809 MiB**（基线段本身就在漂）。
+- 冻结定义 `N_rss = max(rss_max) − min(rss_max) = 478 988 − 422 108 = 56 880 KB`
+  = **55.547 MiB**。
+- 判据 `N_rss > 18 MiB`（3 × 6 MiB）⇒ **R3**。
+
+> **该环境下无法用当前进程级采样分辨 6 MiB 量级的机制代价。**
+
+按 §5.5 / §7.2 第 10 条：R3 **不是失败，是工程结论**；
+不得写成"F4-A 内存代价为 0 / 不存在"，也不得把窗口内增量归因给某个机制。
+本批次**没有 B 臂**，因此不计算、也不报告任何 `ΔRSS_A/B`；6 MiB 只作 doc 25 的参照尺度。
+
+---
+
+## 18. 正确性门禁汇总（§9 / §10）
+
+| 门禁 | 结果 |
+| --- | --- |
+| 有效轮次 | **20 / 20**（`invalid_runs.csv` 空，总尝试 20 ≤ 26 上限） |
+| `pczt_extract` 成功 | 20/20 |
+| `sendrawtransaction` 接受 | 20/20 |
+| 后续确认 | 20/20，`confirmations = 2` |
+| 形态 | 20/20 `ironwood.actions=2` / `orchard.actions=0` |
+| PID / exe / SHA256 | 20/20 恒定 `2255` |
+| 失败码 | 无（`extract_failed` / `broadcast_rejected` / `not_confirmed` / `shape_changed` / `pid_changed` / `timing_incomplete` / `rpc_error` 均 0） |
+| 整批作废条件 | 均未触发：无进程重启、无中途注资、无参数变更、CPU mask 未变、未跨会话拼接 |
+
+`txid` 20 个互不相同（本实验**不要求** A/B txid 相同，§6 / doc 28 已定证语义一致性口径）。
+
+---
+
+## 19. 与 §7 允许 / 禁止清单逐条对账
+
+### 19.1 允许清单（只写了这五条）
+
+| §7.1 | 本报告落点 |
+| --- | --- |
+| 1 · `T_build` 与四 stage 的 median / IQR / min / max | §16 表 |
+| 2 · `prove` 占比（两种口径分开） | §16.1 |
+| 3 · `pczt_prove` 窗口内 `VmRSS` 分布与轮间噪声 | §17 |
+| 4 · R1/R2/R3 的方法论结论 | §17（**R3**） |
+| 5 · 正确性与环境记录 | §18、§15、§15.3 |
+
+### 19.2 禁止清单（逐条确认未出现）
+
+| §7.2 # | 状态 |
+| --- | --- |
+| 1 · "F4-A 在真实 Zcash 加速 X%"（含上界 / E3 推算） | **未出现**；本报告不含任何 F4-A 加速数字 |
+| 2 · "F4-A 内存代价 Y MiB" / "证明不增加内存" | **未出现**；无 B 臂 |
+| 3 · "已在真实交易流程验证 F4-A / 具备外部有效性" | **未出现**；§6.1 与 §14.6 保持 |
+| 4 · `pczt_prove` 墙钟 = `create_proof` / quotient 耗时 | **未出现**；§3.3 口径保持 |
+| 5 · 把场景贴 "1 Spend → 2 Outputs" | **未出现**；只写 `frozen_pczt` |
+| 6 · 把 broadcast / mine / confirm / `wait_sync` 计入 `T_build` | **未出现**；§16 单列门禁三段且不进主指标 |
+| 7 · 用 `VmHWM` / 全局峰值当机制代价 | **未出现**；只用 prove 窗口 `VmRSS` |
+| 8 · 与 10-29 历史批次或 doc 24/25/26 毫秒并列 | **未出现**；§14.4 明确旧批次数值不得引用 |
+| 9 · 用 `median(prove)/median(build)` 冒充主口径 | **未出现**；§16.1 分开标注 |
+| 10 · 把 R3 写成"内存代价为 0" | **未出现**；§17 明写 R3 是工程结论 |
+| 11 · 按 action 数分组比较、声称"趋势传递" | **未出现**；形态全为 2/0，不分组 |
+| 12 · 把单批 IQR 写成 CI / 显著性 | **未出现**；§16 明写不报 CI、不做检验 |
+
+另按 §14.6 新增两条纪律：`63.021`（启动门槛）与 `60.02`（放行门槛）未互替；
+`--fund-zec 55` 与实际到账 `56.249` 均只作准备动作记录，未写成实验结论或性能变量。
+
+---
+
+## 20. 结论（只写 §7.1 允许的五条）
+
+1. **在本次单批、本配置、本冻结场景下**，`T_build` 中位 **1480.0 ms**（IQR 22.0），
+   四段中位：`create` 27.2 / `sign` 9.9 / `prove` 1411.2 / `extract` 37.6 ms。
+2. `prove` 在 `T_build` 中占比：主口径 `median(逐轮比值)` **94.94%**；
+   辅口径 `median(prove)/median(build)` **95.35%**，二者不可互算。
+3. `pczt_prove` 窗口内 `zallet-zaino` 的 `VmRSS` 窗口峰值中位 **453 294 KB**
+   （IQR 16 964 KB），轮间窗口峰值极差 `N_rss` = **55.547 MiB**。
+4. 按 §5.5 冻结阈值判为 **R3**：**该环境下无法用当前进程级采样分辨 6 MiB 量级的机制代价**。
+   这是关于测量分辨率的方法论结论，不是关于任何优化内存代价的结论。
+5. 正确性门禁 **20/20 全通过**；环境为 `zallet-zaino 0.1.0-beta.3` / `halo2_proofs 0.3.2` /
+   Zebra regtest / WSL 内核 `6.18.58.1`，与 F4-A 的 `0.4.0` 补丁存在版本鸿沟，
+   **F4-A 未部署到该二进制**。
+
+**实验身份**：真实 Zcash PCZT 环境性能基线与 F4-A 外部有效性边界验证。
+本报告**不构成** F4-A 的端到端加速证据，也不为 doc 26 的 −22.00% 提供背书。
+路线 B 仍是未来独立工程，H8 / F4-B 保持暂缓。
+
+### 20.1 冻结状态
+
+| 项 | 值 |
+| --- | --- |
+| 预注册正文 | §0–§13，**字节未改**（前缀 36 366 bytes / SHA256 `c3d8f999…6e666de1`） |
+| 勘误 | §14 **v1.0-errata-1**（单独提交 `710fded`） |
+| 结果 | §15–§20（本节追加，§14.5 编号顺延） |
+| F4-A 冻结材料 | doc 26 v1.0 FROZEN / errata-1/2、doc 27、INDEX 的 F4-A 结论区、README 的 F4-A 行、tag `f4a-closed-2026-11-05`：**全部未动** |
+| 旧批次 | `4f7983d` 全部原始字节保留，标记 `superseded for batch execution / measurement-chain validation only` |
