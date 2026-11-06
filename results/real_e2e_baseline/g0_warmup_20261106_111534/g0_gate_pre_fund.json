@@ -1,0 +1,134 @@
+{
+  "label": "pre_fund",
+  "timestamp": "2026-11-06T11:17:00",
+  "overall": "FAIL",
+  "n_pass": 2,
+  "n_items": 8,
+  "items": [
+    {
+      "id": "G0-A",
+      "name": "WSL kernel recorded (record-only)",
+      "status": "PASS",
+      "value": "6.18.58.1-microsoft-standard-WSL2",
+      "note": "fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2"
+    },
+    {
+      "id": "G0-B",
+      "name": "3 binary SHA256 == frozen fingerprint",
+      "status": "PASS",
+      "value": {
+        "zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+        "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-C",
+      "name": "zebrad + zallet-zaino resolved via /proc/PID/exe",
+      "status": "FAIL",
+      "value": {
+        "zebrad": null,
+        "zallet-zaino": null
+      },
+      "note": "pgrep -x only; pgrep -f fallback forbidden"
+    },
+    {
+      "id": "G0-D",
+      "name": "CPU affinity read-back == 0x1 (CPU 0) for both PIDs",
+      "status": "FAIL",
+      "value": {
+        "zebrad": {
+          "error": "no pid"
+        },
+        "zallet-zaino": {
+          "error": "no pid"
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-E",
+      "name": "RPC up + height >= 32257 + wallet synced",
+      "status": "FAIL",
+      "value": {
+        "error": "[Errno 111] Connection refused"
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-F",
+      "name": "bench account UUID present",
+      "status": "FAIL",
+      "value": {
+        "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-G",
+      "name": "ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)",
+      "status": "FAIL",
+      "value": {
+        "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-H",
+      "name": "shape ironwood.actions=2 / orchard.actions=0",
+      "status": "FAIL",
+      "value": {
+        "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+      },
+      "note": ""
+    }
+  ],
+  "raw": {
+    "kernel": "6.18.58.1-microsoft-standard-WSL2",
+    "binaries_on_disk": {
+      "zebrad": {
+        "path": "/home/dell/z3-regtest/bin/zebrad",
+        "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "mtime": "2026-10-29 09:32:14",
+        "bytes": 183943408
+      },
+      "zallet": {
+        "path": "/home/dell/z3-regtest/bin/zallet",
+        "sha256": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+        "mtime": "2026-10-29 09:32:15",
+        "bytes": 4956560
+      },
+      "zallet-zaino": {
+        "path": "/home/dell/z3-regtest/bin/zallet-zaino",
+        "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+        "mtime": "2026-10-29 09:32:15",
+        "bytes": 108392112
+      }
+    },
+    "processes": {
+      "zebrad": null,
+      "zallet-zaino": null
+    },
+    "affinity": {
+      "zebrad": {
+        "error": "no pid"
+      },
+      "zallet-zaino": {
+        "error": "no pid"
+      }
+    },
+    "rpc": {
+      "error": "[Errno 111] Connection refused"
+    },
+    "accounts": {
+      "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+    },
+    "balance": {
+      "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+    },
+    "shape_probe": {
+      "error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"
+    }
+  }
+}

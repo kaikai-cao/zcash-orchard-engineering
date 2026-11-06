@@ -1,0 +1,12 @@
+G0 GATE [pre_fund]  2026-11-06T11:17:00  overall=FAIL (2/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    FAIL zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": null, "zallet-zaino": null}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    FAIL CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"error": "no pid"}, "zallet-zaino": {"error": "no pid"}}
+G0-E    FAIL RPC up + height >= 32257 + wallet synced                   {"error": "[Errno 111] Connection refused"}
+G0-F    FAIL bench account UUID present                                 {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}
+G0-G    FAIL ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)          {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}
+G0-H    FAIL shape ironwood.actions=2 / orchard.actions=0               {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}

@@ -1,0 +1,8 @@
+run_id,stage,ms
+r01,pczt_create,31.884
+r01,pczt_sign,12.197
+r01,pczt_prove,1535.582
+r01,pczt_extract,45.524
+r01,broadcast,165.270
+r01,mine,574.002
+r01,confirm,1.183

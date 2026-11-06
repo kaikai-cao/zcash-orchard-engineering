@@ -1,0 +1,373 @@
+{
+  "label": "g0_run2",
+  "timestamp": "2026-11-06T11:20:47",
+  "overall": "FAIL",
+  "n_pass": 6,
+  "n_items": 8,
+  "items": [
+    {
+      "id": "G0-A",
+      "name": "WSL kernel recorded (record-only)",
+      "status": "PASS",
+      "value": "6.18.58.1-microsoft-standard-WSL2",
+      "note": "fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2"
+    },
+    {
+      "id": "G0-B",
+      "name": "3 binary SHA256 == frozen fingerprint",
+      "status": "PASS",
+      "value": {
+        "zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+        "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-C",
+      "name": "zebrad + zallet-zaino resolved via /proc/PID/exe",
+      "status": "PASS",
+      "value": {
+        "zebrad": {
+          "pid": 736,
+          "exe": "/home/dell/z3-regtest/bin/zebrad",
+          "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+          "basename": "zebrad"
+        },
+        "zallet-zaino": {
+          "pid": 1027,
+          "exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+          "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+          "basename": "zallet-zaino"
+        }
+      },
+      "note": "pgrep -x only; pgrep -f fallback forbidden"
+    },
+    {
+      "id": "G0-D",
+      "name": "CPU affinity read-back == 0x1 (CPU 0) for both PIDs",
+      "status": "FAIL",
+      "value": {
+        "zebrad": {
+          "set": {
+            "rc": 1,
+            "stdout": "",
+            "stderr": "taskset: failed to parse CPU list: 0x1"
+          },
+          "Cpus_allowed_list": "0-27"
+        },
+        "zallet-zaino": {
+          "set": {
+            "rc": 1,
+            "stdout": "",
+            "stderr": "taskset: failed to parse CPU list: 0x1"
+          },
+          "Cpus_allowed_list": "0-27"
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-E",
+      "name": "RPC up + height >= 32257 + wallet synced",
+      "status": "PASS",
+      "value": {
+        "zebra_blocks": 32297,
+        "wallet_tip": 32297,
+        "node_tip": 32297,
+        "sync_target": 32297,
+        "synced": true
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-F",
+      "name": "bench account UUID present",
+      "status": "PASS",
+      "value": [
+        {
+          "account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9",
+          "name": "bench",
+          "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8",
+          "zip32_account_index": 0,
+          "account": 0,
+          "addresses": [
+            {
+              "diversifier_index": 3,
+              "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"
+            },
+            {
+              "diversifier_index": 5,
+              "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"
+            },
+            {
+              "diversifier_index": 8,
+              "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"
+            },
+            {
+              "diversifier_index": 4610581665,
+              "ua": "uregtest1rpsxl4jh8utayrhf5m2v0a3yu27mgg9fuccyxkp6f96su5zd89ekj05kwxklf5eqyv3m6zgx4zsj7d05s5mkf4yfdydctla065xzfkdr"
+            },
+            {
+              "diversifier_index": 4610581912,
+              "ua": "uregtest1clpgzyvyvtaf569fhst3yv6krnpw3ugq6ht9k8kxfcnqx97hrcyfn4px64k982dstlww8cgzhhgq93dqt8kd0drsqsef9507zcxsl5ne"
+            },
+            {
+              "diversifier_index": 6,
+              "ua": "uregtest1ssj88pu3k6tfmu30ljvka5m5uj9ut76gevzqm9r46g76z8hfygn7p5yf86udgjapt3vdq6rcgcsrh2r9fz40k5t725nvkgldrzpzg03jus859jzsf0tjezk3hl3dk7vqqe3az86qlup"
+            },
+            {
+              "diversifier_index": 4610582272,
+              "ua": "uregtest194322m2vamjme5zw2ysyqlj9lcsqre6xeyvctykc3dzfthq0celmqh8hj5h5p40z0aq2wt2dnklztm2jjqhwh4a7geu7n9q9fvyfjc7d"
+            },
+            {
+              "diversifier_index": 4610582390,
+              "ua": "uregtest1znxq7jhf5e83hu6ykyrrfz3zzuxfnqcjngywwq3lx7vrw40qe5xfrakj583ya7q2u086cfugfr9etgmyjagxmwcxtzelglsf5v4l62cw"
+            },
+            {
+              "diversifier_index": 4610582391,
+              "ua": "uregtest1ayzvar6yhtjkhnr9r66qkht6v3et44fz02tff89v460l40yf92esjeul8dp2udde92kffepp2enwtggdkmd7arjgrxg9n02xcgnfsy6f"
+            },
+            {
+              "diversifier_index": 4610582393,
+              "ua": "uregtest1lmy8wvkhmv4fx370xv57rqtn06gwnnh5s7sghnmd2xwh8nrkrmgeqvmmt57n2wyfkjtwdw6j9gxq43chvpa0mh5kwsfcmszmg42d4assex3ffh25c35ezsf7myqvv0xa37sm0l3qg3h2daudtv0t909z9ynyhax4qxfrsr8sl5ser3jh"
+            },
+            {
+              "diversifier_index": 4610582439,
+              "ua": "uregtest162c3esc4tdwys2w74ljm42mdf2dp4jafsuexh2vu8nfafu6hzngs7kwj4c22wjs08gkktkqhu4qfxmygcdpjxhxe8zqxqs3gq55t56q7"
+            }
+          ]
+        }
+      ],
+      "note": ""
+    },
+    {
+      "id": "G0-G",
+      "name": "ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)",
+      "status": "FAIL",
+      "value": {
+        "zat": {
+          "sapling": 11999980000,
+          "ironwood": 1124820000
+        },
+        "zec": {
+          "sapling": 119.9998,
+          "ironwood": 11.2482
+        },
+        "need_zat": 6002000000,
+        "need_zec": 60.02,
+        "shortfall_zec": 48.7718
+      },
+      "note": ""
+    },
+    {
+      "id": "G0-H",
+      "name": "shape ironwood.actions=2 / orchard.actions=0",
+      "status": "PASS",
+      "value": {
+        "ironwood_actions": 2,
+        "orchard_actions": 0,
+        "sapling_spends": 0,
+        "fee_zat": 20000,
+        "privacy_policy": "AllowRevealedAmounts",
+        "pczt_b64_len": 9224,
+        "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"
+      },
+      "note": ""
+    }
+  ],
+  "raw": {
+    "kernel": "6.18.58.1-microsoft-standard-WSL2",
+    "binaries_on_disk": {
+      "zebrad": {
+        "path": "/home/dell/z3-regtest/bin/zebrad",
+        "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "mtime": "2026-10-29 09:32:14",
+        "bytes": 183943408
+      },
+      "zallet": {
+        "path": "/home/dell/z3-regtest/bin/zallet",
+        "sha256": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+        "mtime": "2026-10-29 09:32:15",
+        "bytes": 4956560
+      },
+      "zallet-zaino": {
+        "path": "/home/dell/z3-regtest/bin/zallet-zaino",
+        "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+        "mtime": "2026-10-29 09:32:15",
+        "bytes": 108392112
+      }
+    },
+    "processes": {
+      "zebrad": {
+        "pid": 736,
+        "exe": "/home/dell/z3-regtest/bin/zebrad",
+        "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+        "basename": "zebrad"
+      },
+      "zallet-zaino": {
+        "pid": 1027,
+        "exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+        "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+        "basename": "zallet-zaino"
+      }
+    },
+    "affinity": {
+      "zebrad": {
+        "set": {
+          "rc": 1,
+          "stdout": "",
+          "stderr": "taskset: failed to parse CPU list: 0x1"
+        },
+        "Cpus_allowed_list": "0-27"
+      },
+      "zallet-zaino": {
+        "set": {
+          "rc": 1,
+          "stdout": "",
+          "stderr": "taskset: failed to parse CPU list: 0x1"
+        },
+        "Cpus_allowed_list": "0-27"
+      }
+    },
+    "rpc": {
+      "zebra_blocks": 32297,
+      "wallet_tip": 32297,
+      "node_tip": 32297,
+      "sync_target": 32297,
+      "synced": true
+    },
+    "accounts_raw": [
+      {
+        "account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9",
+        "name": "bench",
+        "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8",
+        "zip32_account_index": 0,
+        "account": 0,
+        "addresses": [
+          {
+            "diversifier_index": 3,
+            "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"
+          },
+          {
+            "diversifier_index": 5,
+            "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"
+          },
+          {
+            "diversifier_index": 8,
+            "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"
+          },
+          {
+            "diversifier_index": 4610581665,
+            "ua": "uregtest1rpsxl4jh8utayrhf5m2v0a3yu27mgg9fuccyxkp6f96su5zd89ekj05kwxklf5eqyv3m6zgx4zsj7d05s5mkf4yfdydctla065xzfkdr"
+          },
+          {
+            "diversifier_index": 4610581912,
+            "ua": "uregtest1clpgzyvyvtaf569fhst3yv6krnpw3ugq6ht9k8kxfcnqx97hrcyfn4px64k982dstlww8cgzhhgq93dqt8kd0drsqsef9507zcxsl5ne"
+          },
+          {
+            "diversifier_index": 6,
+            "ua": "uregtest1ssj88pu3k6tfmu30ljvka5m5uj9ut76gevzqm9r46g76z8hfygn7p5yf86udgjapt3vdq6rcgcsrh2r9fz40k5t725nvkgldrzpzg03jus859jzsf0tjezk3hl3dk7vqqe3az86qlup"
+          },
+          {
+            "diversifier_index": 4610582272,
+            "ua": "uregtest194322m2vamjme5zw2ysyqlj9lcsqre6xeyvctykc3dzfthq0celmqh8hj5h5p40z0aq2wt2dnklztm2jjqhwh4a7geu7n9q9fvyfjc7d"
+          },
+          {
+            "diversifier_index": 4610582390,
+            "ua": "uregtest1znxq7jhf5e83hu6ykyrrfz3zzuxfnqcjngywwq3lx7vrw40qe5xfrakj583ya7q2u086cfugfr9etgmyjagxmwcxtzelglsf5v4l62cw"
+          },
+          {
+            "diversifier_index": 4610582391,
+            "ua": "uregtest1ayzvar6yhtjkhnr9r66qkht6v3et44fz02tff89v460l40yf92esjeul8dp2udde92kffepp2enwtggdkmd7arjgrxg9n02xcgnfsy6f"
+          },
+          {
+            "diversifier_index": 4610582393,
+            "ua": "uregtest1lmy8wvkhmv4fx370xv57rqtn06gwnnh5s7sghnmd2xwh8nrkrmgeqvmmt57n2wyfkjtwdw6j9gxq43chvpa0mh5kwsfcmszmg42d4assex3ffh25c35ezsf7myqvv0xa37sm0l3qg3h2daudtv0t909z9ynyhax4qxfrsr8sl5ser3jh"
+          },
+          {
+            "diversifier_index": 4610582439,
+            "ua": "uregtest162c3esc4tdwys2w74ljm42mdf2dp4jafsuexh2vu8nfafu6hzngs7kwj4c22wjs08gkktkqhu4qfxmygcdpjxhxe8zqxqs3gq55t56q7"
+          }
+        ]
+      }
+    ],
+    "accounts": [
+      {
+        "account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9",
+        "name": "bench",
+        "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8",
+        "zip32_account_index": 0,
+        "account": 0,
+        "addresses": [
+          {
+            "diversifier_index": 3,
+            "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"
+          },
+          {
+            "diversifier_index": 5,
+            "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"
+          },
+          {
+            "diversifier_index": 8,
+            "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"
+          },
+          {
+            "diversifier_index": 4610581665,
+            "ua": "uregtest1rpsxl4jh8utayrhf5m2v0a3yu27mgg9fuccyxkp6f96su5zd89ekj05kwxklf5eqyv3m6zgx4zsj7d05s5mkf4yfdydctla065xzfkdr"
+          },
+          {
+            "diversifier_index": 4610581912,
+            "ua": "uregtest1clpgzyvyvtaf569fhst3yv6krnpw3ugq6ht9k8kxfcnqx97hrcyfn4px64k982dstlww8cgzhhgq93dqt8kd0drsqsef9507zcxsl5ne"
+          },
+          {
+            "diversifier_index": 6,
+            "ua": "uregtest1ssj88pu3k6tfmu30ljvka5m5uj9ut76gevzqm9r46g76z8hfygn7p5yf86udgjapt3vdq6rcgcsrh2r9fz40k5t725nvkgldrzpzg03jus859jzsf0tjezk3hl3dk7vqqe3az86qlup"
+          },
+          {
+            "diversifier_index": 4610582272,
+            "ua": "uregtest194322m2vamjme5zw2ysyqlj9lcsqre6xeyvctykc3dzfthq0celmqh8hj5h5p40z0aq2wt2dnklztm2jjqhwh4a7geu7n9q9fvyfjc7d"
+          },
+          {
+            "diversifier_index": 4610582390,
+            "ua": "uregtest1znxq7jhf5e83hu6ykyrrfz3zzuxfnqcjngywwq3lx7vrw40qe5xfrakj583ya7q2u086cfugfr9etgmyjagxmwcxtzelglsf5v4l62cw"
+          },
+          {
+            "diversifier_index": 4610582391,
+            "ua": "uregtest1ayzvar6yhtjkhnr9r66qkht6v3et44fz02tff89v460l40yf92esjeul8dp2udde92kffepp2enwtggdkmd7arjgrxg9n02xcgnfsy6f"
+          },
+          {
+            "diversifier_index": 4610582393,
+            "ua": "uregtest1lmy8wvkhmv4fx370xv57rqtn06gwnnh5s7sghnmd2xwh8nrkrmgeqvmmt57n2wyfkjtwdw6j9gxq43chvpa0mh5kwsfcmszmg42d4assex3ffh25c35ezsf7myqvv0xa37sm0l3qg3h2daudtv0t909z9ynyhax4qxfrsr8sl5ser3jh"
+          },
+          {
+            "diversifier_index": 4610582439,
+            "ua": "uregtest162c3esc4tdwys2w74ljm42mdf2dp4jafsuexh2vu8nfafu6hzngs7kwj4c22wjs08gkktkqhu4qfxmygcdpjxhxe8zqxqs3gq55t56q7"
+          }
+        ]
+      }
+    ],
+    "balance": {
+      "zat": {
+        "sapling": 11999980000,
+        "ironwood": 1124820000
+      },
+      "zec": {
+        "sapling": 119.9998,
+        "ironwood": 11.2482
+      },
+      "need_zat": 6002000000,
+      "need_zec": 60.02,
+      "shortfall_zec": 48.7718
+    },
+    "shape_probe": {
+      "ironwood_actions": 2,
+      "orchard_actions": 0,
+      "sapling_spends": 0,
+      "fee_zat": 20000,
+      "privacy_policy": "AllowRevealedAmounts",
+      "pczt_b64_len": 9224,
+      "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"
+    }
+  }
+}

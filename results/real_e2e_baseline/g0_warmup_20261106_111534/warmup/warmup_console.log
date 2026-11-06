@@ -1,0 +1,9 @@
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=1027 zebra_pid=736 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 79.3748, 'ironwood': 51.87245} | need(this batch)=3.0010 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=False (short 8.147550 ZEC)
+
+----- warmup round 1/1 -----
+  build   1625.2 ms (wall   1626.0, delta    0.8) prove   1535.6 ms share 0.9449
+  rss window: 29 samples, min=339312 max=417888 delta=78576 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=1027 -> valid=False
+
+[out] /mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/g0_warmup_20261106_111534/warmup  rows=1 valid=0 rss_samples=67

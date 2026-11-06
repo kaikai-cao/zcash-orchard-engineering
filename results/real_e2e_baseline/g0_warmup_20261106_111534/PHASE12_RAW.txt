@@ -1,0 +1,301 @@
+PHASE 1 (G0) + PHASE 2 (warm-up) RAW OUTPUT
+目录: results/real_e2e_baseline/g0_warmup_20261106_111534/
+说明: 本文件只汇总原始输出，不做统计、不做结论。
+==============================================================================
+
+##############################################################################
+## G0 门禁 · 首次尝试（pre_fund，WSL 实例回收后服务不在，保留作执行层记录）
+文件: g0_gate_pre_fund.txt
+##############################################################################
+
+G0 GATE [pre_fund]  2026-11-06T11:17:00  overall=FAIL (2/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    FAIL zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": null, "zallet-zaino": null}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    FAIL CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"error": "no pid"}, "zallet-zaino": {"error": "no pid"}}
+G0-E    FAIL RPC up + height >= 32257 + wallet synced                   {"error": "[Errno 111] Connection refused"}
+G0-F    FAIL bench account UUID present                                 {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}
+G0-G    FAIL ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)          {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}
+G0-H    FAIL shape ironwood.actions=2 / orchard.actions=0               {"error": "[Errno 2] No such file or directory: '/home/dell/z3-regtest/data/zallet/.cookie'"}
+
+
+##############################################################################
+## G0 门禁 · 服务在线后首次完整执行（字面 taskset -pc 0x1 失败）
+文件: g0_gate_g0_run2.txt
+##############################################################################
+
+G0 GATE [g0_run2]  2026-11-06T11:20:47  overall=FAIL (6/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    PASS zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": {"pid": 736, "exe": "/home/dell/z3-regtest/bin/zebrad", "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "basename": "zebrad"}, "zallet-zaino": {"pid": 1027, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7", "basename": "zallet-zaino"}}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    FAIL CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"set": {"rc": 1, "stdout": "", "stderr": "taskset: failed to parse CPU list: 0x1"}, "Cpus_allowed_list": "0-27"}, "zallet-zaino": {"set": {"rc": 1, "stdout": "", "stderr": "taskset: failed to parse CPU list: 0x1"}, "Cpus_allowed_list": "0-27"}}
+G0-E    PASS RPC up + height >= 32257 + wallet synced                   {"zebra_blocks": 32297, "wallet_tip": 32297, "node_tip": 32297, "sync_target": 32297, "synced": true}
+G0-F    PASS bench account UUID present                                 [{"account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9", "name": "bench", "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8", "zip32_account_index": 0, "account": 0, "addresses": [{"diversifier_index": 3, "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"}, {"diversifier_index": 5, "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"}, {"diversifier_index": 8, "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"}, {"diversifier_index": 4610581665, "ua": "uregtest1rpsxl4jh8utay
+G0-G    FAIL ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)          {"zat": {"sapling": 11999980000, "ironwood": 1124820000}, "zec": {"sapling": 119.9998, "ironwood": 11.2482}, "need_zat": 6002000000, "need_zec": 60.02, "shortfall_zec": 48.7718}
+G0-H    PASS shape ironwood.actions=2 / orchard.actions=0               {"ironwood_actions": 2, "orchard_actions": 0, "sapling_spends": 0, "fee_zat": 20000, "privacy_policy": "AllowRevealedAmounts", "pczt_b64_len": 9224, "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"}
+
+
+##############################################################################
+## G0 门禁 · 修正 taskset 输入语法后（注资前）
+文件: g0_gate_g0_run3_pre_fund.txt
+##############################################################################
+
+G0 GATE [g0_run3_pre_fund]  2026-11-06T11:22:07  overall=FAIL (7/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    PASS zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": {"pid": 736, "exe": "/home/dell/z3-regtest/bin/zebrad", "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "basename": "zebrad"}, "zallet-zaino": {"pid": 1027, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7", "basename": "zallet-zaino"}}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    PASS CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"set": {"rc": 0, "stdout": "pid 736's current affinity list: 0-27\npid 736's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}, "zallet-zaino": {"set": {"rc": 0, "stdout": "pid 1027's current affinity list: 0-27\npid 1027's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}}
+G0-E    PASS RPC up + height >= 32257 + wallet synced                   {"zebra_blocks": 32297, "wallet_tip": 32297, "node_tip": 32297, "sync_target": 32297, "synced": true}
+G0-F    PASS bench account UUID present                                 [{"account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9", "name": "bench", "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8", "zip32_account_index": 0, "account": 0, "addresses": [{"diversifier_index": 3, "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"}, {"diversifier_index": 5, "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"}, {"diversifier_index": 8, "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"}, {"diversifier_index": 4610581665, "ua": "uregtest1rpsxl4jh8utay
+G0-G    FAIL ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)          {"zat": {"sapling": 11999980000, "ironwood": 1124820000}, "zec": {"sapling": 119.9998, "ironwood": 11.2482}, "need_zat": 6002000000, "need_zec": 60.02, "shortfall_zec": 48.7718}
+G0-H    PASS shape ironwood.actions=2 / orchard.actions=0               {"ironwood_actions": 2, "orchard_actions": 0, "sapling_spends": 0, "fee_zat": 20000, "privacy_policy": "AllowRevealedAmounts", "pczt_b64_len": 9224, "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"}
+
+
+##############################################################################
+## G0 门禁 · 唯一一次 40 ZEC 注资后（最终 G0）
+文件: g0_gate_g0_run4_post_fund.txt
+##############################################################################
+
+G0 GATE [g0_run4_post_fund]  2026-11-06T11:22:46  overall=FAIL (7/8 PASS)
+
+G0-A    PASS WSL kernel recorded (record-only)                          "6.18.58.1-microsoft-standard-WSL2"
+        note: fingerprint 2026-10-29 was 6.18.54.1; drift is expected, doc 29 §2.2
+G0-B    PASS 3 binary SHA256 == frozen fingerprint                      {"zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a", "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"}
+G0-C    PASS zebrad + zallet-zaino resolved via /proc/PID/exe           {"zebrad": {"pid": 736, "exe": "/home/dell/z3-regtest/bin/zebrad", "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7", "basename": "zebrad"}, "zallet-zaino": {"pid": 1027, "exe": "/home/dell/z3-regtest/bin/zallet-zaino", "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7", "basename": "zallet-zaino"}}
+        note: pgrep -x only; pgrep -f fallback forbidden
+G0-D    PASS CPU affinity read-back == 0x1 (CPU 0) for both PIDs        {"zebrad": {"set": {"rc": 0, "stdout": "pid 736's current affinity list: 0\npid 736's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}, "zallet-zaino": {"set": {"rc": 0, "stdout": "pid 1027's current affinity list: 0\npid 1027's new affinity list: 0", "stderr": ""}, "Cpus_allowed_list": "0"}}
+G0-E    PASS RPC up + height >= 32257 + wallet synced                   {"zebra_blocks": 32300, "wallet_tip": 32300, "node_tip": 32300, "sync_target": 32300, "synced": true}
+G0-F    PASS bench account UUID present                                 [{"account_uuid": "5fd7056a-3e6e-455f-b75d-d80b0556fea9", "name": "bench", "seedfp": "zip32seedfp16k2h009dr2adhz5zc2wx98w2zq3vrw9jz6lz0zqpmeqf69hj0tfqjv34k8", "zip32_account_index": 0, "account": 0, "addresses": [{"diversifier_index": 3, "ua": "uregtest1uj9p4ask8qn3a2w7pjyujdq53gurhuh8pn4ux6pz95u39nj894g9p2a6t0z34tf5f4226dmr527fdpwl3jfzm8w9yh4fufpcxj4a2c5h85crn9ktd20zf9g2pflwwrc8ufw70y05ftpeyquya0h8wvyfa5x8p5dpl7ltc20j4w52hjn5336fa7t3ypgmhhqvpjh0v2geesxmunf7gv2"}, {"diversifier_index": 5, "ua": "uregtest19tu34g0t8np34f43fwlnn7wy4lk59t7zmwh8xy5yr4vvgj3yfuu3zaga4yyjhx69ynphl5cwyte0ej8hqct6cqk3kez0rjhdl8lwwhgkt9x3v2zlsxjymru75mnm0mz62gc2uk6205n"}, {"diversifier_index": 8, "ua": "uregtest1arem2anwqjua8w32tgzz0vm87fx5emj4k5ufhd4hap6edea6d86z5xn3kl60yu59dcr37rp9qyekrkqzte0pvlfjvy609yh96gr5pgkn38q4tu7lw5dxy3a2wlh7rug54trvu6wn4ya"}, {"diversifier_index": 4610581665, "ua": "uregtest1rpsxl4jh8utay
+G0-G    FAIL ironwood balance >= 60.02 ZEC (20 rounds x 3 ZEC)          {"zat": {"sapling": 7937480000, "ironwood": 5187245000}, "zec": {"sapling": 79.3748, "ironwood": 51.8725}, "need_zat": 6002000000, "need_zec": 60.02, "shortfall_zec": 8.1476}
+G0-H    PASS shape ironwood.actions=2 / orchard.actions=0               {"ironwood_actions": 2, "orchard_actions": 0, "sapling_spends": 0, "fee_zat": 20000, "privacy_policy": "AllowRevealedAmounts", "pczt_b64_len": 9224, "note": "PCZT discarded: unsigned, unproven, not broadcast, no chain effect"}
+
+
+##############################################################################
+## 预注册 §8.2 允许的唯一一次注资原始日志
+文件: fund_once_40zec.log
+##############################################################################
+
+[1] 注资前池余额: {'sapling': 11999980000, 'ironwood': 1124820000}
+
+[2] 派生 orchard-only 收款地址
+    uregtest15f4kdzp9fdtz7a266s5zmujq75248ry5zenvgsyduzhylvlpa4ura97xelrw0hulx02q2ws5qwatxwh9d6pxj3suuhn9fd4hhcahr9v6
+    receivers: {"orchard": "uregtest15f4kdzp9fdtz7a266s5zmujq75248ry5zenvgsyduzhylvlpa4ura97xelrw0hulx02q2ws5qwatxwh9d6pxj3suuhn9fd4hhcahr9v6"}
+
+[3] 跨池注资 40.0 ZEC（policy=AllowRevealedAmounts）
+    形态 1 接受（5 参）opid=opid-90be66d2-8411-4fdb-b7a7-304184a3f9cd
+    status=success  12.54s
+    result: {"txid": "e330dc62746b1674fe1c739418f10ad56ac8a92d39e1032dc05e7316628a78fa", "txids": ["e330dc62746b1674fe1c739418f10ad56ac8a92d39e1032dc05e7316628a78fa"], "broadcast": true}
+    error : null
+
+[4] 挖 3 块 + 等追平
+    +3 块  wallet=32300 目标=32300（2.0s）
+
+[5] 注资后池余额: {'sapling': 7937480000, 'ironwood': 5187245000}
+    可用花费池: {'sapling': '79.3748 ZEC', 'ironwood': '51.8725 ZEC'}
+
+
+##############################################################################
+## warm-up 控制台原始输出
+文件: warmup/warmup_console.log
+##############################################################################
+
+[env] kernel=6.18.58.1-microsoft-standard-WSL2 wallet_pid=1027 zebra_pid=736 cpu={'zallet-zaino': '0', 'zebrad': '0'}
+[pool] before={'sapling': 79.3748, 'ironwood': 51.87245} | need(this batch)=3.0010 ZEC | need(20 rounds)=60.0200 ZEC | G0-G=False (short 8.147550 ZEC)
+
+----- warmup round 1/1 -----
+  build   1625.2 ms (wall   1626.0, delta    0.8) prove   1535.6 ms share 0.9449
+  rss window: 29 samples, min=339312 max=417888 delta=78576 KB, phase anomalies=0
+  gates: extract=True broadcast=True confirmed=True actions=2 orchard=0 pid=1027 -> valid=False
+
+[out] /mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/g0_warmup_20261106_111534/warmup  rows=1 valid=0 rss_samples=67
+
+
+##############################################################################
+## warm-up · rounds.csv（每轮必录字段）
+文件: warmup/rounds.csv
+##############################################################################
+
+run_id,version,scenario,label,create_ms,sign_ms,prove_ms,extract_ms,build_total_ms,wall_ms,other_ms,wall_minus_build_ms,prove_share,txid,size_bytes,size_b64,actions,orchard_actions,sapling_spends,signed,ironwood_proven,fee_zat,policy,extract_success,broadcast_accepted,confirmed,confirmations,mined_blocks_delta,wallet_pid,wallet_exe,wallet_sha256,rss_window_samples,valid,failure_codes
+r01,official_beta3_no_f4a,frozen_pczt,warmup,31.884,12.197,1535.582,45.524,1625.187,1625.957,89.605,0.77,0.944865,7ffb207255e47fe9aaa4d9bb81dfd99f1cf9a8807131729df8f1ab938a3ccfaa,11134,9224,2,0,0,1,True,20000,AllowRevealedAmounts,True,True,True,2,2,1027,/home/dell/z3-regtest/bin/zallet-zaino,e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7,29,False,
+
+
+##############################################################################
+## warm-up · stage_timings.csv（七段计时，后三段为门禁不进主指标）
+文件: warmup/stage_timings.csv
+##############################################################################
+
+run_id,stage,ms
+r01,pczt_create,31.884
+r01,pczt_sign,12.197
+r01,pczt_prove,1535.582
+r01,pczt_extract,45.524
+r01,broadcast,165.270
+r01,mine,574.002
+r01,confirm,1.183
+
+
+##############################################################################
+## warm-up · rss_windows.csv（prove 窗口边界与窗口内统计）
+文件: warmup/rss_windows.csv
+##############################################################################
+
+run_id,t_prove_start,t_prove_end,window_seconds,rss_window_samples,phase_anomalies,rss_first_kb,rss_min_kb,rss_max_kb,rss_median_kb,delta_window_kb,low_confidence
+r01,264.788144,266.323728,1.535584,29,0,341308,339312,417888,364380,78576,False
+
+
+##############################################################################
+## warm-up · rss_timeseries.csv（50 ms 全量采样，67 行）
+文件: warmup/rss_timeseries.csv
+##############################################################################
+
+t_wall,t_mono,run_id,phase,wallet_pid,wallet_rss_kb,zebrad_rss_kb
+11:24:32,264.730328,,outside,1027,348232,211896
+11:24:32,264.781527,r01,outside,1027,345652,211896
+11:24:32,264.832447,r01,in_prove,1027,341308,211896
+11:24:32,264.894613,r01,in_prove,1027,341644,211896
+11:24:32,264.948041,r01,in_prove,1027,340948,211896
+11:24:33,265.002850,r01,in_prove,1027,339312,211896
+11:24:33,265.054022,r01,in_prove,1027,341124,211896
+11:24:33,265.105000,r01,in_prove,1027,343928,211896
+11:24:33,265.156071,r01,in_prove,1027,344676,211896
+11:24:33,265.207182,r01,in_prove,1027,349632,211896
+11:24:33,265.258232,r01,in_prove,1027,351676,211896
+11:24:33,265.310317,r01,in_prove,1027,351912,211896
+11:24:33,265.361548,r01,in_prove,1027,361664,211896
+11:24:33,265.416721,r01,in_prove,1027,393716,211896
+11:24:33,265.468104,r01,in_prove,1027,396760,211896
+11:24:33,265.519247,r01,in_prove,1027,399984,211896
+11:24:33,265.570527,r01,in_prove,1027,399868,211896
+11:24:33,265.621522,r01,in_prove,1027,401532,211896
+11:24:33,265.672614,r01,in_prove,1027,403020,211896
+11:24:33,265.723761,r01,in_prove,1027,406484,211896
+11:24:33,265.784516,r01,in_prove,1027,408264,211896
+11:24:33,265.838755,r01,in_prove,1027,417888,211896
+11:24:33,265.889697,r01,in_prove,1027,413060,211896
+11:24:33,265.942575,r01,in_prove,1027,413424,211896
+11:24:33,265.993992,r01,in_prove,1027,412640,211896
+11:24:34,266.045075,r01,in_prove,1027,363460,211896
+11:24:34,266.096100,r01,in_prove,1027,363516,211896
+11:24:34,266.147247,r01,in_prove,1027,363524,211896
+11:24:34,266.199488,r01,in_prove,1027,365812,211896
+11:24:34,266.250920,r01,in_prove,1027,364556,211896
+11:24:34,266.302508,r01,in_prove,1027,364380,211896
+11:24:34,266.353787,r01,outside,1027,357796,211896
+11:24:34,266.406459,r01,outside,1027,354864,211896
+11:24:34,266.457427,r01,outside,1027,354864,211896
+11:24:34,266.509056,r01,outside,1027,354864,211900
+11:24:34,266.560746,r01,outside,1027,354864,265884
+11:24:34,266.612019,r01,outside,1027,355472,292352
+11:24:34,266.663061,r01,outside,1027,355472,310292
+11:24:34,266.714222,r01,outside,1027,359140,270532
+11:24:34,266.765245,r01,outside,1027,359140,292652
+11:24:34,266.817008,r01,outside,1027,359500,313700
+11:24:34,266.868693,r01,outside,1027,359500,214092
+11:24:34,266.919683,r01,outside,1027,358240,214092
+11:24:34,266.971210,r01,outside,1027,358240,267176
+11:24:35,267.022419,r01,outside,1027,357988,291620
+11:24:35,267.073494,r01,outside,1027,357988,310708
+11:24:35,267.124824,r01,outside,1027,359604,213140
+11:24:35,267.176298,r01,outside,1027,359740,213140
+11:24:35,267.227820,r01,outside,1027,362776,213172
+11:24:35,267.278680,r01,outside,1027,362776,213172
+11:24:35,267.329733,r01,outside,1027,362776,213172
+11:24:35,267.382076,r01,outside,1027,362776,213172
+11:24:35,267.435115,r01,outside,1027,362776,213172
+11:24:35,267.486173,r01,outside,1027,362776,213172
+11:24:35,267.537003,r01,outside,1027,340792,213248
+11:24:35,267.588143,r01,outside,1027,340792,213248
+11:24:35,267.639920,r01,outside,1027,340792,213248
+11:24:35,267.692860,r01,outside,1027,340792,213248
+11:24:35,267.744637,r01,outside,1027,343620,213248
+11:24:35,267.797217,r01,outside,1027,343620,213248
+11:24:35,267.848823,r01,outside,1027,343620,213248
+11:24:35,267.901445,r01,outside,1027,343620,213248
+11:24:35,267.953555,r01,outside,1027,343620,213248
+11:24:36,268.005818,r01,outside,1027,343620,213248
+11:24:36,268.057702,r01,outside,1027,344796,213248
+11:24:36,268.110064,r01,outside,1027,345092,213248
+11:24:36,268.160858,r01,outside,1027,340076,213248
+
+
+##############################################################################
+## warm-up · meta.json（环境 / PID / 余额 / 门禁）
+文件: warmup/meta.json
+##############################################################################
+
+{
+  "label": "warmup",
+  "timestamp": "2026-11-06T11:24:32",
+  "version": "official_beta3_no_f4a",
+  "scenario": "frozen_pczt",
+  "args": {
+    "rounds": 1,
+    "label": "warmup",
+    "send_zec": 3,
+    "minconf": 1,
+    "policy": "AllowRevealedAmounts",
+    "fund_source": "orchard",
+    "mine_blocks": 2,
+    "outdir": "/mnt/d/Research/zcash-orchard-engineering/results/real_e2e_baseline/g0_warmup_20261106_111534/warmup"
+  },
+  "kernel": "6.18.58.1-microsoft-standard-WSL2",
+  "derived_from": "zcash-sapling-engineering@5e46712:experiments/e2e_testnet_tx/pczt_bench_pool.py",
+  "prereg_doc": "docs/orchard/29_real_e2e_baseline.md",
+  "wallet": {
+    "pid": 1027,
+    "exe": "/home/dell/z3-regtest/bin/zallet-zaino",
+    "sha256": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7",
+    "basename": "zallet-zaino"
+  },
+  "zebrad": {
+    "pid": 736,
+    "exe": "/home/dell/z3-regtest/bin/zebrad",
+    "sha256": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+    "basename": "zebrad"
+  },
+  "cpu_allowed": {
+    "zallet-zaino": "0",
+    "zebrad": "0"
+  },
+  "binaries_on_disk": {
+    "zebrad": "baf0b2cd31110c7fe7c05809fd7323d07548489be78d31caeccc91e1469cc6a7",
+    "zallet": "523bf86a14cba2dfb1ea048c3a3d6ccc68bde0dbb92da60d44ce12568dea1c5a",
+    "zallet-zaino": "e602e4a3d4e919c155b8f05dae29f0b9311631f167eaf25455166edf268208a7"
+  },
+  "blocks_before": 32300,
+  "balances_before": {
+    "sapling": 7937480000,
+    "ironwood": 5187245000
+  },
+  "need_this_batch_zat": 300100000,
+  "need_20_rounds_zat": 6002000000,
+  "g0_balance_gate_20_rounds": false,
+  "g0_shortfall_20_rounds_zec": 8.14755,
+  "blocks_after": 32302,
+  "balances_after": {
+    "sapling": 8237480000,
+    "ironwood": 4887225000
+  },
+  "n_rows": 1,
+  "n_valid": 0,
+  "n_rss_samples_total": 67
+}
+
+
+##############################################################################
+## warm-up · invalid_runs.csv
+文件: warmup/invalid_runs.csv
+##############################################################################
+
+run_id,label,failure_codes
+r01,warmup,
+
