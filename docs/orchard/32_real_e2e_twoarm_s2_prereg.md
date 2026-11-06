@@ -595,6 +595,11 @@ SHA256 `af7190a30fd0d874b4206f1c0585475f1c0f938b2021e98db479807fdfdfc15e`（§15
 
 ### 15.0 修订导读（§0–§14 原文保留，按本节覆盖引用）
 
+> **醒目提示（§15.0 主旨）**：§1.1 中的「28-worker 默认并行池」是冻结正文里的**历史 shorthand**，
+> 其实际 Rayon 全局池规模**从未直接采样**（E4，见 §15.10 三档证据等级）。今后**对外引用冻结 20 轮结果时，
+> 优先使用 §15.10 的严谨整句**，而非单独引用该 shorthand；本文件任何章节均不得把「28 个同组线程」
+> 读成「已测量到 28-worker 全局池」。§0–§14 正文因 append-only 纪律保留原字，但前进引用须附证据等级或改严谨整句。
+
 | 计划逐项检查的章节 | 本节对应补充 |
 | --- | --- |
 | 文首「实验身份」整句 | §15.3 称谓降级 |
@@ -680,12 +685,12 @@ rust std 1.88 / sys/pal/unix/thread.rs:346–379（linux 分支）
   ① 采集 wallet/zebrad 每个 tid 的 comm / starttime / Cpus_allowed_list
   ② 两个环境变量双项检查（§15.4）
   ③ 记录 nproc / sched_getaffinity（预期 28 / 0-27）
-  ④ 记录「同批创建的 worker 组」规模（E3 观察项）及其最晚 starttime 换算的墙钟 t_worker_group（严谨别名 t_first_observed_thread_group）
+  ④ 记录「同批创建的 worker 组」规模（E3 观察项）及其最晚 starttime 换算的墙钟 t_observed_thread_cohort（严谨别名 t_first_observed_thread_group）
   ⑤ 记录本次采集时刻 t_B1；落盘 switch/pre_pin.json
 
 【硬顺序约束】
   只有 ① 全部 tid == "0-27"、② 两项都 ABSENT、③ 为 28 / 0-27、
-  且 ④ 的同批组已存在（t_worker_group < t_B1）时，才允许进入 G0-B2。
+  且 ④ 的同批组已存在（t_observed_thread_cohort < t_B1）时，才允许进入 G0-B2。
   若同批组尚未出现：每 2 s 重采一次，最多 60 s（与 snapshot_restore.sh 等待量级一致）；
   超时仍无 → **不得执行 taskset -pc 0，整批不启动**，如实报告「B 臂并行池规模未证实」。
   禁止为了推进批次「先 pin 再等池」。
@@ -693,13 +698,13 @@ rust std 1.88 / sys/pal/unix/thread.rs:346–379（linux 分支）
 【G0-B2 · pin 与回读】
   ⑦ 对 zebrad 与 wallet 两个 PID 各执行 taskset -pc 0 <pid>（不带 -a），记录 t_pin
   ⑧ 逐线程回读 R5 格局（两进程各恰好一个 "0"，其余全 "0-27"）
-  ⑨ 判定 t_worker_group < t_pin，写入 switch/config_switch.json
+  ⑨ 判定 t_observed_thread_cohort < t_pin，写入 switch/config_switch.json
 ```
 
-- **⑨ 是新增的 G0-B 硬判据**；`t_worker_group >= t_pin` 即 G0-B FAIL。
-- **`t_worker_group` 的语义边界（用户 2026-11-06 16:23 复核要点 #1）**：它**只表示**
+- **⑨ 是新增的 G0-B 硬判据**；`t_observed_thread_cohort >= t_pin` 即 G0-B FAIL。
+- **`t_observed_thread_cohort` 的语义边界（用户 2026-11-06 16:23 复核要点 #1）**：它**只表示**
   「历史观测到的同批线程组先于主线程 pin 创建」，是 E1-M + **E3** 观察；
-  **不表示** Rayon 全局池初始化已被直接证明（E4）。不得把 `t_worker_group < t_pin` 写成
+  **不表示** Rayon 全局池初始化已被直接证明（E4）。不得把 `t_observed_thread_cohort < t_pin` 写成
   「已证实 Rayon 池在 pin 前完成初始化」，也不得据此宣称「已复现 28-worker 全局池」。
 - 即使 ①–⑨ 全通过，**仍不得**宣称「已复现 28-worker 全局池」（§15.3 称谓降级）。
 - 该两段式对旧批次是**复现而非改变**：旧批次实测顺序同样是
@@ -801,10 +806,10 @@ env_rayon_rs_num_cpus_absent = (grep -c '^RAYON_RS_NUM_CPUS='  environ) == 0
 
 | 项 | 值 |
 | --- | --- |
-| 文档版本 | **v0.2（§0–§14 预注册正文）+ revision-1（本节）**，2026-11-06 |
+| 文档版本 | **v0.2（§0–§14 预注册正文）+ revision-1/2/3（本节 §15 内迭代）**，2026-11-06 |
 | 追加前全文 | `38271` bytes / `af7190a30fd0d874b4206f1c0585475f1c0f938b2021e98db479807fdfdfc15e` |
 | append-only 复验 | `head -c 38271 <本文件> \| sha256sum` 须与上式逐位相等 |
-| §0–§14 | **一字未改**（追加前 `38271` bytes / `af7190a3…` 仍是本文件前 38271 字节）；revision-2 仅在 §15 内部就地改 `t_pool` 术语、新增 §15.10–§15.11，对 doc 29/30/31 与 §0–§14 仍为 0 删除 |
+| §0–§14 | **一字未改**（追加前 `38271` bytes / `af7190a3…` 仍是本文件前 38271 字节）；revision-2/3 仅在 §15 内部迭代（术语 rename、新增 §15.10–§15.11 及 G0-B14），对 doc 29/30/31 与 §0–§14 仍为 0 删除 |
 | 提交方式 | **单独提交**，只含本修订与术语/门禁修订，不夹带实验代码或结果；本地保留，**不推送** |
 
 ---
@@ -866,12 +871,38 @@ warm-up 仍可能改变线程集合或 affinity 格局。
 是否已在 Rayon worker 内、它是否会改变原本的初始化时序，并作为侵入式 E4 测量**单独批准**，
 不得混入 G0 判据或 B 臂配置取证。
 
+**新增门禁 G0-B14（正式 10 轮期间的逐轮线程复查；覆盖 §6.2 / §8.3，用户 2026-11-06 16:39 复审要点 #3）**：
+
+1. 正式 10 轮中，**每一轮** `pczt_prove` 完成后（即每轮 `T_build` 采集落盘后），对 zebrad 与
+   wallet 两个 PID 的**全部 TID** 重新枚举并读取 `Cpus_allowed_list`，与上一检查点
+   （G0-B13 的 `switch/post_warmup_recheck.json`，或上一轮的 `final/round_threads_<n-1>.json`）
+   做**全量 diff**；
+2. 记录**新增 TID**（comm / starttime / affinity）、**退出 TID**、以及任何 **affinity 变化**；
+3. 验证：两进程仍各恰好一个 `0`（主线程），其余全部 `0-27`；任何新增或残留 TID 的 affinity 都必须
+   满足该格局，不得出现继承 `0` 的异常线程；
+4. 任一检查点发现不符合冻结配置的线程 → **整批停止**，不继续剩余轮次，如实报告
+   「正式轮次期间线程格局偏离冻结配置」。
+
+- 每轮落盘 `final/round_threads_<n>.json`（字段：时间戳、两 PID、全 TID 集合、各 TID 的
+  comm / `Cpus_allowed_list`、与上一检查点的 diff）；须回引本节版本号。
+- 该门禁**不改变** §6.2 的有效轮定义或 §9 的统计口径，只是给正式测量期间补一道线程集合一致性硬判据。
+
+**测量边界（必须写入报告，不得宣称全程连续验证）**：
+
+- G0-B13 / G0-B14 的快照**只保证检查时刻的线程状态**；Linux 新线程继承创建者 affinity（§15.11 开头已记），
+  但**不保证两次快照之间从未出现过短生命周期线程**（例如某线程在轮次间隙创建、又在下一轮检查前退出）。
+- 本预注册**不引入线程创建事件监控**（如 `fanotify` / `bpf` / 对 `/proc` 的创建事件追踪），
+  因此**不得**把 G0-B13 + G0-B14 表述为「全程连续验证线程格局」；只能表述为
+  「在 pin 后、warm-up 后、以及每轮正式交易完成后这些检查点上，线程格局均符合冻结配置」。
+- 若将来需要更强保证，须单独预注册引入线程创建事件监控，并作为侵入式 E4 测量**单独批准**，
+  不得混入 G0 判据或本批次配置取证。
+
 ### 15.12 revision-2 变更记录（2026-11-06 16:23 复核回应）
 
 回应「doc 32 修订摘要」技术复审（非逐行签字），**纯文档层、未执行**：
 
-1. **`t_pool` 术语降级**（§15.2.2、§15.2.4）：`t_pool` → `t_worker_group`（严谨别名
-   `t_first_observed_thread_group`）；明确 `t_worker_group < t_pin` 只表示「观测到的同批线程组
+1. **`t_pool` 术语降级**（§15.2.2、§15.2.4）：`t_pool` → `t_observed_thread_cohort`（严谨别名
+   `t_first_observed_thread_group`）；明确 `t_observed_thread_cohort < t_pin` 只表示「观测到的同批线程组
    先于主线程 pin 创建」（E1-M + E3），**不表示** Rayon 全局池初始化已被直接证明（E4）；
    旧批次「池先建」措辞改为「同批线程组先出现」。
 2. **历史冻结 20 轮称谓证据等级**（§15.10，呼应 §15.3 的 §1.1 引用）：新增严谨整句与三档证据等级
@@ -879,6 +910,25 @@ warm-up 仍可能改变线程集合或 affinity 格局。
 3. **warm-up 后逐线程 affinity 复查门禁**（§15.11，新增 G0-B13）：warm-up 完成后对两 PID 全部 TID
    全量重读、记录新增 TID、验证 affinity 格局；新增线程继承 `0` 即整批不启动；并警示
    `rayon_core::current_num_threads()` 非无副作用被动探针，禁止作为 B 臂启动 / pin / warm-up 阶段的「只读确认」。
+
+本修订**未执行**任何实验、未起停 / 重启服务、未改 affinity / env、未发交易、未注资、未新建脚本；
+doc 29 §21、doc 30、doc 31、§0–§14、INDEX / README / tag / `results/**` 全部不变；**不推送**。
+
+### 15.13 revision-3 变更记录（2026-11-06 16:39 复审回应）
+
+回应「revision-2 变更摘要」第二轮技术复审（非逐行签字），**纯文档层、未执行**：
+
+1. **`t_worker_group` 进一步中性化**（§15.2.2、§15.2.4）：全文件 `t_worker_group` →
+   `t_observed_thread_cohort`（保留 `t_first_observed_thread_group` 作为严谨别名）；
+   即便 §15.2.4 已把该量定义为纯操作性名称（与 Rayon 归属无关），仍采纳更中性的命名以消除
+   「worker pool」联想。语义边界不变：只表示「观测到的同批线程组先于主线程 pin 创建」（E1-M + E3），
+   **不表示** Rayon 全局池初始化已被直接证明（E4）。
+2. **G0-B13 覆盖范围补全**（§15.11，新增 G0-B14）：在 warm-up 后复查之外，新增正式 10 轮
+   **每轮**完成后的逐 TID 重枚举与全量 diff（记录新增 / 退出 / affinity 变化），任一检查点出现
+   不符合冻结配置的线程即整批停止；并显式写入**测量边界**——检查点快照只保证检查时刻线程状态，
+   不保证两次检查间无短生命周期线程，本预注册不引入线程创建事件监控，不得宣称全程连续验证。
+3. **§15.0 导读醒目化**：增提示块，明确 §1.1 的「28-worker 默认并行池」是历史 shorthand、
+   实际 Rayon 全局池规模未直接采样（E4），今后对外引用优先使用 §15.10 严谨整句。
 
 本修订**未执行**任何实验、未起停 / 重启服务、未改 affinity / env、未发交易、未注资、未新建脚本；
 doc 29 §21、doc 30、doc 31、§0–§14、INDEX / README / tag / `results/**` 全部不变；**不推送**。
